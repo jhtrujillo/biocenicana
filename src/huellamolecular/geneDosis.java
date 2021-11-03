@@ -183,7 +183,7 @@ public class geneDosis {
 			System.out.println(" ");
 		}
 	}
-
+/*
 	public static void main(String[] args) throws IOException {
 		geneDosis dosiscgene = new geneDosis();
 		dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf",
@@ -191,5 +191,5 @@ public class geneDosis {
 		 dosiscgene.printDosisMatrix(); dosiscgene.TransposeDosisMatrix();
 		//dosiscgene.printTransposeDosisMatrix();
 	}
-
+*/
 }
