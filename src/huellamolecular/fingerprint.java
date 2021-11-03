@@ -162,7 +162,7 @@ public class fingerprint {
 					dosiscgene.TransposeDosisMatrix();
 					dosiscgene.printTransposeDosisMatrix();
 				} catch (Exception e) {
-					System.out.println("Try: java -jar fingerprint.jar [generarDosisTranspuesta | 15 ] [path_vcf] > snps_dosis.txt");
+					System.out.println("Try: java -jar fingerprint.jar [generarDosisTranspuesta | 15 ] [path_vcf] plody > snps_dosis.txt");
 				}
 			}
 			else if (opcion.compareTo("ordenarVCFxListadoIndividuos") == 0 || opcion.compareTo("16") == 0) {
@@ -178,7 +178,7 @@ public class fingerprint {
 			else if (opcion.compareTo("-h") == 0 || opcion.compareTo("-help") == 0 || opcion.compareTo("--help") == 0
 					|| opcion.compareTo("") == 0) {
 				try {
-					System.out.println("Try: java -jar fingerprint.jar [generarDosis|1] [path_vcf] > snps_dosis.txt");
+					System.out.println("Try: java -jar fingerprint.jar [generarDosis|1] [path_vcf] ploidy > snps_dosis.txt");
 					System.out.println(
 							"Try: java -jar fingerprint.jar [seleccionarDosisAbanico|2] [snps_dosis.txt (generado con opción generarDosis)] > snps_dosis_abanico.txt");
 					System.out.println(
@@ -207,7 +207,7 @@ public class fingerprint {
 					OrdenarVCFporIndividuos sortVCF = new OrdenarVCFporIndividuos();
 					System.out.println("Try: java -jar fingerprint.jar [VCF-to-tab|14] [path_vcf] > vcf-to-tab.csv");
 					
-					System.out.println("Try: java -jar fingerprint.jar [ generarDosisTranspuesta | 15 ] [path_vcf] > snps_dosis_transpuesta.txt");
+					System.out.println("Try: java -jar fingerprint.jar [ generarDosisTranspuesta | 15 ] [path_vcf] plody > snps_dosis_transpuesta.txt");
 					
 					System.out.println("Try: java -jar fingerprint.jar [ordenarVCFxListadoIndividuos | 16 ] VCFfile ListadoIndividuos");
 					
