@@ -30,8 +30,10 @@ public class geneDosis {
 	String[][] matrizTranspuestaDosis;
 	List<String> matrizDosisString = new ArrayList<String>();
 
+	
+	
 
-	public void genDosisAlelicas(String vcfFile) throws IOException {
+	public void genDosisAlelicas(String vcfFile, int ploidy) throws IOException {
 		vcfFileReader = new VCFFileReader(vcfFile);
 		iteratorRecords = vcfFileReader.iterator();
 		
@@ -53,6 +55,16 @@ public class geneDosis {
 		
 				
 		matrizDosisString.add(row);
+		
+		int n = ploidy;
+		if(n<2){
+			n = 2;
+		}
+		float ploidyLevels[] = new float[n+1];
+		//generate ploidy range for individual from dosage data
+		for(int y=0; y <= n;y++){
+			ploidyLevels[y] = (1.0f/n) * y;
+		}
 		
 		//System.out.println(row);
 		
@@ -84,6 +96,7 @@ public class geneDosis {
 
 				if ((countRef + countAlt) > 0) {
 					dosage = countRef / (countRef + countAlt);
+					dosage = roundToArray(dosage, ploidyLevels);
 				}
 
 				if (idxCalledAlleles.length == 0) {
@@ -114,6 +127,20 @@ public class geneDosis {
 		}
 	}
 	
+	public float roundToArray(float value, float [] array){
+		 
+		 float best_abs = 1.0f;
+		 float rounded = value;
+		 
+		 for(int i=0; i < array.length; i++){
+			 if(best_abs > Math.abs(value-array[i]))
+			 {
+				 best_abs = value-array[i];
+				 rounded = array[i];
+			 }		 
+		 }
+		 return rounded;
+	 }
 	
 	public void TransposeDosisMatrix() {
 		
@@ -150,10 +177,10 @@ public class geneDosis {
 	/*
 	public static void main(String[] args) throws IOException {
 		geneDosis dosiscgene = new geneDosis();
-			dosiscgene.genDosisAlelicas("C:\\Users\\estuvar4\\git\\VCFLDcalculate\\vcf\\mergevcf.95ids.b_fourthfiltered.vcf");
+			dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf", 10);
 			//dosiscgene.printDosisMatrix();
 			dosiscgene.TransposeDosisMatrix();
 			dosiscgene.printTransposeDosisMatrix();
-	}
-	*/
+	}*/
+	
 }

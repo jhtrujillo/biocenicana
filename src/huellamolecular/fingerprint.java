@@ -13,10 +13,11 @@ public class fingerprint {
 				try {
 					geneDosis dosiscgene = new geneDosis();
 					String vcfFile = args[1];
-					dosiscgene.genDosisAlelicas(vcfFile);
+					int ploidy = Integer.parseInt(args[2]);
+					dosiscgene.genDosisAlelicas(vcfFile, ploidy);
 					dosiscgene.printDosisMatrix();
 				} catch (Exception e) {
-					System.out.println("Try: java -jar fingerprint.jar [generarDosis | 1] [path_vcf] > snps_dosis.txt "+e);
+					System.out.println("Try: java -jar fingerprint.jar [generarDosis | 1] [path_vcf] ploidy > snps_dosis.txt "+e);
 				}
 			}
 
@@ -156,7 +157,8 @@ public class fingerprint {
 				try {
 					geneDosis dosiscgene = new geneDosis();
 					String vcfFile = args[1];
-					dosiscgene.genDosisAlelicas(vcfFile);
+					int ploidy = Integer.parseInt(args[2]);
+					dosiscgene.genDosisAlelicas(vcfFile, ploidy);
 					dosiscgene.TransposeDosisMatrix();
 					dosiscgene.printTransposeDosisMatrix();
 				} catch (Exception e) {
