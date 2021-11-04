@@ -85,15 +85,21 @@ public class vcfTosctructure {
 						
 				for (int snpXgen = 9; snpXgen < row.length; snpXgen++) {
 					String genotipo=row[snpXgen];
+					
+					String GT=genotipo.split(":")[0];
 					String refAlelle=row[3].replace("A", "1").replace("C", "2").replace("G", "3").replace("T", "4");
 					String altAlelle=row[4].replace("A", "1").replace("C", "2").replace("G", "3").replace("T", "4");;
 					
-					
+					if (GT.compareTo("./.") == 0) {
+						refAlelle = altAlelle = "-1";
+					}
 					
 					int cont=0;
 					for (int snpXgenxdosis = posRow; snpXgenxdosis < (posRow + ploidy); snpXgenxdosis++) {
 						
 						if (option.compareTo("ACN")==0) {
+															
+							
 							int ref=Integer.parseInt(genotipo.split(":")[5].split(",")[0]);
 							int alt=Integer.parseInt(genotipo.split(":")[5].split(",")[1]);
 							
@@ -146,4 +152,5 @@ public class vcfTosctructure {
 
 	}
 	*/
+	
 }
