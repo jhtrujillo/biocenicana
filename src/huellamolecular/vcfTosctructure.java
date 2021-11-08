@@ -122,7 +122,7 @@ public class vcfTosctructure {
 		}
 	}
 
-	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option) throws IOException {
+	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String imputar) throws IOException {
 		archivos ar = new archivos();
 		String[] datos = ar.leerfichero2(vcfFile);
 		this.numGenotypes = datos[ar.numerolineas - 1].split("\t").length - 9;
@@ -206,6 +206,11 @@ public class vcfTosctructure {
 						genotipoalelos=genotipoalelos+altAlelle;
 					}
 					
+					
+					if (GT.compareTo("./.") == 0 && imputar.compareTo("impute")==0) {
+						genotipoalelos = "NA";
+					}
+					
 					this.matrixSrtructure[snpXgen-8][snpCountpos]=genotipoalelos;
 					
 				}
@@ -232,7 +237,7 @@ public class vcfTosctructure {
 		vcfTosctructure vcftosctructure = new vcfTosctructure();
 		// vcftosctructure.vcfconverTostructure("/home/estuvar4/Downloads/cc-01-1940.vcf",
 		// 979,10);
-		vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "ACN");
+		vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "ACN", "impute");
 		vcftosctructure.printMatrix();
 
 	}
