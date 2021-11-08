@@ -151,6 +151,7 @@ public class vcfTosctructure {
 		 ----------------------------------------------------------------------------- */
 		for (int i = 0; i < ar.numerolineas; i++) {
 
+			
 			/*-----------------------------------------------------------------------------
 			 * Saco los individuos, los asigno a cada fila en la primera columna. 
 			 * Tengo en cuenta la ploidia del genoma
@@ -168,31 +169,52 @@ public class vcfTosctructure {
 
 			/*-----------------------------------------------------------------------------
 			 * Saco los SNPs y los pongo como columnas. Todo lo que no tenga # es SNP.
+			 * Proceso un SNPs por cada iteracion con la variable i
 			 * Tengo en cuenta la ploidia del genoma
 			 ----------------------------------------------------------------------------- */
 			int posRow = 1;
 			if (datos[i].contains("#") == false) {
 				String[] row = datos[i].split("\t"); // cada row contiene el SNPs y su genotipo en los individuos.
 				String snp = row[0] + "_" + row[1];
+		
+				
 
-				// Asigno los snps como columnas
+				// Asigno el snp en la primera fila, columna = snpCountpos
+				// En snpCountpos llevo el conteo de la columna que le corresponde a cada SNP.
 				this.matrixSrtructure[0][snpCountpos] = snp;
-
+				
+				//System.out.println(matrixSrtructure[0].length);
+				
+				//LLeno los valores (genotipo) de las celdas entre individuos vs snp
 				for (int snpXgen = 9; snpXgen < row.length; snpXgen++) {
 					String genotipo = row[snpXgen];
 
 					String GT = genotipo.split(":")[0];
-					String refAlelle = row[3].replace("A", "1").replace("C", "2").replace("G", "3").replace("T", "4");
-					String altAlelle = row[4].replace("A", "1").replace("C", "2").replace("G", "3").replace("T", "4");
+					String refAlelle = row[3];
+					String altAlelle = row[4];
 					
-					this.matrixSrtructure[i][0] = snp;
-
+					int ref = Integer.parseInt(genotipo.split(":")[5].split(",")[0]);
+					int alt = Integer.parseInt(genotipo.split(":")[5].split(",")[1]);
+					
+					String genotipoalelos="";
+					
+					for (int ii=0; ii< ref; ii++) {
+						genotipoalelos=genotipoalelos+refAlelle;
+					}
+					
+					for (int jj=0; jj< alt; jj++) {
+						genotipoalelos=genotipoalelos+altAlelle;
+					}
+					
+					this.matrixSrtructure[snpXgen-8][snpCountpos]=genotipoalelos;
+					
 				}
 
-				// System.out.println("");
+				//System.out.println(q"");
 				snpCountpos++;
 			}
-
+			
+			
 		}
 
 	}

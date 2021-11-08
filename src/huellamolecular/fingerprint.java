@@ -181,7 +181,18 @@ public class fingerprint {
 					vcftosctructure.vcfconverTostructure(args[1],ploidy, option);
 					vcftosctructure.printMatrix();
 				} catch (Exception e) {
-					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile ploidy [ACN/DSDP/ALL]");
+					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile ploidy [ACN]");
+				}
+			}
+			else if (opcion.compareTo("vcfTostructureAlleles") == 0 || opcion.compareTo("18") == 0) {
+				try {
+					vcfTosctructure vcftosctructure = new vcfTosctructure();
+					int ploidy = Integer.parseInt(args[2]);
+					String option = args[3];
+					vcftosctructure.vcfconverTostructureAlleles(args[1],ploidy, option);
+					vcftosctructure.printMatrix();
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN]");
 				}
 			}
 
@@ -224,6 +235,7 @@ public class fingerprint {
 					
 					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile  ploidy [ACN/DSDP/ALL] ");
 					
+					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN]");
 
 				} catch (Exception e) {
 					System.out.println("Try java -jar fingerprint.jar -help");
