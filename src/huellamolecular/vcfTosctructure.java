@@ -21,6 +21,45 @@ public class vcfTosctructure {
 	public int numSNPs = 0;
 	String[][] matrixSrtructure = null;
 
+	public void printMatrix() {
+		for (int i = 0; i < this.matrixSrtructure.length; i++) {
+			for (int j = 0; j < this.matrixSrtructure[0].length; j++) {
+				System.out.print(matrixSrtructure[i][j] + "\t");
+			}
+			System.out.println();
+		}
+	}
+
+	public void printMatrixTranspuesta() {
+		for (int i = 0; i < this.matrixSrtructure.length; i++) {
+			for (int j = 0; j < this.matrixSrtructure[0].length; j++) {
+				System.out.print(matrixSrtructure[i][j] + "\t");
+			}
+			System.out.println();
+		}
+	}
+
+	/**
+	 * Assign real dosage value depending of ploidy.
+	 * 
+	 * @param value Dosage ratio calculate from raw base pair count.
+	 * @param array Ploidy levels array to fit value.
+	 * @throws IOException
+	 */
+	public float roundToArray(float value, float[] array) {
+
+		float best_abs = 1.0f;
+		float rounded = value;
+
+		for (int i = 0; i < array.length; i++) {
+			if (best_abs > Math.abs(value - array[i])) {
+				best_abs = value - array[i];
+				rounded = array[i];
+			}
+		}
+		return rounded;
+	}
+
 	public void vcfconverTostructure(String vcfFile, int ploidy, String option) throws IOException {
 		archivos ar = new archivos();
 		String[] datos = ar.leerfichero2(vcfFile);
@@ -122,12 +161,29 @@ public class vcfTosctructure {
 		}
 	}
 
-	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String imputar) throws IOException {
+	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String imputar)
+			throws IOException {
 		archivos ar = new archivos();
 		String[] datos = ar.leerfichero2(vcfFile);
 		this.numGenotypes = datos[ar.numerolineas - 1].split("\t").length - 9;
 		this.numSNPs = ar.numerolineas;
 		int snpCountpos = 1;
+
+		if (imputar.compareTo("") == 0) {
+			imputar = "false";
+		}
+
+		int n = ploidy;
+		if (n < 2) {
+			n = 2;
+		}
+		float ploidyLevels[] = new float[n + 1];
+
+		// generate ploidy range for individual from dosage data
+		for (int y = 0; y <= n; y++) {
+			ploidyLevels[y] = (1.0f / n) * y;
+			//System.out.println(ploidyLevels[y]);
+		}
 
 		/*-----------------------------------------------------------------------------
 		 * Cuento cuantos comentarios hay en el vcf. 
@@ -151,7 +207,6 @@ public class vcfTosctructure {
 		 ----------------------------------------------------------------------------- */
 		for (int i = 0; i < ar.numerolineas; i++) {
 
-			
 			/*-----------------------------------------------------------------------------
 			 * Saco los individuos, los asigno a cada fila en la primera columna. 
 			 * Tengo en cuenta la ploidia del genoma
@@ -176,68 +231,148 @@ public class vcfTosctructure {
 			if (datos[i].contains("#") == false) {
 				String[] row = datos[i].split("\t"); // cada row contiene el SNPs y su genotipo en los individuos.
 				String snp = row[0] + "_" + row[1];
-		
-				
 
 				// Asigno el snp en la primera fila, columna = snpCountpos
 				// En snpCountpos llevo el conteo de la columna que le corresponde a cada SNP.
 				this.matrixSrtructure[0][snpCountpos] = snp;
-				
-				//System.out.println(matrixSrtructure[0].length);
-				
-				//LLeno los valores (genotipo) de las celdas entre individuos vs snp
+
+				// System.out.println(matrixSrtructure[0].length);
+
+				// LLeno los valores (genotipo) de las celdas entre individuos vs snp
 				for (int snpXgen = 9; snpXgen < row.length; snpXgen++) {
 					String genotipo = row[snpXgen];
 
-					String GT = genotipo.split(":")[0];
-					String refAlelle = row[3];
-					String altAlelle = row[4];
+					if (option.compareTo("ACN") == 0) {
+						String GT = genotipo.split(":")[0];
+						String refAlelle = row[3];
+						String altAlelle = row[4];
+
+						int ref = Integer.parseInt(genotipo.split(":")[5].split(",")[0]);
+						int alt = Integer.parseInt(genotipo.split(":")[5].split(",")[1]);
+
+						String genotipoalelos = "";
+
+						for (int ii = 0; ii < ref; ii++) {
+							genotipoalelos = genotipoalelos + refAlelle;
+						}
+
+						for (int jj = 0; jj < alt; jj++) {
+							genotipoalelos = genotipoalelos + altAlelle;
+						}
+
+						if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+							genotipoalelos = "NA";
+						}
+
+						this.matrixSrtructure[snpXgen - 8][snpCountpos] = genotipoalelos;
+					} 
 					
-					int ref = Integer.parseInt(genotipo.split(":")[5].split(",")[0]);
-					int alt = Integer.parseInt(genotipo.split(":")[5].split(",")[1]);
 					
-					String genotipoalelos="";
 					
-					for (int ii=0; ii< ref; ii++) {
-						genotipoalelos=genotipoalelos+refAlelle;
+					
+					
+					
+					
+					else if (option.compareTo("dosage") == 0) {
+						String GT = genotipo.split(":")[0];
+						String BSDP = genotipo.split(":")[4];// A,C,G,T
+						String refAlelle = row[3];
+						String altAlelle = row[4];
+						float refAlelleCount = 0;
+						float altAlelleCount = 0;
+
+						if (refAlelle.compareTo("A") == 0) {
+							refAlelleCount = Float.parseFloat(BSDP.split(",")[0]);
+						} else if (refAlelle.compareTo("C") == 0) {
+							refAlelleCount = Float.parseFloat(BSDP.split(",")[1]);
+						} else if (refAlelle.compareTo("G") == 0) {
+							refAlelleCount = Float.parseFloat(BSDP.split(",")[2]);
+						} else if (refAlelle.compareTo("T") == 0) {
+							refAlelleCount = Float.parseFloat(BSDP.split(",")[3]);
+						}
+
+						if (altAlelle.compareTo("A") == 0) {
+							altAlelleCount = Float.parseFloat(BSDP.split(",")[0]);
+						} else if (altAlelle.compareTo("C") == 0) {
+							altAlelleCount = Float.parseFloat(BSDP.split(",")[1]);
+						} else if (altAlelle.compareTo("G") == 0) {
+							altAlelleCount = Float.parseFloat(BSDP.split(",")[2]);
+						} else if (altAlelle.compareTo("T") == 0) {
+							altAlelleCount = Float.parseFloat(BSDP.split(",")[3]);
+						}
+						
+						float dosage = -1;
+						
+						if (GT.compareTo("./.")!=0) {
+							dosage = refAlelleCount / (refAlelleCount + altAlelleCount);
+							dosage = roundToArray(dosage, ploidyLevels);
+						}
+						
+						int ref = 0;
+						int alt = 0;
+						
+						
+						
+						for (int k = 0; k<ploidyLevels.length; k++) {
+							if (dosage==ploidyLevels[k]) {
+								ref=k;
+								alt=ploidy-ref;
+							}
+						}
+						
+						
+						
+						String genotipoalelos = "";
+
+												
+						
+						
+						//Consulto si voy a imputar con ACN. false = no voy a imputar
+						if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+							genotipoalelos = "NA";
+						}
+						else if (GT.compareTo("./.") == 0 && imputar.compareTo("true") == 0) {
+							GT = genotipo.split(":")[0];
+							refAlelle = row[3];
+							altAlelle = row[4];
+
+							ref = Integer.parseInt(genotipo.split(":")[5].split(",")[0]);
+							alt = Integer.parseInt(genotipo.split(":")[5].split(",")[1]);
+						}
+
+						
+						for (int ii = 0; ii < ref; ii++) {
+							genotipoalelos = genotipoalelos + refAlelle;
+						}
+
+						for (int jj = 0; jj < alt; jj++) {
+							genotipoalelos = genotipoalelos + altAlelle;
+						}
+						
+						
+						this.matrixSrtructure[snpXgen - 8][snpCountpos] = genotipoalelos;
+						
+						
+						//this.matrixSrtructure[snpXgen - 8][snpCountpos] = GT+" "+Float.toString(dosage)+" "+ref+" "+alt;
+						
+						
 					}
-					
-					for (int jj=0; jj< alt; jj++) {
-						genotipoalelos=genotipoalelos+altAlelle;
-					}
-					
-					
-					if (GT.compareTo("./.") == 0 && imputar.compareTo("impute")==0) {
-						genotipoalelos = "NA";
-					}
-					
-					this.matrixSrtructure[snpXgen-8][snpCountpos]=genotipoalelos;
-					
+
 				}
 
-				//System.out.println(q"");
+				// System.out.println(q"");
 				snpCountpos++;
 			}
-			
-			
+
 		}
 
-	}
-
-	public void printMatrix() {
-		for (int i = 0; i < this.matrixSrtructure.length; i++) {
-			for (int j = 0; j < this.matrixSrtructure[0].length; j++) {
-				System.out.print(matrixSrtructure[i][j] + "\t");
-			}
-			System.out.println();
-		}
 	}
 
 	public static void main(String[] args) throws IOException {
 		vcfTosctructure vcftosctructure = new vcfTosctructure();
 		// vcftosctructure.vcfconverTostructure("/home/estuvar4/Downloads/cc-01-1940.vcf",
 		// 979,10);
-		vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "ACN", "impute");
+		vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosage", "false");
 		vcftosctructure.printMatrix();
 
 	}
