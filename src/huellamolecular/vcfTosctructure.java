@@ -73,6 +73,7 @@ public class vcfTosctructure {
 		}	
 	}
 	
+	
 	public void vcfconverTostructure(String vcfFile, int ploidy, String option) throws IOException {
 		archivos ar = new archivos();
 		String[] datos = ar.leerfichero2(vcfFile);
@@ -375,9 +376,8 @@ public class vcfTosctructure {
 	
 	public static void main(String[] args) throws IOException {
 		vcfTosctructure vcftosctructure = new vcfTosctructure();
-		// vcftosctructure.vcfconverTostructure("/home/estuvar4/Downloads/cc-01-1940.vcf",
-		// 979,10);
-		vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Desktop/cc-01-1940.vcf", 10, "dosage", "true");
+		vcftosctructure.vcfconverTostructure("/home/estuvar4/Downloads/cc-01-1940.vcf",10, "ACN");
+		//vcftosctructure.vcfconverTostructureAlleles("/home/estuvar4/Desktop/cc-01-1940.vcf", 10, "dosage", "true");
 		vcftosctructure.printMatrixTranspuesta();
 
 	}
