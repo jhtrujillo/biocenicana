@@ -191,7 +191,7 @@ public class fingerprint {
 					String option = args[3];
 					String impute = args[4];
 					vcftosctructure.vcfconverTostructureAlleles(args[1],ploidy, option, impute);
-					vcftosctructure.printMatrix();
+					vcftosctructure.printMatrixTranspuesta();
 				} catch (Exception e) {
 					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
 				}
