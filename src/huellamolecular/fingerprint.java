@@ -18,7 +18,7 @@ public class fingerprint {
 					dosiscgene.genDosisAlelicas(vcfFile, ploidy, metodoaimputar);
 					dosiscgene.printDosisMatrix();
 				} catch (Exception e) {
-					System.out.println("Try: java -jar fingerprint.jar [generarDosis | 1] [path_vcf] ploidy > snps_dosis.txt "+e);
+					System.out.println("Try: java -jar fingerprint.jar [generarDosis | 1] [path_vcf] ploidy opciones_imputar:[dosagebsdp|dosagemode|dosaeaverage|dosagebsdpmoda|dosagebsdaverage]> snps_dosis.txt "+e);
 				}
 			}
 
@@ -203,7 +203,7 @@ public class fingerprint {
 			else if (opcion.compareTo("-h") == 0 || opcion.compareTo("-help") == 0 || opcion.compareTo("--help") == 0
 					|| opcion.compareTo("") == 0) {
 				try {
-					System.out.println("Try: java -jar fingerprint.jar [generarDosis|1] [path_vcf] ploidy > snps_dosis.txt");
+					System.out.println("Try: java -jar fingerprint.jar [generarDosis | 1] [path_vcf] ploidy opciones_imputar:[dosagebsdp|dosagemode|dosaeaverage|dosagebsdpmoda|dosagebsdaverage]> snps_dosis.txt ");
 					System.out.println(
 							"Try: java -jar fingerprint.jar [seleccionarDosisAbanico|2] [snps_dosis.txt (generado con opción generarDosis)] > snps_dosis_abanico.txt");
 					System.out.println(
