@@ -260,7 +260,7 @@ public class geneDosis {
 			System.out.println(" ");
 		}
 	}
-
+/*
 	public static void main(String[] args) throws IOException {
 		geneDosis dosiscgene = new geneDosis();
 		//dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosagebsdp"); //imputar usando el bdsp, quedan -1 si ambos alelos estan en ceros
@@ -272,5 +272,5 @@ public class geneDosis {
 		// dosiscgene.TransposeDosisMatrix();
 		// dosiscgene.printTransposeDosisMatrix();
 	}
-
+*/
 }
