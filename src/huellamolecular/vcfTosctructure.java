@@ -74,6 +74,7 @@ public class vcfTosctructure {
 	}
 	
 	
+	
 	public void vcfconverTostructure(String vcfFile, int ploidy, String option) throws IOException {
 		archivos ar = new archivos();
 		String[] datos = ar.leerfichero2(vcfFile);
