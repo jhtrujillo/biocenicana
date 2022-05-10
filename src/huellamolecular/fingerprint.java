@@ -198,6 +198,14 @@ public class fingerprint {
 					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
 				}
 			}
+			else if (opcion.compareTo("addfuntionstogff") == 0 || opcion.compareTo("19") == 0) {
+				try {
+					addfunctionsgff gff = new addfunctionsgff();
+					gff.loadgff(args[1]);
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [addfuntionstogff | 19 ] gffFile");
+				}
+			}
 
 			// Recibe un listado de snps a seleecionar en el vcf.
 			else if (opcion.compareTo("-h") == 0 || opcion.compareTo("-help") == 0 || opcion.compareTo("--help") == 0
@@ -239,7 +247,12 @@ public class fingerprint {
 					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile  ploidy [ACN/DSDP/ALL] ");
 					
 					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
-
+					
+					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
+					
+					System.out.println("Try: java -jar fingerprint.jar [addfuntionstogff | 19 ] gffFile");
+					
+					
 				} catch (Exception e) {
 					System.out.println("Try java -jar fingerprint.jar -help");
 				}

@@ -219,13 +219,19 @@ public class geneDosis {
 
 		float best_abs = 1.0f;
 		float rounded = value;
-
+		
+		
+		
 		for (int i = 0; i < array.length; i++) {
 			if (best_abs > Math.abs(value - array[i])) {
 				best_abs = value - array[i];
 				rounded = array[i];
 			}
 		}
+		
+		//System.out.println(value+" "+rounded);
+		
+		
 		return rounded;
 	}
 
@@ -260,10 +266,10 @@ public class geneDosis {
 			System.out.println(" ");
 		}
 	}
-/*
+
 	public static void main(String[] args) throws IOException {
 		geneDosis dosiscgene = new geneDosis();
-		//dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosagebsdp"); //imputar usando el bdsp, quedan -1 si ambos alelos estan en ceros
+		dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/tmp.vcf", 10, "dosagebsdp"); //imputar usando el bdsp, quedan -1 si ambos alelos estan en ceros
 		//dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosagemode"); //Imputa usando la moda de la dosis
 		//dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosaeaverage"); // imputa usando la mediana - promedio
 		//dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10, "dosagebsdpmoda"); //imputa usando el bdsp, pero los que quedan -1, los imputa con la moda.
@@ -272,5 +278,5 @@ public class geneDosis {
 		// dosiscgene.TransposeDosisMatrix();
 		// dosiscgene.printTransposeDosisMatrix();
 	}
-*/
+
 }
