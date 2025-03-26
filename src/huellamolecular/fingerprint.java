@@ -65,7 +65,7 @@ public class fingerprint {
 					al.filtrarvcf(args[1], args[2]);
 				} catch (Exception e) {
 					System.out.println(
-							"Try: java -jar fingerprint.jar [FiltrarVCF|5] [snps_dosis_aus.txt | snps_dosis_abanico.txt] [path_vcf]");
+							"Try: java -jar fingerprint.jar [FiltrarVCF|5] [snps_dosis_aus.txt | snps_dosis_abanico.txt] [path_vcf 1] "+e);
 				}
 			}
 			// Recibe un listado de snps a seleecionar en el vcf.
@@ -104,7 +104,8 @@ public class fingerprint {
 			else if (opcion.compareTo("genDosisTargeted") == 0 || opcion.compareTo("9") == 0) {
 				try {
 					genDosisTargeted genDosis = new genDosisTargeted();
-					genDosis.generarDosis(args[1]);
+					int ploidy = Integer.parseInt(args[2]);
+					genDosis.generarDosis(args[1], ploidy);
 				} catch (Exception e) {
 					System.out.println("Try: java -jar fingerprint.jar [genDosisTargeted|9] [path_vcf] ");
 				}
@@ -186,7 +187,7 @@ public class fingerprint {
 					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile ploidy [ACN]");
 				}
 			}
-			else if (opcion.compareTo("vcfTostructureAlleles") == 0 || opcion.compareTo("18") == 0) {
+			else if (opcion.compareTo("vcfToACGT") == 0 || opcion.compareTo("18") == 0) {
 				try {
 					vcfTosctructure vcftosctructure = new vcfTosctructure();
 					int ploidy = Integer.parseInt(args[2]);
@@ -195,7 +196,7 @@ public class fingerprint {
 					vcftosctructure.vcfconverTostructureAlleles(args[1],ploidy, option, impute);
 					vcftosctructure.printMatrixTranspuesta();
 				} catch (Exception e) {
-					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
+					System.out.println("Try: java -jar fingerprint.jar [vcfToACGT | 18 ] VCFfile ploidy [acn|dosage] [true|false]"+e);
 				}
 			}
 			else if (opcion.compareTo("addfuntionstogff") == 0 || opcion.compareTo("19") == 0) {
@@ -204,6 +205,145 @@ public class fingerprint {
 					gff.loadgff(args[1]);
 				} catch (Exception e) {
 					System.out.println("Try: java -jar fingerprint.jar [addfuntionstogff | 19 ] gffFile");
+				}
+			}
+			else if (opcion.compareTo("joinmap") == 0 || opcion.compareTo("20") == 0) {
+				try {
+					joinmap_cpFormat joinmap = new joinmap_cpFormat();
+					joinmap.fixformat(args[1]);
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [joinmap | 20 ] joinmap-file-ngsep");
+				}
+			}
+			else if (opcion.compareTo("protocolnotes") == 0 || opcion.compareTo("21") == 0) {
+				try {
+					String opcionPN=args[1];
+					String file_dosis_kasp=args[2];
+					String file_dosis_gbs_rad=args[3];
+					String file_dosis_tr=args[3];
+					//String snp=args[4];
+					//String ind=args[5];
+					
+					if (opcionPN.compareTo("kasp-gbsrad")==0) {
+						Protocol_notes pn = new Protocol_notes(file_dosis_kasp, file_dosis_gbs_rad, "","");
+						pn.get_all_dosis_kasp_gbs_rad();
+					}
+					
+					else if (opcionPN.compareTo("kasp-tr")==0) {
+						Protocol_notes pn = new Protocol_notes(file_dosis_kasp, "", "",file_dosis_tr);
+						pn.get_all_dosis_kasp_tr();
+					}
+						
+					
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [protocolnotes | 21 ] [kasp-gbsrad|kasp-tr] [file_dosis_kasp] [file_dosis_gbs_rad|file_dosis_gbs_tr] "+e);
+				}
+			}
+			else if (opcion.compareTo("get_depth_seq") == 0 || opcion.compareTo("22") == 0) {
+				try {
+					geneDosis dosiscgene = new geneDosis();
+					String vcfFile = args[1];
+					dosiscgene.get_depth_sequ(vcfFile);
+					dosiscgene.printDosisMatrix();
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [get_depth_sequ | 1] [path_vcf] > snps_dosis.txt "+e);
+				}
+			} else if (opcion.compareTo("get_dosis_freebayes") == 0 || opcion.compareTo("23") == 0) {
+				try {
+					String vcfFile = args[1];
+					int ploidy = Integer.parseInt(args[2]);
+		
+					geneDosisRapidGenomicVCF dosiscgene = new geneDosisRapidGenomicVCF();
+					dosiscgene.genDosisAlelicas(vcfFile, 	ploidy );
+			
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [get_dosis_freebayes | 23] path_vcf ploidy dosagebsdp > snps_dosis.txt "+e);
+				}
+			}
+			
+			else if (opcion.compareTo("rapidgenomic") == 0 || opcion.compareTo("24") == 0) {
+				try {
+					String fastafile = args[1];
+				
+					String patron = args[2]; 
+					
+					rapidgenomic rg = new rapidgenomic();
+					rg.leerarchivo2(fastafile,patron);
+			
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [rapidgenomic | 24] fastafile patron "+e);
+				}
+			}
+			
+			else if (opcion.compareTo("generarSNPsformatoRG") == 0 || opcion.compareTo("25") == 0) {
+				try {
+					String posicionesSNPsgenoCompleto = args[1];
+				
+					String VCF = args[2]; 
+					
+					rapidgenomic rg = new rapidgenomic();
+					rg.generarSNPsformatoRG(posicionesSNPsgenoCompleto,VCF);
+			
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG | 25] posicionesSNPsgenoCompleto VCF "+e);
+				}
+			}
+
+			else if (opcion.compareTo("generarSNPsformatoRG2") == 0 || opcion.compareTo("26") == 0) {
+				try {
+					String posicionesSNPsgenoCompleto = args[1];
+				
+					String VCF = args[2]; 
+					String chr = args[3]; 
+					String snp = args[4]; 
+					
+					rapidgenomic rg = new rapidgenomic();
+					rg.generarSNPsformatoRG(posicionesSNPsgenoCompleto,VCF);
+			
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG2 | 26] posicionesSNPsgenoCompleto VCF Chr SNP"+e);
+				}
+			}
+			else if (opcion.compareTo("generarSNPsformatoRG3") == 0 || opcion.compareTo("27") == 0) {
+				try {
+					String posicionesSNPsgenoCompleto = args[1];
+					
+					String VCF = args[2]; 
+					
+					rapidgenomic rg = new rapidgenomic();
+					rg.generarSNPsformatoRG3(posicionesSNPsgenoCompleto,VCF);
+			
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG3 | 27] posicionesSNPsgenoCompleto VCF Chr SNP"+e);
+				}
+			}else if (opcion.compareTo("fixgffformat") == 0 || opcion.compareTo("28") == 0) {
+				try {
+					String gfffile = args[1];
+					addfunctionsgff gff = new addfunctionsgff();
+					gff.fixgffformat(gfffile);
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [fixgffformat | 28 ] gffFile");
+				}
+			}else if (opcion.compareTo("filtrargffporTamano") == 0 || opcion.compareTo("29") == 0) {
+				try {
+					String gfffile = args[1];
+					String minSize = args[2];
+					String maxSize = args[3];
+					addfunctionsgff gff = new addfunctionsgff();
+					gff.filtrargffporTamano(gfffile, minSize, maxSize);
+					
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [filtrargffporTamano | 29 ] gffFile minSizegene maxSizegene");
+				}
+			}
+			else if (opcion.compareTo("ajustargfffunciones") == 0 || opcion.compareTo("29") == 0) {
+				try {
+					String gfffile = args[1];
+					addfunctionsgff gff = new addfunctionsgff();
+					gff.ajustargfffunciones(gfffile);
+					
+				} catch (Exception e) {
+					System.out.println("Try: java -jar fingerprint.jar [ajustargfffunciones | 30 ] gffFile");
 				}
 			}
 
@@ -218,10 +358,10 @@ public class fingerprint {
 							"Try: java -jar fingerprint.jar [generarAlelosVCF|3] [path_vcf] > snps_alelos.txt");
 					System.out.println(
 							"Try: java -jar fingerprint.jar [seleccionarDosisAUS|4] [snps_alelos.txt (generado con opción generarAlelosVCF)] numIndividuos > snps_dosis_aus.txt");
-					System.out.println(
-							"Try: java -jar fingerprint.jar [FiltrarVCF|5] [snps_dosis_aus.txt | snps_dosis_abanico.txt] [path_vcf]");
-					System.out.println(
-							"Try: java -jar fingerprint.jar [ReducirHuellaVCF|6] [path_vcf_original] [path_vcf_filtrado (nombre del archivo resultado)]  numSNP (numSnp en huella)");
+					
+					System.out.println("Try: java -jar fingerprint.jar [FiltrarVCF|5] [snps_dosis_aus.txt | snps_dosis_abanico.txt] [path_vcf]");
+					
+					System.out.println("Try: java -jar fingerprint.jar [ReducirHuellaVCF|6] [path_vcf_original] [path_vcf_filtrado (nombre del archivo resultado)]  numSNP (numSnp en huella)");
 
 					System.out.println("Try: java -jar fingerprint.jar [similitudGeneitcaCCdist|7] [path_vcf] ");
 
@@ -229,8 +369,7 @@ public class fingerprint {
 
 					System.out.println("Try: java -jar fingerprint.jar [genDosisTargeted|9] [path_vcf] ");
 
-					System.out.println(
-							"Try: java -jar fingerprint.jar [ComprarDosisHuellavsTargeted|10] dosisSecuenciacion, dosisTargeted, SNPChr, SnpPos");
+					System.out.println("Try: java -jar fingerprint.jar [ComprarDosisHuellavsTargeted|10] dosisSecuenciacion, dosisTargeted, SNPChr, SnpPos");
 
 					System.out.println("Try: java -jar fingerprint.jar [vcf-to-tab-targeted|11] vcf_targeted");
 
@@ -244,13 +383,33 @@ public class fingerprint {
 					
 					System.out.println("Try: java -jar fingerprint.jar [ordenarVCFxListadoIndividuos | 16 ] VCFfile ListadoIndividuos");
 					
-					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile  ploidy [ACN/DSDP/ALL] ");
+					System.out.println("Try: java -jar fingerprint.jar [vcfToStructure | 17 ] VCFfile  ploidy [acn|bsdp] ");
 					
-					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
-					
-					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [ACN|dosage] [true|false]");
-					
+					System.out.println("Try: java -jar fingerprint.jar [vcfTostructureAlleles | 18 ] VCFfile ploidy [acn|bsdp] [true|false]");
+								
 					System.out.println("Try: java -jar fingerprint.jar [addfuntionstogff | 19 ] gffFile");
+					
+					System.out.println("Try: java -jar fingerprint.jar [joinmap | 20 ] joinmap-file-ngsep");
+					
+					System.out.println("Try: java -jar fingerprint.jar [protocolnotes | 21 ] [kasp-gbsrad|kasp-tr] [file_dosis_kasp] [file_dosis_gbs_rad|file_dosis_gbs_tr] ");
+		
+					System.out.println("Try: java -jar fingerprint.jar [get_depth_sequ | 1] [path_vcf] > snps_dosis.txt ");
+					
+					System.out.println("Try: java -jar fingerprint.jar [get_dosis_freebayes | 23] path_vcf ploidy dosagebsdp > snps_dosis.txt ");
+							
+					System.out.println("Try: java -jar fingerprint.jar [rapidgenomic | 24] fastafile patron ");
+					
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG | 25] posicionesSNPsgenoCompleto VCF ");
+					
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG2 | 26] posicionesSNPsgenoCompleto VCF Chr SNP");
+					
+					System.out.println("Try: java -jar fingerprint.jar [generarSNPsformatoRG3 | 27] posicionesSNPsgenoCompleto VCF Chr SNP");
+					
+					System.out.println("Try: java -jar fingerprint.jar [fixgffformat | 28 ] gffFile");
+					
+					System.out.println("Try: java -jar fingerprint.jar [filtrargffporTamano | 29 ] gffFile minSizegene");
+					
+					System.out.println("Try: java -jar fingerprint.jar [ajustargfffunciones | 30 ] gffFile");
 					
 					
 				} catch (Exception e) {

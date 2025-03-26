@@ -4,7 +4,7 @@ public class vcftotabTargeted {
 
 	public void vcfToTab(String PathFile) {
 		archivos ar = new archivos();
-		String[] datos = ar.leerfichero(PathFile);
+		String[] datos = ar.leerfichero2(PathFile);
 		int bandera = 0;
 
 		for (int i = 0; i < ar.numerolineas; i++) {

@@ -19,14 +19,22 @@ public class FiltrarVCF {
 		}
 
 		for (int i = 0; i < ar.numerolineas; i++) {
-			String cromosoma = datos[i].split("\t")[0];
-			String snp = datos[i].split("\t")[1];		
-			//System.out.println(cromosoma+" "+snp+" : "+this.vcfHash.get(cromosoma+"_"+snp));
-			String output=this.vcfHash.get(cromosoma+"_"+snp);
 			
-			//if (output.compareTo("null")!=0) {
-				System.out.println(this.vcfHash.get(cromosoma+"_"+snp));
-			//}
+			try {
+				String cromosoma = datos[i].split("\t")[0];
+				String snp = datos[i].split("\t")[1];		
+				//System.out.println(cromosoma+" "+snp+" : "+this.vcfHash.get(cromosoma+"_"+snp));
+				String output=this.vcfHash.get(cromosoma+"_"+snp);
+				
+				//if (output.compareTo("null")!=0) {
+					System.out.println(this.vcfHash.get(cromosoma+"_"+snp));
+				//}
+			} catch (Exception e) {
+				System.out.println(e);
+			}
+			
+			
+		
 			
 		}
 		
@@ -42,26 +50,47 @@ public class FiltrarVCF {
 		boolean escomentario=true;
 		int cont=0;
 		while(escomentario) {
-			if (datosvcf[cont].toString().contains("#")) {
-				cont++;
+			try {
+				if (datosvcf[cont].toString().contains("#")) {
+					cont++;
+				}
+				else {
+					escomentario=false;
+				}
+			} catch (Exception e) {
+				System.out.println(e);
 			}
-			else {
-				escomentario=false;
-			}
+			
+			
+			
 		}
 		
 		this.contInicio=cont;
 		
 		for (int i = 0; i < cont; i++) {
 			//System.out.println(datosvcf[i]);
-			this.vcfHash.put(Integer.toString(i), datosvcf[i]);
+			try {
+				this.vcfHash.put(Integer.toString(i), datosvcf[i]);
+			} catch (Exception e) {
+				System.out.println(e);
+			}
+			
+			
 		}
 
 		for (int i = cont; i < ar2.numerolineas; i++) {
-			String cromosoma = datosvcf[i].split("	")[0];
-			String snp = datosvcf[i].split("	")[1];
-			//System.out.println(cromosoma+"_"+snp);
-			this.vcfHash.put(cromosoma+"_"+snp , datosvcf[i]);
+			
+			try {
+				String cromosoma = datosvcf[i].split("	")[0];
+				String snp = datosvcf[i].split("	")[1];
+				//System.out.println(cromosoma+"_"+snp);
+				this.vcfHash.put(cromosoma+"_"+snp , datosvcf[i]);
+			} catch (Exception e) {
+				System.out.println(e);
+			}
+			
+			
+			
 		}
 	}
 	
@@ -70,7 +99,7 @@ public class FiltrarVCF {
 		FiltrarVCF al = new FiltrarVCF();
 		//al.filtrarvcf(args[0], args[1]);
 
-		al.filtrarvcf("/home/estuvar4/Downloads/snps_seleccionar.txt" , "/home/estuvar4/Downloads/cc-01-1940.vcf");
+		al.filtrarvcf("/home/estuvar4/Downloads/snptofilter.txt" , "/home/estuvar4/Downloads/tmp.vcf");
 
 	}
 
