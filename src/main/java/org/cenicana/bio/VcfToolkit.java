@@ -1,12 +1,12 @@
-package huellamolecular;
+package org.cenicana.bio;
 
 import java.io.IOException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
-import huellamolecular.cli.AlleleDosageCommand;
-import huellamolecular.cli.SimilitudGeneticaCommand;
-import huellamolecular.cli.GenDosisTargetedCommand;
+import org.cenicana.bio.cli.AlleleDosageCommand;
+import org.cenicana.bio.cli.SimilitudGeneticaCommand;
+import org.cenicana.bio.cli.GenDosisTargetedCommand;
 
 @Command(name = "biocenicana", mixinStandardHelpOptions = true, version = "1.0", description = "Bioinformatics tools for Cenicana", subcommands = {
 		AlleleDosageCommand.class,

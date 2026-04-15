@@ -1,4 +1,4 @@
-package huellamolecular;
+package org.cenicana.bio;
 public class JoinMapCpFormat {
 
 	public void fixformat(String archivoNGSEP) {

@@ -1,6 +1,6 @@
-package huellamolecular.cli;
+package org.cenicana.bio.cli;
 
-import huellamolecular.GeneDosis;
+import org.cenicana.bio.GeneDosis;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ITypeConverter;

@@ -1,4 +1,4 @@
-package huellamolecular;
+package org.cenicana.bio;
 
 import java.io.*;
 import java.util.*;

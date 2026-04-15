@@ -1,4 +1,4 @@
-package huellamolecular.io;
+package org.cenicana.bio.io;
 
 import java.io.BufferedReader;
 import java.io.IOException;

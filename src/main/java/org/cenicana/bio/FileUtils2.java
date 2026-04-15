@@ -1,4 +1,4 @@
-package huellamolecular;
+package org.cenicana.bio;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

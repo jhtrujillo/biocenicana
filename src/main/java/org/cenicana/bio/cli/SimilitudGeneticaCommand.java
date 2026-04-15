@@ -1,6 +1,6 @@
-package huellamolecular.cli;
+package org.cenicana.bio.cli;
 
-import huellamolecular.VCFgetfilterprint;
+import org.cenicana.bio.VCFgetfilterprint;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import java.util.concurrent.Callable;
