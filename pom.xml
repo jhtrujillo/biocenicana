@@ -21,7 +21,7 @@
             <artifactId>NGSEPcore</artifactId>
             <version>5.1.0</version>
             <scope>system</scope>
-            <systemPath>/Users/estuvar4/Downloads/NGSEPcore-master/NGSEPcore_5.1.0.jar</systemPath>
+            <systemPath>${project.basedir}/lib/NGSEPcore_5.1.0.jar</systemPath>
         </dependency>
         <!-- picocli for CLI parsing -->
         <dependency>
