@@ -1,13 +1,13 @@
 package org.cenicana.bio.cli;
 
-import org.cenicana.bio.VCFgetfilterprint;
+import org.cenicana.bio.VcfFilterPrint;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import java.util.concurrent.Callable;
 
 @Command(name = "similitudGeneitcaCCdist", aliases = {"7"}, mixinStandardHelpOptions = true,
 		description = "Calcula las estadísticas de similitud genética.")
-public class SimilitudGeneticaCommand implements Callable<Integer> {
+public class GeneticSimilarityCommand implements Callable<Integer> {
 
 	@Parameters(index = "0", description = "Ruta al archivo VCF")
 	private String vcfFile;
@@ -15,7 +15,7 @@ public class SimilitudGeneticaCommand implements Callable<Integer> {
 	@Override
 	public Integer call() throws Exception {
 		try {
-			VCFgetfilterprint vcfmatrix = new VCFgetfilterprint();
+			VcfFilterPrint vcfmatrix = new VcfFilterPrint();
 			vcfmatrix.VCFload(vcfFile);
 			System.out.print("p:10,GD:3 ");
 			vcfmatrix.getSimilitudeStats(System.out);

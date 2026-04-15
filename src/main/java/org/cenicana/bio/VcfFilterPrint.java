@@ -8,7 +8,7 @@ import java.util.Random;
 import ngsep.clustering.DistanceMatrix;
 import ngsep.vcf.VCFDistanceMatrixCalculator;
 
-public class VCFgetfilterprint {
+public class VcfFilterPrint {
 
 	private VCFDistanceMatrixCalculator vcfdistancematrix;
 	private DistanceMatrix matrix; 
@@ -200,7 +200,7 @@ public class VCFgetfilterprint {
 
 	/*
 	public static void main(String[] args) throws IOException {
-		VCFgetfilterprint vcfmatrix = new VCFgetfilterprint();
+		VcfFilterPrint vcfmatrix = new VcfFilterPrint();
 		
 		//vcfmatrix.VCFload(args[0]);
 		//vcfmatrix.VCFload("/home/estuvar4/workarea/30_07_17/huella_650.vcf");		

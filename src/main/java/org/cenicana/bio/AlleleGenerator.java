@@ -3,7 +3,7 @@ package org.cenicana.bio;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class GenerarAlelos {
+public class AlleleGenerator {
 
 	public String getFrecuenciaAlelica(String ref, String alt, String genotipo, String dsdp) {
 		String[] alelosdsdp = dsdp.split(",");

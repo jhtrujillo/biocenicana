@@ -2,7 +2,7 @@ package org.cenicana.bio;
 
 import java.io.IOException;
 
-public class SimilitudGeneticaCCdistTargeted {
+public class TargetedGeneticSimilarity {
 
 	Double minDosis = 1.0;
 	Double maxDosis = 0.0;

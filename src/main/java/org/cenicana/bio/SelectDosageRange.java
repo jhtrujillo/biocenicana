@@ -4,7 +4,7 @@ import java.io.IOException;
 
 //Clase que filtrar los snps con base al archivo de las dosis alelicas. 
 
-public class SeleccionarAbanicoDosis {
+public class SelectDosageRange {
 
 	public boolean continDosis(double dosismin, double dosismax, String[] dosisSnp) {
 		boolean resultado = false;
@@ -57,7 +57,7 @@ public class SeleccionarAbanicoDosis {
 	/*
 	public static void main(String[] args) throws IOException {
 
-		SeleccionarAbanicoDosis abanicodosis = new SeleccionarAbanicoDosis();
+		SelectDosageRange abanicodosis = new SelectDosageRange();
 		abanicodosis.loadDosis("/home/estuvar4/Documents/test/dosis_spon.txt");
 
 	}

@@ -11,7 +11,7 @@ import ngsep.variants.VariantCallReport;
 import ngsep.vcf.VCFFileReader;
 import ngsep.vcf.VCFRecord;
 
-public class OrdenarVCFporIndividuos {
+public class SortVcfBySample {
 	FileUtils ar;
 	FileUtils ar2;
 	String[] datos;
@@ -134,7 +134,7 @@ public class OrdenarVCFporIndividuos {
 	}
 
 	public static void main(String[] args) throws IOException {
-		OrdenarVCFporIndividuos sortVCF = new OrdenarVCFporIndividuos();
+		SortVcfBySample sortVCF = new SortVcfBySample();
 		// sortVCF.loadVCF("/home/estuvar4/Downloads/huellaSP803280.vcf");
 		// sortVCF.datosSNPvsIndi("SCSP803280_000030297", "6938", "9");
 

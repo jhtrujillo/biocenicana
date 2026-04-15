@@ -2,7 +2,7 @@ package org.cenicana.bio;
 
 import java.util.Hashtable;
 
-public class FiltrarVCF {
+public class VcfFilter {
 	
 	public int contInicio=0;
 
@@ -96,7 +96,7 @@ public class FiltrarVCF {
 	
 
 	public static void main(String[] args) {
-		FiltrarVCF al = new FiltrarVCF();
+		VcfFilter al = new VcfFilter();
 		//al.filtrarvcf(args[0], args[1]);
 
 		al.filtrarvcf("/home/estuvar4/Downloads/snptofilter.txt" , "/home/estuvar4/Downloads/tmp.vcf");

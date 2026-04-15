@@ -3,7 +3,7 @@ package org.cenicana.bio;
 import java.io.IOException;
 import java.text.DecimalFormat;
 
-public class GenDosisTargeted {
+public class TargetedAlleleDosage {
 
 	DecimalFormat df = new DecimalFormat("#.0"); // Dejo las dosis a un solo decimal.
 
@@ -302,8 +302,8 @@ public class GenDosisTargeted {
 	}
 
 	public static void main(String[] args) throws IOException {
-		GenDosisTargeted dosiscgene = new GenDosisTargeted();
-		//dosiscgene.generarDosis("/home/estuvar4/Downloads/CEN_132101_FreeBayes_SNPs_Raw.vcf", 10); // imputar usando el
+		TargetedAlleleDosage dosiscgene = new TargetedAlleleDosage();
+		//dosiscgene.generarDosis("/home/estuvar4/Downloads/CEN_132101_FreeBayes_SNPs_Raw.vcf", 10); // impute usando el
 																									// bdsp, quedan -1
 																									// si ambos alelos
 																									// estan en ceros

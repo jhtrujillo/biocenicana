@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public class FileUtilsV1 {
+public class LegacyFileUtilsV1 {
 	public File archivo;
 	public FileReader fr;
 	public BufferedReader br;

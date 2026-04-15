@@ -2,7 +2,7 @@ package org.cenicana.bio;
 
 import java.util.ArrayList;
 
-public class Protocol_notes {
+public class ProtocolNotes {
 	String[] dosis_kasp = null;
 	String[] dosis_gbs_rad = null;
 	String[] dosis_gbs_rad_wgs = null;
@@ -13,7 +13,7 @@ public class Protocol_notes {
 	int numSNPs_gbs_rad_wgs = 0;
 	int numSNPstargeted_resequencing = 0;
 
-	Protocol_notes(String file_dosis_kasp, String file_dosis_gbs_rad, String file_dosis_gbs_rad_wgs,
+	ProtocolNotes(String file_dosis_kasp, String file_dosis_gbs_rad, String file_dosis_gbs_rad_wgs,
 			String file_dosis_targeted_resequencing) {
 
 		FileUtils ar1 = new FileUtils();
@@ -247,7 +247,7 @@ public class Protocol_notes {
 		String file_dosis_gbs_rad_wgs = "/home/estuvar4/Downloads/protocol-notes/cc_01_1940_gbs_radseq_wgs_standarfiltered_d_0_dosisalelicas.txt";
 		String file_dosis_targeted_resequencing = "/home/estuvar4/Downloads/protocol-notes/CEN_132101_FreeBayes_SNPs_Raw_dosis.txt";
 
-		Protocol_notes pn = new Protocol_notes(file_dosis_kasp, file_dosis_gbs_rad, file_dosis_gbs_rad_wgs,
+		ProtocolNotes pn = new ProtocolNotes(file_dosis_kasp, file_dosis_gbs_rad, file_dosis_gbs_rad_wgs,
 				file_dosis_targeted_resequencing);
 
 		// pn.get_dosis_kasp_gbs_rad("super_59_423718","103");

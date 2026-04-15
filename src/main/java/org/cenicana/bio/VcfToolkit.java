@@ -5,13 +5,13 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import org.cenicana.bio.cli.AlleleDosageCommand;
-import org.cenicana.bio.cli.SimilitudGeneticaCommand;
-import org.cenicana.bio.cli.GenDosisTargetedCommand;
+import org.cenicana.bio.cli.GeneticSimilarityCommand;
+import org.cenicana.bio.cli.TargetedAlleleDosageCommand;
 
 @Command(name = "biocenicana", mixinStandardHelpOptions = true, version = "1.0", description = "Bioinformatics tools for Cenicana", subcommands = {
 		AlleleDosageCommand.class,
-		SimilitudGeneticaCommand.class,
-		GenDosisTargetedCommand.class
+		GeneticSimilarityCommand.class,
+		TargetedAlleleDosageCommand.class
 })
 public class VcfToolkit {
 
@@ -25,28 +25,28 @@ public class VcfToolkit {
 	@Command(name = "seleccionarDosisAbanico", aliases = { "2" }, description = "Selecciona dosis abanico")
 	public void seleccionarDosisAbanico(@Parameters(index = "0", description = "snps_dosis.txt") String dosisFile)
 			throws Exception {
-		SeleccionarAbanicoDosis abanicodosis = new SeleccionarAbanicoDosis();
+		SelectDosageRange abanicodosis = new SelectDosageRange();
 		abanicodosis.loadDosis(dosisFile);
 	}
 
 	@Command(name = "generarAlelosVCF", aliases = { "3" }, description = "Generar alelos VCF")
 	public void generarAlelosVCF(@Parameters(index = "0", description = "path_vcf") String vcfFile) throws Exception {
-		GenerarAlelos alelos = new GenerarAlelos();
+		AlleleGenerator alelos = new AlleleGenerator();
 		alelos.getalelos(vcfFile, "dosis");
 	}
 
 	@Command(name = "seleccionarDosisAUS", aliases = { "4" }, description = "Filtros Alelológicos Australianos")
 	public void seleccionarDosisAUS(@Parameters(index = "0", description = "snps_alelos.txt") String snpsAlelosTxt,
 			@Parameters(index = "1", description = "Num Individuos") int numIndividuos) throws Exception {
-		FiltrosAlelologicosAUS fa = new FiltrosAlelologicosAUS();
+		AllelicFiltersAus fa = new AllelicFiltersAus();
 		fa.filtrarporClases(snpsAlelosTxt, numIndividuos);
 	}
 
-	@Command(name = "FiltrarVCF", aliases = { "5" }, description = "Filtrar VCF")
-	public void FiltrarVCF(
+	@Command(name = "VcfFilter", aliases = { "5" }, description = "Filtrar VCF")
+	public void VcfFilter(
 			@Parameters(index = "0", description = "snps_dosis_aus.txt o snps_dosis_abanico.txt") String filterFile,
 			@Parameters(index = "1", description = "path_vcf") String vcfFile) throws Exception {
-		FiltrarVCF al = new FiltrarVCF();
+		VcfFilter al = new VcfFilter();
 		al.filtrarvcf(filterFile, vcfFile);
 	}
 
@@ -54,43 +54,43 @@ public class VcfToolkit {
 	public void ReducirHuellaVCF(@Parameters(index = "0", description = "path_vcf_original") String vcfOriginal,
 			@Parameters(index = "1", description = "path_vcf_filtrado") String vcfFiltrado,
 			@Parameters(index = "2", description = "numSNP") int numSnp) throws Exception {
-		VCFgetfilterprint vcfmatrix = new VCFgetfilterprint();
+		VcfFilterPrint vcfmatrix = new VcfFilterPrint();
 		vcfmatrix.VCFfingerprint(vcfOriginal, vcfFiltrado, 0.0, 0.0, numSnp);
 	}
 
 	@Command(name = "frecuenciaAlelos", aliases = { "8" }, description = "Frecuencia Alelos")
 	public void frecuenciaAlelos(@Parameters(index = "0", description = "path_vcf") String vcfFile) throws Exception {
-		VCFgetHaplotipes vcfcounter = new VCFgetHaplotipes();
+		VcfHaplotypeExtractor vcfcounter = new VcfHaplotypeExtractor();
 		vcfcounter.CounterHaplotipes(vcfFile);
 	}
 
-	@Command(name = "CompararDosisHuellaVsTargeted", aliases = {
+	@Command(name = "CompareDosageFingerprintVsTargeted", aliases = {
 			"10" }, description = "Comparar Dosis Huella Vs Targeted")
-	public void CompararDosisHuellaVsTargeted(
+	public void CompareDosageFingerprintVsTargeted(
 			@Parameters(index = "0", description = "dosisSecuenciacion") String dosisSec,
 			@Parameters(index = "1", description = "dosisTargeted") String dosisTar) throws Exception {
-		CompararDosisHuellaVsTargeted cdht = new CompararDosisHuellaVsTargeted();
+		CompareDosageFingerprintVsTargeted cdht = new CompareDosageFingerprintVsTargeted();
 		cdht.compararIndividuos(dosisSec, dosisTar);
 	}
 
 	@Command(name = "vcf-to-tab-targeted", aliases = { "11" }, description = "VCF to tab targeted")
 	public void vcfToTabTargeted(@Parameters(index = "0", description = "vcf_targeted") String vcfTargeted)
 			throws Exception {
-		VcfToTabTargeted vcttotab = new VcfToTabTargeted();
+		TargetedVcfToTab vcttotab = new TargetedVcfToTab();
 		vcttotab.vcfToTab(vcfTargeted);
 	}
 
 	@Command(name = "vcftargetedTovcfNGSEP", aliases = { "12" }, description = "VCF targeted To VCF NGSEP")
 	public void vcftargetedTovcfNGSEP(@Parameters(index = "0", description = "vcf_targeted") String vcfTargeted)
 			throws Exception {
-		SimilitudGeneticaCCdistTargeted smgt = new SimilitudGeneticaCCdistTargeted();
+		TargetedGeneticSimilarity smgt = new TargetedGeneticSimilarity();
 		smgt.formattoVCF(vcfTargeted);
 	}
 
 	@Command(name = "printDistanceMatrix", aliases = { "13" }, description = "Print Distance Matrix")
 	public void printDistanceMatrix(@Parameters(index = "0", description = "path_vcf") String vcfFile)
 			throws Exception {
-		VCFgetfilterprint vcfmatrix = new VCFgetfilterprint();
+		VcfFilterPrint vcfmatrix = new VcfFilterPrint();
 		vcfmatrix.VCFload(vcfFile);
 		System.out.print("p:10,GD:3 ");
 		vcfmatrix.ImprimirMatrix();
@@ -98,16 +98,16 @@ public class VcfToolkit {
 
 	@Command(name = "VCF-to-tab", aliases = { "14" }, description = "VCF to tab (geno)")
 	public void vcfToTab(@Parameters(index = "0", description = "path_vcf") String vcfFile) throws Exception {
-		GenerarAlelos alelos = new GenerarAlelos();
+		AlleleGenerator alelos = new AlleleGenerator();
 		alelos.getalelos(vcfFile, "geno");
 	}
 
-	@Command(name = "generarDosisTranspuesta", aliases = { "15" }, description = "Generar Dosis Transpuesta")
-	public void generarDosisTranspuesta(@Parameters(index = "0", description = "path_vcf") String vcfFile,
+	@Command(name = "computeDosageTransposed", aliases = { "15" }, description = "Generar Dosis Transpuesta")
+	public void computeDosageTransposed(@Parameters(index = "0", description = "path_vcf") String vcfFile,
 			@Parameters(index = "1", description = "ploidy") int ploidy,
-			@Parameters(index = "2", description = "metodoImputar") String metodo) throws Exception {
-		GeneDosis dosiscgene = new GeneDosis();
-		dosiscgene.genDosisAlelicas(vcfFile, ploidy, metodo, true);
+			@Parameters(index = "2", description = "imputationMethod") String metodo) throws Exception {
+		AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
+		dosiscgene.computeAlleleDosage(vcfFile, ploidy, metodo, true);
 		dosiscgene.TransposeDosisMatrix();
 		dosiscgene.printTransposeDosisMatrix();
 	}
@@ -116,7 +116,7 @@ public class VcfToolkit {
 			"16" }, description = "Ordenar VCF x Listado Individuos")
 	public void ordenarVCFxListadoIndividuos(@Parameters(index = "0", description = "VCFfile") String vcfFile,
 			@Parameters(index = "1", description = "ListadoIndividuos") String listado) throws Exception {
-		OrdenarVCFporIndividuos sortVCF = new OrdenarVCFporIndividuos();
+		SortVcfBySample sortVCF = new SortVcfBySample();
 		sortVCF.ordenarVCFxListadoIndividuos(vcfFile, listado);
 	}
 
@@ -124,7 +124,7 @@ public class VcfToolkit {
 	public void vcfToStructure(@Parameters(index = "0", description = "VCFfile") String vcfFile,
 			@Parameters(index = "1", description = "ploidy") int ploidy,
 			@Parameters(index = "2", description = "option") String option) throws Exception {
-		VcfToStructure2 vcftosctructure = new VcfToStructure2();
+		VcfToStructure vcftosctructure = new VcfToStructure();
 		vcftosctructure.vcfconverTostructure(vcfFile, ploidy, option);
 		vcftosctructure.printMatrix();
 	}
@@ -134,7 +134,7 @@ public class VcfToolkit {
 			@Parameters(index = "1", description = "ploidy") int ploidy,
 			@Parameters(index = "2", description = "option") String option,
 			@Parameters(index = "3", description = "impute") String impute) throws Exception {
-		VcfToStructure2 vcftosctructure = new VcfToStructure2();
+		VcfToStructure vcftosctructure = new VcfToStructure();
 		vcftosctructure.vcfconverTostructureAlleles(vcfFile, ploidy, option, impute);
 		vcftosctructure.printMatrixTranspuesta();
 	}
@@ -159,17 +159,17 @@ public class VcfToolkit {
 			@Parameters(index = "2", description = "file_dosis_gbs_rad_OR_tr") String fileDosisGbsRad)
 			throws Exception {
 		if (opcionPN.compareTo("kasp-gbsrad") == 0) {
-			Protocol_notes pn = new Protocol_notes(fileDosisKasp, fileDosisGbsRad, "", "");
+			ProtocolNotes pn = new ProtocolNotes(fileDosisKasp, fileDosisGbsRad, "", "");
 			pn.get_all_dosis_kasp_gbs_rad();
 		} else if (opcionPN.compareTo("kasp-tr") == 0) {
-			Protocol_notes pn = new Protocol_notes(fileDosisKasp, "", "", fileDosisGbsRad);
+			ProtocolNotes pn = new ProtocolNotes(fileDosisKasp, "", "", fileDosisGbsRad);
 			pn.get_all_dosis_kasp_tr();
 		}
 	}
 
 	@Command(name = "get_depth_seq", aliases = { "22" }, description = "Get depth seq")
 	public void get_depth_seq(@Parameters(index = "0", description = "path_vcf") String vcfFile) throws Exception {
-		GeneDosis dosiscgene = new GeneDosis();
+		AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
 		dosiscgene.get_depth_sequ(vcfFile);
 		dosiscgene.printDosisMatrix();
 	}
@@ -177,8 +177,8 @@ public class VcfToolkit {
 	@Command(name = "get_dosis_freebayes", aliases = { "23" }, description = "Get dosis freebayes")
 	public void get_dosis_freebayes(@Parameters(index = "0", description = "path_vcf") String vcfFile,
 			@Parameters(index = "1", description = "ploidy") int ploidy) throws Exception {
-		GeneDosisRapidGenomicVCF dosiscgene = new GeneDosisRapidGenomicVCF();
-		dosiscgene.genDosisAlelicas(vcfFile, ploidy);
+		RapidGenomicAlleleDosage dosiscgene = new RapidGenomicAlleleDosage();
+		dosiscgene.computeAlleleDosage(vcfFile, ploidy);
 	}
 
 	@Command(name = "rapidgenomic", aliases = { "24" }, description = "Rapid genomic")
@@ -236,7 +236,7 @@ public class VcfToolkit {
 			@Parameters(index = "1", description = "ploidy") int ploidy,
 			@Parameters(index = "2", description = "option") String option,
 			@Parameters(index = "3", description = "impute") String impute) throws Exception {
-		VcfToStructure2 vcftosctructure = new VcfToStructure2();
+		VcfToStructure vcftosctructure = new VcfToStructure();
 		vcftosctructure.vcfconverTostructureAlleles(vcfFile, ploidy, option, impute);
 		vcftosctructure.printMatrixTranspuesta();
 	}

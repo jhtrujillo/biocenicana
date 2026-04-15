@@ -2,7 +2,7 @@ package org.cenicana.bio;
 
 import java.io.IOException;
 
-public class Carolina {
+public class CarolinaPipeline {
 	
 	public void leerdatos(String file1, String file2, String genoma) {
 		FileUtils ar1 = new FileUtils();
@@ -44,7 +44,7 @@ public class Carolina {
 	
 	
 	public static void main(String[] args) throws IOException {
-		Carolina ca = new Carolina();
+		CarolinaPipeline ca = new CarolinaPipeline();
 		//ca.leerdatos("/home/estuvar4/Downloads/marcadores_filtrados_Gwas - Sheet2.tsv", 
 		//		"/home/estuvar4/Downloads/01_comparison_different_phenotypes_part1_refSorghum_sdb_produc - TABLA_GENERAL_v3_corrected (1).tsv",
 		//	"Sorghum");

@@ -1,6 +1,6 @@
 package org.cenicana.bio;
 
-public class FiltrosAlelologicosAUS {
+public class AllelicFiltersAus {
 	
 	public int numInd=360;
 	

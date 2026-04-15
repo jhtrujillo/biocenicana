@@ -217,7 +217,7 @@ public class VCFConverterACGT {
 	}
 
 	
-	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String imputar)
+	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String impute)
 			throws IOException {
 		FileUtils ar = new FileUtils();
 		this.numSNPs = 0;
@@ -238,8 +238,8 @@ public class VCFConverterACGT {
 
 		int snpCountpos = 1;
 
-		if (imputar.compareTo("") == 0) {
-			imputar = "false";
+		if (impute.compareTo("") == 0) {
+			impute = "false";
 		}
 
 		int n = ploidy;
@@ -310,7 +310,7 @@ public class VCFConverterACGT {
 							genotipoalelos = genotipoalelos + altAlelle;
 						}
 
-						if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+						if (GT.compareTo("./.") == 0 && impute.compareTo("false") == 0) {
 							genotipoalelos = "NA";
 						}
 
@@ -420,12 +420,12 @@ public class VCFConverterACGT {
 							
 							String genotipoalelos = "";
 
-							//Consulto si voy a imputar con ACN. false = no voy a imputar
-							//if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+							//Consulto si voy a impute con ACN. false = no voy a impute
+							//if (GT.compareTo("./.") == 0 && impute.compareTo("false") == 0) {
 							//	genotipoalelos = "";
 							//}
 							//else 
-							if (GT.compareTo("./.") == 0 && imputar.compareTo("true") == 0) {
+							if (GT.compareTo("./.") == 0 && impute.compareTo("true") == 0) {
 								GT = genotipo.split(":")[0];
 								
 								//System.out.println(genotipo);

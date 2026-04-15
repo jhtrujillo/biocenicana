@@ -12,7 +12,7 @@ import ngsep.vcf.VCFFileReader;
 import ngsep.vcf.VCFRecord;
 
 
-public class VCFgetHaplotipes {
+public class VcfHaplotypeExtractor {
 
 	public void CounterHaplotipes(String pathVCF) throws IOException {
 		//VCFFileReader vcfFileReader = new VCFFileReader(
@@ -77,7 +77,7 @@ public class VCFgetHaplotipes {
 	
 	/*
 	public static void main(String[] args) throws IOException {
-		VCFgetHaplotipes vcfcounter = new VCFgetHaplotipes();
+		VcfHaplotypeExtractor vcfcounter = new VcfHaplotypeExtractor();
 		//vcfcounter.CounterHaplotipes(args[0]);
 		vcfcounter.CounterHaplotipes("/home/estuvar4/Desktop/huellaRanqueada.vcf");
 	}*/

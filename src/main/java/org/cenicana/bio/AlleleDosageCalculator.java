@@ -21,7 +21,7 @@ import ngsep.vcf.VCFDistanceMatrixCalculator;
 import ngsep.vcf.VCFFileReader;
 import ngsep.vcf.VCFRecord;
 
-public class GeneDosis {
+public class AlleleDosageCalculator {
 
 	public VCFFileReader vcfFileReader;
 	public Iterator<VCFRecord> iteratorRecords;
@@ -34,18 +34,18 @@ public class GeneDosis {
 	String[][] matrizTranspuestaDosis;
 	List<String> matrizDosisString = new ArrayList<String>();
 
-	public void genDosisAlelicas(String vcfFile, int ploidy, String imputar) throws IOException {
-		genDosisAlelicas(vcfFile, ploidy, imputar, false, "auto");
+	public void computeAlleleDosage(String vcfFile, int ploidy, String impute) throws IOException {
+		computeAlleleDosage(vcfFile, ploidy, impute, false, "auto");
 	}
 
-	public void genDosisAlelicas(String vcfFile, int ploidy, String imputar, boolean storeInMemory) throws IOException {
-		genDosisAlelicas(vcfFile, ploidy, imputar, storeInMemory, "auto");
+	public void computeAlleleDosage(String vcfFile, int ploidy, String impute, boolean storeInMemory) throws IOException {
+		computeAlleleDosage(vcfFile, ploidy, impute, storeInMemory, "auto");
 	}
 
 	/**
 	 * @param callerType Variant caller: "ngsep" | "gatk" | "freebayes" | "auto"
 	 */
-	public void genDosisAlelicas(String vcfFile, int ploidy, String imputar, boolean storeInMemory, String callerType) throws IOException {
+	public void computeAlleleDosage(String vcfFile, int ploidy, String impute, boolean storeInMemory, String callerType) throws IOException {
 
 		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
 		numGenotypes = sampleIds.length;
@@ -208,7 +208,7 @@ public class GeneDosis {
 
 			float maxvaluedosege = 0;
 			float maxkeydosege = 0;
-			if (imputar.equals("mode") || imputar.equals("bsdp-mode")) {
+			if (impute.equals("mode") || impute.equals("bsdp-mode")) {
 				Set<Float> setOfKeys = modaDosisalelicas.keySet();
 				for (Float key : setOfKeys) {
 					if (modaDosisalelicas.get(key) >= maxvaluedosege) {
@@ -221,11 +221,11 @@ public class GeneDosis {
 
 			for (int i = 0; i < len; i++) {
 				if (isMissing[i]) {
-					if (imputar.equals("bsdp")) {
+					if (impute.equals("bsdp")) {
 						rowBuilder.append("-1.0\t");
-					} else if (imputar.equals("mode") || imputar.equals("bsdp-mode")) {
+					} else if (impute.equals("mode") || impute.equals("bsdp-mode")) {
 						rowBuilder.append(maxkeydosege).append("\t");
-					} else if (imputar.equals("mean") || imputar.equals("bsdp-mean")) {
+					} else if (impute.equals("mean") || impute.equals("bsdp-mean")) {
 						rowBuilder.append(promedio).append("\t");
 					} else {
 						rowBuilder.append("-1.0\t");
@@ -401,17 +401,17 @@ public class GeneDosis {
 	}
 
 	public static void main(String[] args) throws IOException {
-		GeneDosis dosiscgene = new GeneDosis();
-		dosiscgene.genDosisAlelicas("/Users/estuvar4/Downloads/variants.vcf", 10, "false"); //imputar usando el bdsp, quedan -1 si ambos alelos estan
+		AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
+		dosiscgene.computeAlleleDosage("/Users/estuvar4/Downloads/variants.vcf", 10, "false"); //impute usando el bdsp, quedan -1 si ambos alelos estan
 		// en ceros
-		// dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
+		// dosiscgene.computeAlleleDosage("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
 		// "dosagemode"); //Imputa usando la moda de la dosis
-		// dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
+		// dosiscgene.computeAlleleDosage("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
 		// "dosaeaverage"); // imputa usando la mediana - promedio
-		// dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
+		// dosiscgene.computeAlleleDosage("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
 		// "dosagebsdpmoda"); //imputa usando el bdsp, pero los que quedan -1, los
 		// imputa con la moda.
-		// dosiscgene.genDosisAlelicas("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
+		// dosiscgene.computeAlleleDosage("/home/estuvar4/Downloads/cc-01-1940.vcf", 10,
 		// "dosagebsdaverage"); //imputa usando el bdsep, pero los que quedan con -1 los
 		// imputa con el promedio.
 		//dosiscgene.printDosisMatrix();
@@ -419,7 +419,7 @@ public class GeneDosis {
 		// dosiscgene.printTransposeDosisMatrix();
 
 		//dosiscgene.get_depth_sequ(
-			//	"/home/estuvar4/Downloads/all_220_gbsradwgs_299_parentales_total_519_individuos_22324snps.vcf"); // imputar
+			//	"/home/estuvar4/Downloads/all_220_gbsradwgs_299_parentales_total_519_individuos_22324snps.vcf"); // impute
 																															// usando
 																															// el
 																															// bdsp,

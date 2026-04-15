@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CompararDosisHuellaVsTargeted {
+public class CompareDosageFingerprintVsTargeted {
 
 	public void compararIndividuos(String dosisSecuenciacion, String dosisTargeted) {
 		try {

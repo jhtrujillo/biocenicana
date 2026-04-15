@@ -1,13 +1,13 @@
 package org.cenicana.bio.cli;
 
-import org.cenicana.bio.GenDosisTargeted;
+import org.cenicana.bio.TargetedAlleleDosage;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import java.util.concurrent.Callable;
 
 @Command(name = "genDosisTargeted", aliases = {"9"}, mixinStandardHelpOptions = true,
 		description = "Genera dosis targeted a partir de un VCF.")
-public class GenDosisTargetedCommand implements Callable<Integer> {
+public class TargetedAlleleDosageCommand implements Callable<Integer> {
 
 	@Parameters(index = "0", description = "Ruta al archivo VCF")
 	private String vcfFile;
@@ -18,7 +18,7 @@ public class GenDosisTargetedCommand implements Callable<Integer> {
 	@Override
 	public Integer call() throws Exception {
 		try {
-			GenDosisTargeted genDosis = new GenDosisTargeted();
+			TargetedAlleleDosage genDosis = new TargetedAlleleDosage();
 			genDosis.generarDosis(vcfFile, ploidy);
 			return 0;
 		} catch (Exception e) {

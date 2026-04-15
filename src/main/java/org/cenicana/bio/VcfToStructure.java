@@ -13,7 +13,7 @@ import ngsep.variants.VariantCallReport;
 import ngsep.vcf.VCFFileReader;
 import ngsep.vcf.VCFRecord;
 
-public class VcfToStructure2 {
+public class VcfToStructure {
 	public VCFFileReader vcfFileReader;
 	public Iterator<VCFRecord> iteratorRecords;
 	public List<Sample> samples;
@@ -235,7 +235,7 @@ public class VcfToStructure2 {
 	}
 
 	
-	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String imputar)
+	public void vcfconverTostructureAlleles(String vcfFile, int ploidy, String option, String impute)
 			throws IOException {
 		
 		
@@ -253,8 +253,8 @@ public class VcfToStructure2 {
 		
 		//System.out.println(numGenotypes);
 		
-		if (imputar.compareTo("") == 0) {
-			imputar = "false";
+		if (impute.compareTo("") == 0) {
+			impute = "false";
 		}
 
 		int n = ploidy;
@@ -345,7 +345,7 @@ public class VcfToStructure2 {
 							genotipoalelos = genotipoalelos + altAlelle;
 						}
 
-						if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+						if (GT.compareTo("./.") == 0 && impute.compareTo("false") == 0) {
 							genotipoalelos = "NA";
 						}
 
@@ -401,12 +401,12 @@ public class VcfToStructure2 {
 						
 						String genotipoalelos = "";
 
-						//Consulto si voy a imputar con ACN. false = no voy a imputar
-						//if (GT.compareTo("./.") == 0 && imputar.compareTo("false") == 0) {
+						//Consulto si voy a impute con ACN. false = no voy a impute
+						//if (GT.compareTo("./.") == 0 && impute.compareTo("false") == 0) {
 						//	genotipoalelos = "";
 						//}
 						//else 
-						if (GT.compareTo("./.") == 0 && imputar.compareTo("true") == 0) {
+						if (GT.compareTo("./.") == 0 && impute.compareTo("true") == 0) {
 							GT = genotipo.split(":")[0];
 							
 							//System.out.println(genotipo);
@@ -446,7 +446,7 @@ public class VcfToStructure2 {
 	}
 	
 	public static void main(String[] args) throws IOException {
-		VcfToStructure2 vcftosctructure = new VcfToStructure2();
+		VcfToStructure vcftosctructure = new VcfToStructure();
 		//vcftosctructure.vcfconverTostructure("/home/estuvar4/Downloads/tmp.vcf",10, "");
 		vcftosctructure.vcfconverTostructureAlleles("/Users/estuvar4/Downloads/tmp.vcf", 10, "dosage", "false");
 		vcftosctructure.printMatrixTranspuesta();

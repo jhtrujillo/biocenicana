@@ -21,7 +21,7 @@ import ngsep.vcf.VCFDistanceMatrixCalculator;
 import ngsep.vcf.VCFFileReader;
 import ngsep.vcf.VCFRecord;
 
-public class GeneDosisRapidGenomicVCF {
+public class RapidGenomicAlleleDosage {
 	
 	DecimalFormat df = new DecimalFormat("#.0"); // Dejo las dosis a un solo decimal. 
 	
@@ -43,7 +43,7 @@ public class GeneDosisRapidGenomicVCF {
 	}
 
 
-	public void genDosisAlelicas(String vcfFile, int ploidy) throws IOException {
+	public void computeAlleleDosage(String vcfFile, int ploidy) throws IOException {
 		FileUtils ar = new FileUtils();
 
 		String[] datos = ar.leerfichero2(vcfFile);
@@ -134,10 +134,10 @@ public class GeneDosisRapidGenomicVCF {
 	}
 
 	public static void main(String[] args) throws IOException {
-		GeneDosisRapidGenomicVCF dosiscgene = new GeneDosisRapidGenomicVCF();
-		dosiscgene.genDosisAlelicas(
+		RapidGenomicAlleleDosage dosiscgene = new RapidGenomicAlleleDosage();
+		dosiscgene.computeAlleleDosage(
 			"/home/estuvar4/Downloads/tmp.vcf",
-			10); // imputar usando el bdsp, quedan -1 si ambos alelos estan
+			10); // impute usando el bdsp, quedan -1 si ambos alelos estan
 
 	}
 

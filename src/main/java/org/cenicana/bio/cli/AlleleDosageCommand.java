@@ -1,6 +1,6 @@
 package org.cenicana.bio.cli;
 
-import org.cenicana.bio.GeneDosis;
+import org.cenicana.bio.AlleleDosageCalculator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ITypeConverter;
@@ -107,8 +107,8 @@ public class AlleleDosageCommand implements Callable<Integer> {
 	@Override
 	public Integer call() throws Exception {
 		try {
-			GeneDosis dosiscgene = new GeneDosis();
-			dosiscgene.genDosisAlelicas(vcfFile, ploidy, impute.toInternalKey(), false, caller.toString());
+			AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
+			dosiscgene.computeAlleleDosage(vcfFile, ploidy, impute.toInternalKey(), false, caller.toString());
 			return 0;
 		} catch (Exception e) {
 			System.err.println("Error running allele-dosage: " + e.getMessage());

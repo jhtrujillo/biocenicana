@@ -1,6 +1,6 @@
 package org.cenicana.bio;
 
-public class VcfToTabTargeted {
+public class TargetedVcfToTab {
 
 	public void vcfToTab(String PathFile) {
 		FileUtils ar = new FileUtils();
@@ -68,7 +68,7 @@ public class VcfToTabTargeted {
 	/*
 	public static void main(String[] args) {
 		String vcfFile = "/home/estuvar4/eclipse-workspace/ensamblaje/files/CEN_132101_FreeBayes_SNPs_Raw.vcf";
-		VcfToTabTargeted vcttotab = new VcfToTabTargeted();
+		TargetedVcfToTab vcttotab = new TargetedVcfToTab();
 		vcttotab.vcfToTab(vcfFile);
 	}*/
 
