@@ -1,4 +1,4 @@
-package huellamolecular;
+package org.cenicana.bio;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
@@ -47,7 +47,7 @@ public class GeneDosis {
 	 */
 	public void genDosisAlelicas(String vcfFile, int ploidy, String imputar, boolean storeInMemory, String callerType) throws IOException {
 
-		String[] sampleIds = huellamolecular.io.VcfFastReader.getSampleIds(vcfFile);
+		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
 		numGenotypes = sampleIds.length;
 
 		StringBuilder headerBuilder = new StringBuilder("Chr\tpos\t");
@@ -69,7 +69,7 @@ public class GeneDosis {
 			ploidyLevels[y] = (1.0f / n) * y;
 		}
 
-		Iterable<String[]> blockIterator = huellamolecular.io.VcfFastReader.iterateDataBlocks(vcfFile);
+		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 
 		for (String[] columns : blockIterator) {
 			Hashtable<Float, Integer> modaDosisalelicas = new Hashtable<Float, Integer>();
