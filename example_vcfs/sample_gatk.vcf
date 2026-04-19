@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##source=GATK
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1	Sample2	Sample3
+Chr1	1000	.	A	G	.	.	.	GT:AD	0/1:35,15	1/1:0,50	0/0:40,0
+Chr1	2000	.	C	T	.	.	.	GT:AD	0/1:25,25	./.:.,.	0/0:48,2
