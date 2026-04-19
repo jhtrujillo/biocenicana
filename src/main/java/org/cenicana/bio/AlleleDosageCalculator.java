@@ -226,6 +226,47 @@ public class AlleleDosageCalculator {
 		}
 	}
 
+	// ── Public API: Distance Matrix ────────────────────────────────────────────
+
+	/**
+	 * Computes the N x N genetic distance matrix between all samples and prints it
+	 * as a TSV matrix to stdout.
+	 */
+	public void computeAndPrintDistanceMatrix(String vcfFile, int ploidy, String callerType, 
+			int minDepth, boolean adaptiveRounding) throws IOException {
+		
+		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
+		int numG = sampleIds.length;
+		
+		int n = Math.max(ploidy, 2);
+		float[] ploidyLevels = new float[n + 1];
+		for (int y = 0; y <= n; y++) {
+			ploidyLevels[y] = (1.0f / n) * y;
+		}
+		
+		float[][] distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numG, adaptiveRounding);
+		
+		// Print Header
+		System.out.print("Sample\t");
+		for (int i = 0; i < numG; i++) {
+			System.out.print(sampleIds[i] + (i == numG - 1 ? "" : "\t"));
+		}
+		System.out.println();
+		
+		// Print Matrix
+		for (int i = 0; i < numG; i++) {
+			System.out.print(sampleIds[i] + "\t");
+			for (int j = 0; j < numG; j++) {
+				if (distanceMatrix[i][j] == Float.MAX_VALUE) {
+					System.out.print("NA" + (j == numG - 1 ? "" : "\t"));
+				} else {
+					System.out.print(df.format(distanceMatrix[i][j]) + (j == numG - 1 ? "" : "\t"));
+				}
+			}
+			System.out.println();
+		}
+	}
+
 	// ── Phase 3 Helpers: Adaptive Rounding via 1D K-Means Clustering ───────────
 
 	/**
