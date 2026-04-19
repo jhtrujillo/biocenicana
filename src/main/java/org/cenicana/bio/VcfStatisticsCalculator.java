@@ -13,7 +13,7 @@ import org.cenicana.bio.io.VcfFastReader;
 /**
  * Streaming VCF statistics calculator.
  * Level 1: Ts/Tv, MAF, Missingness, Depth, OH, F-statistic, EH, Density per chromosome.
- * Level 2: HWE chi-square, AN distribution, Tajima's D, pairwise Fst (if population file provided).
+ * Level 2: HWE chi-square & Fisher Exact Test, AN distribution, Tajima's D, pairwise Fst.
  */
 public class VcfStatisticsCalculator {
 
@@ -28,6 +28,12 @@ public class VcfStatisticsCalculator {
 	public int[]    sampleMissingCount;    // # missing genotypes per sample
 	public int[]    sampleGenotypedCount;  // # valid (non-missing) genotypes per sample
 	public int[]    sampleHetCount;        // # heterozygous genotypes per sample
+	public int[]    sampleHomoRefCount;    // # homozygous reference genotypes
+	public int[]    sampleHomoAltCount;    // # homozygous alternative genotypes
+	public int[]    sampleNonRefCount;     // # any genotype with >=1 alt allele
+	public int[]    sampleTsCount;         // # transitions in this sample
+	public int[]    sampleTvCount;         // # transversions in this sample
+	public int[]    sampleRareAlleleCount; // # rare alleles (MAF < 0.05) in this sample
 	public long[]   sampleTotalDepth;      // sum of DP values per sample
 	public int[]    sampleDepthCount;      // # genotypes that had a DP value
 
@@ -45,17 +51,17 @@ public class VcfStatisticsCalculator {
 
 	// ── Histograms ────────────────────────────────────────────────────────────
 	public int[] siteMissingnessHistogram = new int[10]; // 0-10% ... 90-100%
-	public int[] mafHistogram             = new int[10]; // 0-0.05 ... 0.45-0.50
+	public int[] mafHistogram             = new int[50]; // 0-0.01 ... 0.49-0.50 (50 bins)
 	public int[] ehHistogram              = new int[10]; // 0.0-0.1 ... 0.9-1.0
 
 	// ════════════════════════════════════════════════════════════════════════
 	// LEVEL 2 fields
 	// ════════════════════════════════════════════════════════════════════════
 
-	// ── HWE Chi-square (biallelic diploid SNPs only) ─────────────────────────
+	// ── HWE (biallelic diploid SNPs only) ────────────────────────────────────
 	// bins: [0-2), [2-3.84), [3.84-7), [7-10), [10+)
 	public int[]  hweChiSqHistogram  = new int[5];
-	public int    numHweViolations   = 0;  // sites with chi2 > 3.84 (p < 0.05, 1 df)
+	public int    numHweViolations   = 0;  // sites with p < 0.05 (from Fisher exact test)
 	public int    numHweTested       = 0;  // biallelic diploid SNPs with enough data
 	public double meanChiSq          = 0;
 	private double chiSqSum          = 0;
@@ -75,7 +81,6 @@ public class VcfStatisticsCalculator {
 	private int    tajimaSiteCount       = 0; // sites used for Tajima's
 
 	// ── Fst between populations (optional) ───────────────────────────────────
-	// Set via loadPopulationMap() before calling calculate()
 	private Map<String, Integer> samplePopIndex = null; // sample name → pop index
 	public  String[]             populationNames = null;
 	public  double[][]           pairwiseFst    = null; // [pop_i][pop_j] mean Fst
@@ -112,16 +117,22 @@ public class VcfStatisticsCalculator {
 		sampleNames = VcfFastReader.getSampleIds(vcfFile);
 		int numSamples = sampleNames.length;
 
-		sampleMissingCount   = new int[numSamples];
-		sampleGenotypedCount = new int[numSamples];
-		sampleHetCount       = new int[numSamples];
-		sampleTotalDepth     = new long[numSamples];
-		sampleDepthCount     = new int[numSamples];
+		sampleMissingCount    = new int[numSamples];
+		sampleGenotypedCount  = new int[numSamples];
+		sampleHetCount        = new int[numSamples];
+		sampleHomoRefCount    = new int[numSamples];
+		sampleHomoAltCount    = new int[numSamples];
+		sampleNonRefCount     = new int[numSamples];
+		sampleTsCount         = new int[numSamples];
+		sampleTvCount         = new int[numSamples];
+		sampleRareAlleleCount = new int[numSamples];
+		sampleTotalDepth      = new long[numSamples];
+		sampleDepthCount      = new int[numSamples];
 
-		// Build sample→pop index array (parallel to sampleNames)
+		// Build sample→pop index array
 		int[] samplePopIdx = null;
 		int   numPops      = 0;
-		double[][][] fstAccum = null; // [popI][popJ][0=htSum, 1=hsSum, 2=count]
+		double[][][] fstAccum = null;
 		if (samplePopIndex != null && populationNames != null) {
 			numPops      = populationNames.length;
 			samplePopIdx = new int[numSamples];
@@ -134,6 +145,8 @@ public class VcfStatisticsCalculator {
 
 		try (BufferedReader br = new BufferedReader(new FileReader(vcfFile))) {
 			String line;
+			int[][] parsedGenotypes = new int[numSamples][]; // Temp array for 2-pass per site
+
 			while ((line = br.readLine()) != null) {
 				if (line.startsWith("#")) continue;
 
@@ -144,91 +157,92 @@ public class VcfStatisticsCalculator {
 				String ref   = cols[3];
 				String alt   = cols[4];
 
-				// ── AN: count distinct alleles ────────────────────────────────
 				String[] altAllelesList = alt.equals(".") ? new String[0] : alt.split(",");
+				int numAllelesAtSite = 1 + altAllelesList.length;
+
 				if (altAllelesList.length == 0) numMonomorphic++;
 				else if (altAllelesList.length == 1) numBiallelic++;
 				else numMultiallelic++;
 
-				// ── Variant type (SNP vs InDel) ───────────────────────────────
 				boolean isBiallelicSnp = ref.length() == 1
 					&& altAllelesList.length == 1
 					&& altAllelesList[0].length() == 1
 					&& !alt.equals(".");
+				boolean isTransition = isBiallelicSnp && isTransition(ref, altAllelesList[0]);
 
 				if (isBiallelicSnp) {
 					numSnps++;
-					if (isTransition(ref, altAllelesList[0])) numTransitions++;
-					else                                        numTransversions++;
+					if (isTransition) numTransitions++;
+					else              numTransversions++;
 				} else {
 					numIndels++;
 				}
 
-				// ── Chromosome density ────────────────────────────────────────
 				variantsPerChromosome.merge(chrom, 1, Integer::sum);
 
-				// ── Format index lookup ───────────────────────────────────────
 				String[] fmt  = cols[8].split(":");
 				int depthIdx  = -1;
 				for (int i = 0; i < fmt.length; i++) {
 					if (fmt[i].equals("BSDP") || fmt[i].equals("DP")) { depthIdx = i; break; }
 				}
 
-				// ── Per-site allele counters ──────────────────────────────────
-				int siteMissing  = 0;
-				int totalAlleles = 0;
-				int refAlleles   = 0;
-				int altAllelesCount = 0;
-
-				// HWE: diploid genotype counts at this site (biallelic SNPs only)
-				int n00 = 0, n01 = 0, n11 = 0;
-
-				// Per-population allele counts [popIdx][ref=0/alt=1]
+				// PASS 1: Parse alleles & counts
+				int siteMissing = 0;
+				int totalGenotypedAlleles = 0;
+				int[] siteAlleleCounts = new int[numAllelesAtSite];
+				int n00 = 0, n01 = 0, n11 = 0; // HWE stats
 				int[][] popAlleles = (samplePopIdx != null) ? new int[numPops][2] : null;
 
-				// ── Genotype loop ─────────────────────────────────────────────
 				for (int i = 0; i < numSamples; i++) {
+					parsedGenotypes[i] = null;
 					String gData = cols[9 + i];
 					String gt    = gData.split(":")[0];
 
 					if (gt.equals(".") || gt.startsWith("./.") || gt.startsWith("./")) {
-						sampleMissingCount[i]++;
 						siteMissing++;
-						continue;
-					}
+					} else {
+						String[] alleles = gt.split("[/|]");
+						int[] numericAlleles = new int[alleles.length];
+						boolean valid = true;
+						for (int aIdx = 0; aIdx < alleles.length; aIdx++) {
+							if (alleles[aIdx].equals(".")) {
+								valid = false;
+								break;
+							}
+							try {
+								numericAlleles[aIdx] = Integer.parseInt(alleles[aIdx]);
+								if (numericAlleles[aIdx] >= numAllelesAtSite) valid = false; // invalid VCF GT
+							} catch (NumberFormatException e) {
+								valid = false;
+							}
+						}
 
-					sampleGenotypedCount[i]++;
+						if (valid) {
+							parsedGenotypes[i] = numericAlleles;
+							sampleGenotypedCount[i]++;
+							for (int a : numericAlleles) {
+								siteAlleleCounts[a]++;
+								totalGenotypedAlleles++;
+							}
 
-					String[] alleles = gt.split("[/|]");
-					boolean hasRef = false, hasAlt = false;
-					for (String a : alleles) {
-						if (a.equals(".")) continue;
-						totalAlleles++;
-						if (a.equals("0")) { refAlleles++; hasRef = true; }
-						else               { altAllelesCount++; hasAlt = true; }
-					}
-					if (hasRef && hasAlt) sampleHetCount[i]++;
+							// HWE counts (diploid biallelic)
+							if (isBiallelicSnp && numericAlleles.length == 2) {
+								if (numericAlleles[0] == 0 && numericAlleles[1] == 0) n00++;
+								else if (numericAlleles[0] == 1 && numericAlleles[1] == 1) n11++;
+								else n01++;
+							}
 
-					// HWE diploid genotype classification (only for biallelic SNPs)
-					if (isBiallelicSnp && alleles.length == 2) {
-						boolean a0ref = alleles[0].equals("0");
-						boolean a1ref = alleles[1].equals("0");
-						if (a0ref && a1ref)       n00++;
-						else if (!a0ref && !a1ref) n11++;
-						else                       n01++;
-					}
-
-					// Population allele counts
-					if (popAlleles != null && samplePopIdx[i] >= 0) {
-						int pidx = samplePopIdx[i];
-						for (String a : alleles) {
-							if (a.equals(".")) continue;
-							if (a.equals("0")) popAlleles[pidx][0]++;
-							else               popAlleles[pidx][1]++;
+							// Pop allele counts (biallelic only)
+							if (popAlleles != null && samplePopIdx[i] >= 0 && isBiallelicSnp) {
+								for (int a : numericAlleles) {
+									popAlleles[samplePopIdx[i]][a]++;
+								}
+							}
+						} else {
+							siteMissing++; // fallback to missing
 						}
 					}
 
-					// ── Depth ─────────────────────────────────────────────────
 					if (depthIdx != -1) {
 						String[] sf = gData.split(":");
 						if (sf.length > depthIdx && !sf[depthIdx].equals(".")) {
@@ -247,68 +261,129 @@ public class VcfStatisticsCalculator {
 					}
 				}
 
-				// ── Site missingness histogram ─────────────────────────────────
+				// Site missingness
 				double missFreq = (double) siteMissing / numSamples;
 				siteMissingnessHistogram[Math.min((int)(missFreq * 10), 9)]++;
 
-				if (totalAlleles > 0) {
-					double altFreq = (double) altAllelesCount / totalAlleles;
-					double maf     = Math.min(altFreq, 1.0 - altFreq);
-
-					// MAF histogram
-					mafHistogram[Math.min((int)(maf / 0.05), 9)]++;
-
-					// EH = 2pq
-					double p  = (double) refAlleles / totalAlleles;
-					double q  = 1.0 - p;
-					double eh = 2.0 * p * q;
+				if (totalGenotypedAlleles > 0) {
+					// Expected Heterozygosity: 1 - sum(pi^2) (Handles multiallelic accurately like NGSEP)
+					double sumSqFreqs = 0;
+					int minAc = Integer.MAX_VALUE;
+					int minAcIdx = -1;
+					for (int j = 0; j < siteAlleleCounts.length; j++) {
+						int c = siteAlleleCounts[j];
+						if (c > 0) {
+							double freq = (double) c / totalGenotypedAlleles;
+							sumSqFreqs += freq * freq;
+							if (c < minAc) {
+								minAc = c;
+								minAcIdx = j;
+							}
+						}
+					}
+					double eh = 1.0 - sumSqFreqs;
 					ehSum += eh;
 					ehCount++;
 					ehHistogram[Math.min((int)(eh * 10), 9)]++;
 
-					// ── Tajima's D accumulation (biallelic only) ───────────────
-					if (isBiallelicSnp && refAlleles > 0 && altAllelesCount > 0) {
+					// MAF
+					double maf = (double) minAc / totalGenotypedAlleles;
+					mafHistogram[Math.min((int)(maf * 100), 49)]++; // 50 bins
+
+					// PASS 2: Per-sample metrics using MAF & exact genotypes
+					for (int i = 0; i < numSamples; i++) {
+						int[] gt = parsedGenotypes[i];
+						if (gt == null) {
+							sampleMissingCount[i]++;
+							continue;
+						}
+
+						boolean isHet = false;
+						boolean hasRef = false;
+						boolean hasAlt = false;
+						boolean hasRare = false;
+
+						for (int a : gt) {
+							if (a == 0) hasRef = true;
+							else hasAlt = true;
+							if (a == minAcIdx && maf < 0.05) hasRare = true;
+						}
+
+						// Check if all alleles are the same
+						for (int j = 1; j < gt.length; j++) {
+							if (gt[j] != gt[0]) {
+								isHet = true;
+								break;
+							}
+						}
+
+						if (isHet) sampleHetCount[i]++;
+						else {
+							if (hasRef) sampleHomoRefCount[i]++;
+							if (hasAlt) sampleHomoAltCount[i]++;
+						}
+
+						if (hasAlt) sampleNonRefCount[i]++;
+						if (hasRare) sampleRareAlleleCount[i]++;
+
+						// Ts/Tv per sample (for biallelic SNPs)
+						if (isBiallelicSnp && hasAlt) {
+							if (isTransition) sampleTsCount[i]++;
+							else              sampleTvCount[i]++;
+						}
+					}
+
+					// Tajima's D
+					if (isBiallelicSnp && siteAlleleCounts[0] > 0 && siteAlleleCounts[1] > 0) {
 						numSegSites++;
-						int n = totalAlleles;
+						int n = totalGenotypedAlleles;
 						if (n > 1) {
-							// pi_i = (n_ref * n_alt) / C(n, 2)
-							double pi_i = (double)(refAlleles * altAllelesCount) / (n * (n - 1.0) / 2.0);
+							double pi_i = (double)(siteAlleleCounts[0] * siteAlleleCounts[1]) / (n * (n - 1.0) / 2.0);
 							piPerSiteSum += pi_i;
 							totalAllelesForTajima += n;
 							tajimaSiteCount++;
 						}
 					}
-				}
-
-				// ── HWE chi-square (biallelic diploid SNPs) ────────────────────
-				if (isBiallelicSnp) {
-					int nDip = n00 + n01 + n11;
-					if (nDip >= 5) {
-						double pHwe = (2.0 * n00 + n01) / (2.0 * nDip);
-						double qHwe = 1.0 - pHwe;
-						double e00  = pHwe * pHwe * nDip;
-						double e01  = 2.0 * pHwe * qHwe * nDip;
-						double e11  = qHwe * qHwe * nDip;
-						if (e00 >= 1.0 && e01 >= 1.0 && e11 >= 1.0) {
-							double chi2 = (n00 - e00)*(n00 - e00)/e00
-								+ (n01 - e01)*(n01 - e01)/e01
-								+ (n11 - e11)*(n11 - e11)/e11;
-							numHweTested++;
-							chiSqSum += chi2;
-							if (chi2 > 3.84) numHweViolations++;
-							// bins: 0-2, 2-3.84, 3.84-7, 7-10, >10
-							if      (chi2 < 2.0)    hweChiSqHistogram[0]++;
-							else if (chi2 < 3.84)   hweChiSqHistogram[1]++;
-							else if (chi2 < 7.0)    hweChiSqHistogram[2]++;
-							else if (chi2 < 10.0)   hweChiSqHistogram[3]++;
-							else                    hweChiSqHistogram[4]++;
-						}
+				} else {
+					for (int i = 0; i < numSamples; i++) {
+						if (parsedGenotypes[i] == null) sampleMissingCount[i]++;
 					}
 				}
 
-				// ── Fst accumulation ───────────────────────────────────────────
+				// HWE chi-square & Fisher Exact Test (biallelic diploid SNPs)
+				if (isBiallelicSnp) {
+					int nDip = n00 + n01 + n11;
+					if (nDip >= 5) { // NGSEP uses > 3
+						double pHwe = (2.0 * n00 + n01) / (2.0 * nDip);
+						double qHwe = 1.0 - pHwe;
+
+						// Clamping expected homozyogtes to avoid div-by-zero (like NGSEP)
+						double e00 = Math.max(1.0, Math.min(nDip - 2.0, pHwe * pHwe * nDip));
+						double e11 = Math.max(1.0, Math.min(nDip - 1.0 - e00, qHwe * qHwe * nDip));
+						double e01 = Math.max(1.0, nDip - e00 - e11);
+
+						double chi2 = (n00 - e00)*(n00 - e00)/e00
+							+ (n01 - e01)*(n01 - e01)/e01
+							+ (n11 - e11)*(n11 - e11)/e11;
+
+						numHweTested++;
+						chiSqSum += chi2;
+
+						// Bins for histogram
+						if      (chi2 < 2.0)    hweChiSqHistogram[0]++;
+						else if (chi2 < 3.84)   hweChiSqHistogram[1]++;
+						else if (chi2 < 7.0)    hweChiSqHistogram[2]++;
+						else if (chi2 < 10.0)   hweChiSqHistogram[3]++;
+						else                    hweChiSqHistogram[4]++;
+
+						// Calculate Fisher exact test for P-value (like Wigginton 2005 / NGSEP)
+						double fisherPValue = calculateHweFisherExactTest(n00, n01, n11);
+						if (fisherPValue < 0.05) numHweViolations++;
+					}
+				}
+
+				// Fst
 				if (popAlleles != null && isBiallelicSnp) {
-					// Total allele freq
 					int totRef = 0, totAlt = 0;
 					for (int pi = 0; pi < numPops; pi++) {
 						totRef += popAlleles[pi][0];
@@ -352,8 +427,7 @@ public class VcfStatisticsCalculator {
 
 		// ── Tajima's D ────────────────────────────────────────────────────────
 		if (tajimaSiteCount > 0 && numSegSites > 1) {
-			piHat = piPerSiteSum; // sum of per-site π_i (not divided by L)
-			// Effective n (average haploid sequences across segregating sites)
+			piHat = piPerSiteSum;
 			int nEff = (int) Math.round((double) totalAllelesForTajima / tajimaSiteCount);
 			if (nEff >= 2) {
 				int S = numSegSites;
@@ -386,11 +460,54 @@ public class VcfStatisticsCalculator {
 						double meanHt = fstAccum[pi][pj][0] / count;
 						double meanHs = fstAccum[pi][pj][1] / count;
 						pairwiseFst[pi][pj] = meanHt > 0 ? (meanHt - meanHs) / meanHt : 0;
-						pairwiseFst[pj][pi] = pairwiseFst[pi][pj]; // symmetric
+						pairwiseFst[pj][pi] = pairwiseFst[pi][pj];
 					}
 				}
 			}
 		}
+	}
+
+	// ── Fisher Exact Test for HWE (Wigginton et al. 2005) ────────────────────
+	private double calculateHweFisherExactTest(int obsHom1, int obsHet, int obsHom2) {
+		int n = obsHom1 + obsHet + obsHom2;
+		int nA = 2 * obsHom1 + obsHet;
+		int nB = 2 * obsHom2 + obsHet;
+
+		int minorAlleleCount = Math.min(nA, nB);
+		int majorAlleleCount = Math.max(nA, nB);
+
+		int minHet = minorAlleleCount % 2;
+		int maxHet = minorAlleleCount;
+
+		double[] probs = new double[maxHet + 1];
+
+		double[] logFacs = new double[n * 2 + 1];
+		for (int i = 1; i <= n * 2; i++) logFacs[i] = logFacs[i - 1] + Math.log(i);
+
+		double maxLogProb = -Double.MAX_VALUE;
+		for (int h = minHet; h <= maxHet; h += 2) {
+			int h1 = (minorAlleleCount - h) / 2;
+			int h2 = n - h - h1;
+			double logP = logFacs[n] + logFacs[minorAlleleCount] + logFacs[majorAlleleCount]
+				- logFacs[2 * n] - logFacs[h1] - logFacs[h] - logFacs[h2] + h * Math.log(2.0);
+			probs[h] = logP;
+			if (logP > maxLogProb) maxLogProb = logP;
+		}
+
+		double sum = 0.0;
+		for (int h = minHet; h <= maxHet; h += 2) {
+			probs[h] = Math.exp(probs[h] - maxLogProb);
+			sum += probs[h];
+		}
+
+		double pValue = 0.0;
+		double obsProb = probs[obsHet];
+		for (int h = minHet; h <= maxHet; h += 2) {
+			if (probs[h] <= obsProb + 1e-9) {
+				pValue += probs[h] / sum;
+			}
+		}
+		return Math.min(1.0, pValue);
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

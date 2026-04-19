@@ -83,20 +83,28 @@ public class TsvStatsExporter {
 			w.println("#");
 
 			// ── SECTION 5: Per-sample table ───────────────────────────────────
-			w.println("SAMPLE_ID\tAVG_DEPTH\tMISSING_COUNT\tMISSING_RATE_PCT\tGENOTYPED_COUNT\tHET_COUNT\tOBS_HET\tF_STATISTIC");
+			w.println("SAMPLE_ID\tAVG_DEPTH\tMISSING_COUNT\tMISSING_RATE_PCT\tGENOTYPED_COUNT\tHOMO_REF_COUNT\tHOMO_ALT_COUNT\tHET_COUNT\tNON_REF_COUNT\tRARE_ALLELE_COUNT\tTS_COUNT\tTV_COUNT\tTS_TV_RATIO\tOBS_HET\tF_STATISTIC");
 
 			for (int i = 0; i < stats.sampleNames.length; i++) {
 				double avgDepth = stats.sampleDepthCount[i] == 0 ? 0.0
 					: (double) stats.sampleTotalDepth[i] / stats.sampleDepthCount[i];
 				double missingPct = ((double) stats.sampleMissingCount[i] / numVariants) * 100.0;
+				double sampleTsTv = stats.sampleTvCount[i] == 0 ? 0.0 : (double) stats.sampleTsCount[i] / stats.sampleTvCount[i];
 
-				w.printf("%s\t%.2f\t%d\t%.2f\t%d\t%d\t%.4f\t%.4f%n",
+				w.printf("%s\t%.2f\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.3f\t%.4f\t%.4f%n",
 					stats.sampleNames[i],
 					avgDepth,
 					stats.sampleMissingCount[i],
 					missingPct,
 					stats.sampleGenotypedCount[i],
+					stats.sampleHomoRefCount[i],
+					stats.sampleHomoAltCount[i],
 					stats.sampleHetCount[i],
+					stats.sampleNonRefCount[i],
+					stats.sampleRareAlleleCount[i],
+					stats.sampleTsCount[i],
+					stats.sampleTvCount[i],
+					sampleTsTv,
 					stats.sampleObsHet[i],
 					stats.sampleFstat[i]);
 			}

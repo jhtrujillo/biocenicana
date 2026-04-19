@@ -158,7 +158,7 @@ public class HtmlDashboardGenerator {
 			// ── Section 3: Level 2 ────────────────────────────────────────────
 			w.println("<div class='section'>🧪 Advanced Population Genetics (Level 2)</div>");
 			w.println("<div class='grid'>");
-			w.println("<div class='card'><h3>HWE Chi-square Distribution (p&lt;0.05 threshold: chi² > 3.84)</h3><div id='c-hwe'></div></div>");
+			w.println("<div class='card'><h3>HWE Chi-square Distribution & Exact Test (Fisher p&lt;0.05)</h3><div id='c-hwe'></div></div>");
 			w.println("<div class='card'><h3>AN – Allele Number per Site</h3><div id='c-an'></div></div>");
 			if (hasFst) {
 				w.println("<div class='card full'><h3>Pairwise Fst Between Populations</h3><div id='c-fst'></div></div>");
@@ -206,9 +206,9 @@ public class HtmlDashboardGenerator {
 			w.println("annotations:ann('Mean F: '+fs.mean+'<br>SD: '+fs.sd)},cfg)})();");
 
 			// ── Chart 5: MAF histogram
-			w.println("(()=>{var mafL=['0-0.05','0.05-0.1','0.1-0.15','0.15-0.2','0.2-0.25','0.25-0.3','0.3-0.35','0.35-0.4','0.4-0.45','0.45-0.5'];");
+			w.println("(()=>{var mafL=[]; for(var i=0; i<50; i++) mafL.push((i*0.01).toFixed(2)+'-'+((i+1)*0.01).toFixed(2));");
 			w.println("Plotly.newPlot('c-maf',[{x:mafL,y:" + mafJs + ",type:'bar',marker:{color:'#10b981'}}],");
-			w.println("{xaxis:{title:'Minor Allele Frequency (MAF)',tickangle:-45},yaxis:{title:'Number of Variants'}},cfg)})();");
+			w.println("{xaxis:{title:'Minor Allele Frequency (MAF)',tickangle:-45,nticks:10},yaxis:{title:'Number of Variants'}},cfg)})();");
 
 			// ── Chart 6: EH histogram
 			w.println("(()=>{var ehL=['0-0.1','0.1-0.2','0.2-0.3','0.3-0.4','0.4-0.5','0.5-0.6','0.6-0.7','0.7-0.8','0.8-0.9','0.9-1.0'];");
