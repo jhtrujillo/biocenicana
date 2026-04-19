@@ -205,9 +205,9 @@ public class LinkageDisequilibriumCalculator {
 
             System.out.println("[LD] Maximum Average R2 (Baseline): " + String.format(java.util.Locale.US, "%.4f", maxR2));
             if (halfDecayDistanceBp != -1) {
-                System.out.println("[LD] Estimated Half-Decay Distance (R2 drops below " + String.format(java.util.Locale.US, "%.4f", thresholdR2) + "): ~" + halfDecayDistanceBp + " bp");
+                System.out.println("[LD] Observed Half-Decay  (from binned data):  ~" + halfDecayDistanceBp + " bp  (R2 drops below " + String.format(java.util.Locale.US, "%.4f", thresholdR2) + ")");
             } else {
-                System.out.println("[LD] Estimated Half-Decay Distance: Not reached within " + maxDistanceBp + " bp. Consider increasing window size.");
+                System.out.println("[LD] Observed Half-Decay Distance: Not reached within " + maxDistanceBp + " bp. Consider increasing window size.");
             }
 
             if (generateHtml) {

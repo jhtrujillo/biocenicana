@@ -11,6 +11,8 @@ public class CurveFitter {
     public double r2;
     public double[] fitX;
     public double[] fitY;
+    /** Half-decay distance computed analytically from the fitted model equation. -1 if not computable. */
+    public long analyticalHalfDecay = -1;
 
     /** Entry point: given raw binned data, try all models and return the best. */
     public static CurveFitter selectBest(double[] xd, double[] yd, int numPoints) {
@@ -47,7 +49,9 @@ public class CurveFitter {
                 for (int i = 0; i <= numPoints; i++) fy[i] = clamp(a * Math.exp(-b * evalX[i]));
                 double r2 = computeR2(xd, yd, ssTot, d -> a * Math.exp(-b * d));
                 String eq = String.format(java.util.Locale.US, "r&sup2; = %.4f &times; e<sup>&minus;%.3e &times; d</sup>", a, b);
-                best = keep(best, "Exponential", eq, r2, evalX, fy);
+                // Analytical half-decay: a*exp(-b*d) = a/2 → d = ln(2)/b
+                long hd = b > 0 ? Math.round(Math.log(2) / b) : -1L;
+                best = keep(best, "Exponential", eq, r2, evalX, fy, hd);
             }
         }
 
@@ -70,7 +74,9 @@ public class CurveFitter {
                     fy[i] = evalX[i] > 0 ? clamp(a * Math.pow(evalX[i], -b)) : clamp(a);
                 double r2 = computeR2(xd, yd, ssTot, d -> d > 0 ? a * Math.pow(d, -b) : a);
                 String eq = String.format(java.util.Locale.US, "r&sup2; = %.4f &times; d<sup>&minus;%.4f</sup>", a, b);
-                best = keep(best, "Power Law", eq, r2, evalX, fy);
+                // Analytical half-decay: a*d^(-b) = a/2 → d = 2^(1/b)
+                long hd = b > 0 ? Math.round(Math.pow(2, 1.0 / b)) : -1L;
+                best = keep(best, "Power Law", eq, r2, evalX, fy, hd);
             }
         }
 
@@ -94,7 +100,9 @@ public class CurveFitter {
                 for (int i = 0; i <= numPoints; i++) fy[i] = clamp(c / (1 + b * evalX[i]));
                 double r2 = computeR2(xd, yd, ssTot, d -> c / (1 + b * d));
                 String eq = String.format(java.util.Locale.US, "r&sup2; = %.4f / (1 + %.3e &times; d)", c, b);
-                best = keep(best, "Hyperbolic", eq, r2, evalX, fy);
+                // Analytical half-decay: c/(1+b*d) = c/2 → d = 1/b
+                long hd = b > 0 ? Math.round(1.0 / b) : -1L;
+                best = keep(best, "Hyperbolic", eq, r2, evalX, fy, hd);
             }
         }
 
@@ -114,7 +122,10 @@ public class CurveFitter {
                 });
                 double b1 = cf[1] / maxX, b2 = cf[2] / (maxX * maxX);
                 String eq = String.format(java.util.Locale.US, "r&sup2; = %.4f + %.3e&thinsp;d + %.3e&thinsp;d&sup2;", cf[0], b1, b2);
-                best = keep(best, "Polynomial (degree 2)", eq, r2, evalX, fy);
+                // Half-decay for poly-2: binary search on the fitted curve
+                double r2max_p2 = cf[0]; // approx at d=0
+                long hd = binarySearchHalfDecay(d -> { double ti=d/maxX; return cf[0]+cf[1]*ti+cf[2]*ti*ti; }, r2max_p2, maxX);
+                best = keep(best, "Polynomial (degree 2)", eq, r2, evalX, fy, hd);
             }
         }
 
@@ -134,7 +145,9 @@ public class CurveFitter {
                 });
                 double b1 = cf[1]/maxX, b2 = cf[2]/(maxX*maxX), b3 = cf[3]/(maxX*maxX*maxX);
                 String eq = String.format(java.util.Locale.US, "r&sup2; = %.4f + %.3e&thinsp;d + %.3e&thinsp;d&sup2; + %.3e&thinsp;d&sup3;", cf[0], b1, b2, b3);
-                best = keep(best, "Polynomial (degree 3)", eq, r2, evalX, fy);
+                double r2max_p3 = cf[0];
+                long hd = binarySearchHalfDecay(d -> { double ti=d/maxX; return cf[0]+cf[1]*ti+cf[2]*ti*ti+cf[3]*ti*ti*ti; }, r2max_p3, maxX);
+                best = keep(best, "Polynomial (degree 3)", eq, r2, evalX, fy, hd);
             }
         }
 
@@ -143,13 +156,26 @@ public class CurveFitter {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static CurveFitter keep(CurveFitter best, String name, String eq, double r2, double[] fx, double[] fy) {
+    private static CurveFitter keep(CurveFitter best, String name, String eq, double r2, double[] fx, double[] fy, long analyticalHd) {
         if (best == null || r2 > best.r2) {
             CurveFitter c = new CurveFitter();
             c.name = name; c.equation = eq; c.r2 = r2; c.fitX = fx; c.fitY = fy;
+            c.analyticalHalfDecay = analyticalHd;
             return c;
         }
         return best;
+    }
+
+    /** Binary search for the distance where predict(d) drops to target/2. */
+    private static long binarySearchHalfDecay(Predict pred, double r2AtZero, double maxX) {
+        double target = r2AtZero / 2.0;
+        double lo = 0, hi = maxX;
+        for (int i = 0; i < 60; i++) {
+            double mid = (lo + hi) / 2.0;
+            if (pred.predict(mid) > target) lo = mid; else hi = mid;
+        }
+        double result = (lo + hi) / 2.0;
+        return result > 0 && result < maxX ? Math.round(result) : -1L;
     }
 
     @FunctionalInterface
