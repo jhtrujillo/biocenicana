@@ -9,19 +9,26 @@ import org.cenicana.bio.io.HtmlDashboardGenerator;
 import org.cenicana.bio.io.TsvStatsExporter;
 
 @Command(name = "vcf-stats",
-	description = "Generates a HTML dashboard and TSV summary from a VCF file. "
-		+ "Results are saved inside a folder named after the value given to -o. "
-		+ "(supports NGSEP, GATK, FreeBayes)",
+	description = "Generates a HTML dashboard + TSV summary from a VCF file. "
+		+ "Supports NGSEP, GATK and FreeBayes. "
+		+ "Outputs are saved inside a folder named after the -o value.",
 	mixinStandardHelpOptions = true)
 public class VcfStatsCommand implements Callable<Integer> {
 
-	@Option(names = { "-v", "--vcf" }, required = true, description = "Path to the input VCF file")
+	@Option(names = { "-v", "--vcf" }, required = true,
+		description = "Path to the input VCF file.")
 	private String vcfFile;
 
 	@Option(names = { "-o", "--output" }, required = true,
-		description = "Base name for the output folder and files. "
-			+ "E.g. '-o test' creates test/test.html and test/test.tsv")
+		description = "Base name for the output folder. "
+			+ "E.g. '-o test' creates test/test.html and test/test.tsv.")
 	private String baseName;
+
+	@Option(names = { "-p", "--populations" }, required = false,
+		description = "Optional: tab-delimited file with sample populations. "
+			+ "Two columns: SAMPLE_ID and POPULATION_ID. "
+			+ "When provided, pairwise Fst is calculated between populations.")
+	private String popFile;
 
 	@Override
 	public Integer call() throws Exception {
@@ -34,27 +41,44 @@ public class VcfStatsCommand implements Callable<Integer> {
 			System.out.println("[biocenicana] Created output folder: " + outDir.getAbsolutePath());
 		}
 
-		// Run statistics
+		// Initialize calculator
 		VcfStatisticsCalculator calc = new VcfStatisticsCalculator();
-		calc.calculate(vcfFile);
-		System.out.println("[biocenicana] Analysis complete. Found "
-			+ (calc.numSnps + calc.numIndels) + " variants across "
-			+ calc.sampleNames.length + " samples.");
 
-		// Build file paths: <baseName>/<baseName>.html and <baseName>/<baseName>.tsv
+		// Load population file if provided (enables Fst)
+		if (popFile != null) {
+			System.out.println("[biocenicana] Loading population assignments from: " + popFile);
+			calc.loadPopulationMap(popFile);
+			System.out.println("[biocenicana] Populations found: "
+				+ calc.populationNames.length + " → " + String.join(", ", calc.populationNames));
+		}
+
+		// Run statistics
+		calc.calculate(vcfFile);
+		System.out.println("[biocenicana] Done. Variants: "
+			+ (calc.numSnps + calc.numIndels)
+			+ "  |  Samples: " + calc.sampleNames.length
+			+ "  |  Seg. sites: " + calc.numSegSites);
+
+		if (!Double.isNaN(calc.tajimaD)) {
+			System.out.printf("[biocenicana] Tajima's D = %.4f%n", calc.tajimaD);
+		}
+		if (calc.numHweTested > 0) {
+			double pctHwe = 100.0 * calc.numHweViolations / calc.numHweTested;
+			System.out.printf("[biocenicana] HWE violations: %d / %d sites (%.1f%%)%n",
+				calc.numHweViolations, calc.numHweTested, pctHwe);
+		}
+
+		// Build output file paths
 		String htmlPath = outDir.getPath() + File.separator + baseName + ".html";
 		String tsvPath  = outDir.getPath() + File.separator + baseName + ".tsv";
 
-		// Export HTML dashboard
 		HtmlDashboardGenerator.generateReport(calc, htmlPath);
-		System.out.println("[biocenicana] HTML Dashboard -> " + htmlPath);
+		System.out.println("[biocenicana] HTML Dashboard → " + htmlPath);
 
-		// Export TSV summary
 		TsvStatsExporter.exportSampleStats(calc, tsvPath);
-		System.out.println("[biocenicana] TSV Summary    -> " + tsvPath);
+		System.out.println("[biocenicana] TSV Summary    → " + tsvPath);
 
-		System.out.println("\n✅ Done! Open the following file in your browser:");
-		System.out.println("   " + htmlPath);
+		System.out.println("\n✅  Open in your browser: " + htmlPath);
 		return 0;
 	}
 }
