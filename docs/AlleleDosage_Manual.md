@@ -1,6 +1,6 @@
 # 🧬 Manual de Usuario: Allele Dosage Calculator (Biocenicana)
 
-Este manual te guiará paso a paso en el uso de la herramienta `AlleleDosageCalculator`, comenzando desde el uso más básico y tradicional, hasta llegar a las opciones avanzadas impulsadas por Inteligencia Artificial y Estadística.
+Este manual te guiará paso a paso en el uso de la herramienta `AlleleDosageCalculator`, comenzando desde el uso más básico y tradicional, hasta llegar a las opciones avanzadas impulsadas por Inteligencia Artificial y Estadística. En cada nivel encontrarás ejemplos prácticos para entender exactamente qué le pasa a tus datos.
 
 ---
 
@@ -21,66 +21,85 @@ A la proporción de copias mutadas se le llama **Dosis Alélica**. La calculamos
 
 ## 🟢 Nivel 1: El Modo Clásico (Básico)
 
-Si solo quieres calcular las dosis matemáticas puras y duras (el comportamiento clásico del programa), no necesitas usar ninguna bandera avanzada. 
+Si solo quieres calcular las dosis matemáticas puras y duras (el comportamiento clásico del programa), no necesitas usar ninguna bandera avanzada. El programa leerá tu archivo VCF, calculará la división matemática, forzará el resultado a encajar en el nivel de ploidía más cercano.
 
-El programa leerá tu archivo VCF, calculará la división matemática, forzará el resultado a encajar en el nivel de ploidía más cercano, y rellenará los datos vacíos con la "moda" (el valor más común en la población).
-
-**💻 Ejemplo de Comando Básico:**
+**💻 Comando:**
 ```bash
-java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 10 --impute mode
+java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 4 --impute mode
 ```
-* **Explicación bioinformática:** Calcula la dosis para una ploidía de 10 (`-p 10`). Si a una muestra le faltan datos (`./.`), rellénalo con el valor que más se repite en el resto de individuos (`--impute mode`).
+
+**🔬 Ejemplo VCF en acción (Ploidía = 4):**
+Imagina que el VCF tiene el formato GATK `GT:AD` donde `AD` es `LecturasRef,LecturasAlt`.
+> **VCF Entrada:** `Individuo_1` tiene `0/1:20,80` (20 Ref, 80 Alt).
+> **Proceso:** Dosis cruda = 20 / (20 + 80) = 0.20.
+> **Salida:** En un tetraploide, los niveles son (0, 0.25, 0.50, 0.75, 1.0). El 0.20 se redondea a **0.25**.
 
 ---
 
 ## 🟡 Nivel 2: Filtro Estadístico de Calidad (`--min-depth`)
 
 ### El Problema (Ruido de Secuenciación)
-Si el secuenciador solo capturó **2 fragmentos de ADN** para un individuo (uno de Referencia y uno Alterno), la matemática dirá: `1 / (1 + 1) = 0.5`. ¡Pero la planta tiene 10 copias! Es imposible estar seguros de que su dosis real es `0.5` con solo 2 lecturas. Confiar en ese dato es **estadísticamente peligroso**.
+Si el secuenciador solo capturó **2 fragmentos de ADN**, la matemática dirá: `1 / (1 + 1) = 0.5`. ¡Pero la planta tiene 10 copias! Confiar en ese dato es **estadísticamente peligroso**.
 
 ### La Solución
-El parámetro `--min-depth` (o `-md`) te permite exigir un mínimo de "profundidad" de lecturas. Si un individuo no alcanza ese mínimo, el programa descarta sus lecturas y lo marca como un "dato faltante" (para imputarlo después).
+El parámetro `--min-depth` (o `-md`) te permite exigir un mínimo de "profundidad" de lecturas. 
 
-**💻 Ejemplo de Comando:**
+**💻 Comando:**
 ```bash
-java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 10 --impute mode -md 15
+java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 4 --impute mode -md 15
 ```
-* **Explicación bioinformática:** Exige que cada individuo tenga al menos 15 lecturas de ADN en ese SNP (`-md 15`). Si tiene 14 o menos, se marca como vacío y se rellena con la moda (`--impute mode`).
+
+**🔬 Ejemplo VCF en acción:**
+> **VCF Entrada:** 
+> `Individuo_A`: `0/1:2,1` (Total lecturas: 3)
+> `Individuo_B`: `0/1:40,40` (Total lecturas: 80)
+> **Proceso:** El programa evalúa el `-md 15`. 
+> **Salida:** `Individuo_B` supera el filtro y se le asigna dosis **0.50**. `Individuo_A` es descartado por falta de calidad y se marca como **"Dato Faltante"** (y luego se imputará con la moda).
 
 ---
 
 ## 🟠 Nivel 3: Imputación por Inteligencia Artificial (`--impute knn`)
 
 ### El Problema (Imputación Clásica Deficiente)
-Si usas `--impute mode` o `--impute mean` para rellenar los datos faltantes (o los que eliminaste en el Nivel 2), estás mezclando a toda la población. Si tienes plantas de dos familias distintas, promediarlas destruirá la estructura genética de tus datos.
+Si usas `--impute mode` para rellenar el dato faltante del `Individuo_A` (del ejemplo anterior), estás copiando lo que haga la mayoría de la población. Si la población mezcla familias distintas, arruinarás la matriz genética.
 
 ### La Solución (K-Nearest Neighbors)
-Activando el método `knn`, el programa analiza el genoma entero y construye una matriz de parentesco genético. Cuando encuentra un dato faltante, busca a los **K individuos genéticamente más parecidos** (sus primos/vecinos) y usa la dosis de ellos para rellenar el hueco.
+Activando el método `knn`, el programa analiza el genoma entero y construye una matriz de parentesco genético para imputar usando solo a la familia de la muestra.
 
-**💻 Ejemplo de Comando:**
+**💻 Comando:**
 ```bash
-java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 10 -md 15 --impute bsdp-knn -k 5
+java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 4 -md 15 --impute bsdp-knn -k 2
 ```
-* **Explicación bioinformática:** Imputa usando KNN (`--impute bsdp-knn`). Busca a los 5 familiares más cercanos (`-k 5`) de la muestra que tiene el dato faltante para promediar el valor.
+
+**🔬 Ejemplo VCF en acción:**
+> **Contexto:** Al `Individuo_A` le falta el dato del SNP_1. El programa busca a sus **2 vecinos genéticamente más parecidos** (`-k 2`) en todo el archivo VCF. Descubre que sus "hermanos" son el `Individuo_H1` y el `Individuo_H2`.
+> **Proceso:** `Individuo_H1` tiene dosis 0.25 en el SNP_1. `Individuo_H2` tiene dosis 0.25 en el SNP_1.
+> **Salida:** El programa rellena el hueco del `Individuo_A` con **0.25**, respetando su herencia genética, sin importar lo que opine el resto de la población.
 
 ---
 
 ## 🔴 Nivel 4: Redondeo Adaptativo por Machine Learning (`--adaptive-rounding`)
 
 ### El Problema (Reference Bias)
-Los secuenciadores leen mejor el ADN original que el mutado. Esto causa que un individuo que debería ser `0.25` termine reportando `0.38`. El método matemático estricto se confundiría y diría: *"0.38 está más cerca de 0.50, le pondré 0.50"*. Esto inyecta errores masivos a la matriz.
+Los secuenciadores reales leen mejor el ADN original que el mutado. Esto causa que un individuo que debería tener una dosis de `0.25` termine reportando `0.38`. El redondeo matemático clásico se equivocaría y le asignaría `0.50`.
 
 ### La Solución (Clustering K-Means 1D)
-El parámetro `--adaptive-rounding` (o `-ar`) enciende un algoritmo No Supervisado que:
-1. Mira la nube de datos poblacional cruda.
-2. Identifica dónde se desplazó el grupo (ej. se da cuenta de que todos se movieron a `0.38`).
-3. Asigna inteligentemente a todo ese grupo su valor biológico real (`0.25`).
+El parámetro `--adaptive-rounding` (o `-ar`) enciende un algoritmo de Machine Learning No Supervisado que mira la nube poblacional para encontrar los verdaderos grupos (clústeres).
 
-**💻 Ejemplo de Comando:**
+**💻 Comando:**
 ```bash
 java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 4 --adaptive-rounding
 ```
-* **Explicación bioinformática:** En lugar de redondear rígidamente, el programa analiza la distribución de la población completa en el SNP para descubrir los verdaderos grupos (clústeres) y corregir el sesgo de la máquina.
+
+**🔬 Ejemplo VCF en acción:**
+> **VCF Entrada (SNP_1):** 
+> `Individuo_1`: `0/1:36,64` (Frecuencia cruda = 0.36)
+> `Individuo_2`: `0/1:38,62` (Frecuencia cruda = 0.38)
+> `Individuo_3`: `0/1:37,63` (Frecuencia cruda = 0.37)
+> **Proceso (Clásico vs IA):** 
+> * Modo Clásico: Redondearía matemáticamente a **0.50** (¡Error!).
+> * Modo IA (`-ar`): El clustering nota que *todo el grupo poblacional* está desplazado. Deduce que `0.37` es en realidad el nuevo centro desviado del grupo biológico `0.25`.
+> **Salida:** Les asigna a los tres individuos la dosis corregida de **0.25**.
 
 ---
 
@@ -88,7 +107,7 @@ java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 4 --adaptive-rounding
 
 Al combinar todas estas funciones, obtienes el cálculo de dosis más robusto y estadísticamente avanzado posible en bioinformática de poliploides:
 
-**💻 Ejemplo de Comando Maestro:**
+**💻 Comando Maestro:**
 ```bash
 java -jar biocenicana.jar allele-dosage \
     -v mis_datos_crudos.vcf \
@@ -99,7 +118,7 @@ java -jar biocenicana.jar allele-dosage \
     -k 7
 ```
 
-**Flujo interno del programa con este comando:**
-1. **Filtra:** Elimina cualquier genotipo de dudosa calidad (`-md 15`).
-2. **Corrige el Sesgo:** Usa Machine Learning para agrupar los datos sobrevivientes y asignar dosis biológicas exactas esquivando los errores del secuenciador (`--adaptive-rounding`).
-3. **Rescata Datos:** A todos los genotipos vacíos o eliminados, los reconstruye copiando el ADN de sus 7 familiares más parecidos (`--impute bsdp-knn -k 7`).
+**Resumen de la magia biológica que ocurre aquí:**
+1. Elimina cualquier dato basura con menos de 15 lecturas (`-md 15`).
+2. Usa clustering poblacional para esquivar los sesgos del secuenciador y asignar dosis exactas (`--adaptive-rounding`).
+3. A los huecos dejados en el paso 1, los reconstruye copiando el ADN de sus 7 familiares más parecidos usando Inteligencia Artificial KNN (`--impute bsdp-knn -k 7`).
