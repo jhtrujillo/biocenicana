@@ -6,10 +6,12 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import org.cenicana.bio.cli.AlleleDosageCommand;
 import org.cenicana.bio.cli.GeneticDistanceCommand;
+import org.cenicana.bio.cli.VcfStatsCommand;
 
 @Command(name = "biocenicana", mixinStandardHelpOptions = true, version = "1.0", description = "Bioinformatics tools for Cenicana", subcommands = {
 		AlleleDosageCommand.class,
-		GeneticDistanceCommand.class
+		GeneticDistanceCommand.class,
+		VcfStatsCommand.class
 })
 public class VcfToolkit {
 
