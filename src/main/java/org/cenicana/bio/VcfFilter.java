@@ -17,11 +17,13 @@ public class VcfFilter {
 	private double maxMissingness = 1.0;
 	private double minHwePValue = 0.0;
 	private boolean onlyBiallelicSnps = false;
+	private int ploidy = 2;
 
 	public void setMinMaf(double minMaf) { this.minMaf = minMaf; }
 	public void setMaxMissingness(double maxMissingness) { this.maxMissingness = maxMissingness; }
 	public void setMinHwePValue(double minHwePValue) { this.minHwePValue = minHwePValue; }
 	public void setOnlyBiallelicSnps(boolean onlyBiallelicSnps) { this.onlyBiallelicSnps = onlyBiallelicSnps; }
+	public void setPloidy(int ploidy) { this.ploidy = ploidy; }
 
 	public void filter(String inputVcf, String outputVcf) throws IOException {
 		String[] sampleNames = VcfFastReader.getSampleIds(inputVcf);
@@ -39,7 +41,7 @@ public class VcfFilter {
 					pw.println(line);
 					if (line.startsWith("#CHROM")) {
 						// Add a filter header before the CHROM line
-						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + "\"");
+						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + "\"");
 					}
 					continue;
 				}
@@ -69,43 +71,83 @@ public class VcfFilter {
 				int siteMissing = 0;
 				int totalGenotypedAlleles = 0;
 				int[] siteAlleleCounts = new int[numAllelesAtSite];
-				int n00 = 0, n01 = 0, n11 = 0; // HWE counts
+				int n00 = 0, n01 = 0, n11 = 0; // HWE counts for diploid
+				int[] polyDosageCounts = (ploidy > 2 && isBiallelicSnp) ? new int[ploidy + 1] : null;
+				int nGenotypedPoly = 0;
+
+				int formatAdIdx = -1;
+				String[] formatFields = cols[8].split(":");
+				for (int f = 0; f < formatFields.length; f++) {
+					if (formatFields[f].equals("AD") || formatFields[f].equals("BSDP")) {
+						formatAdIdx = f; break;
+					}
+				}
 
 				for (int i = 0; i < numSamples; i++) {
-					String gData = cols[9 + i];
-					String gt = gData.split(":")[0];
+					String[] gData = cols[9 + i].split(":");
+					String gt = gData[0];
 
-					if (gt.equals(".") || gt.startsWith("./.") || gt.startsWith("./")) {
-						siteMissing++;
-					} else {
-						String[] alleles = gt.split("[/|]");
-						boolean valid = true;
-						int[] numAlleles = new int[alleles.length];
-						for (int aIdx = 0; aIdx < alleles.length; aIdx++) {
-							if (alleles[aIdx].equals(".")) {
-								valid = false;
-								break;
-							}
-							try {
-								numAlleles[aIdx] = Integer.parseInt(alleles[aIdx]);
-								if (numAlleles[aIdx] >= numAllelesAtSite) valid = false;
-							} catch (NumberFormatException e) {
-								valid = false;
+					if (ploidy > 2 && formatAdIdx != -1 && isBiallelicSnp) {
+						// Polyploid mode: rely on AD/BSDP to estimate dosage
+						boolean dosageEstimated = false;
+						if (gData.length > formatAdIdx && !gData[formatAdIdx].equals(".")) {
+							String[] adStrs = gData[formatAdIdx].split(",");
+							if (adStrs.length >= 2) {
+								try {
+									double refReads = Double.parseDouble(adStrs[0]);
+									double altReads = Double.parseDouble(adStrs[1]);
+									double totalReads = refReads + altReads;
+									if (totalReads >= 5) { // Minimum reads to confidently estimate dosage
+										int dosage = (int) Math.round((altReads / totalReads) * ploidy);
+										if (dosage >= 0 && dosage <= ploidy) {
+											polyDosageCounts[dosage]++;
+											siteAlleleCounts[0] += (ploidy - dosage);
+											siteAlleleCounts[1] += dosage;
+											totalGenotypedAlleles += ploidy;
+											nGenotypedPoly++;
+											dosageEstimated = true;
+										}
+									}
+								} catch (NumberFormatException ignored) {}
 							}
 						}
-
-						if (valid) {
-							for (int a : numAlleles) {
-								siteAlleleCounts[a]++;
-								totalGenotypedAlleles++;
-							}
-							if (isBiallelicSnp && numAlleles.length == 2) {
-								if (numAlleles[0] == 0 && numAlleles[1] == 0) n00++;
-								else if (numAlleles[0] == 1 && numAlleles[1] == 1) n11++;
-								else n01++;
-							}
-						} else {
+						if (!dosageEstimated) {
 							siteMissing++;
+						}
+					} else {
+						// Standard diploid/explicit genotype mode
+						if (gt.equals(".") || gt.startsWith("./.") || gt.startsWith("./")) {
+							siteMissing++;
+						} else {
+							String[] alleles = gt.split("[/|]");
+							boolean valid = true;
+							int[] numAlleles = new int[alleles.length];
+							for (int aIdx = 0; aIdx < alleles.length; aIdx++) {
+								if (alleles[aIdx].equals(".")) {
+									valid = false;
+									break;
+								}
+								try {
+									numAlleles[aIdx] = Integer.parseInt(alleles[aIdx]);
+									if (numAlleles[aIdx] >= numAllelesAtSite) valid = false;
+								} catch (NumberFormatException e) {
+									valid = false;
+								}
+							}
+
+							if (valid) {
+								for (int a : numAlleles) {
+									siteAlleleCounts[a]++;
+									totalGenotypedAlleles++;
+								}
+								if (isBiallelicSnp && numAlleles.length == 2) {
+									if (numAlleles[0] == 0 && numAlleles[1] == 0) n00++;
+									else if (numAlleles[0] == 1 && numAlleles[1] == 1) n11++;
+									else n01++;
+								}
+							} else {
+								siteMissing++;
+							}
 						}
 					}
 				}
@@ -133,11 +175,37 @@ public class VcfFilter {
 
 					// 3. HWE Filter
 					if (isBiallelicSnp && minHwePValue > 0.0) {
-						int nDip = n00 + n01 + n11;
-						if (nDip >= 5) {
-							double fisherPValue = calculateHweFisherExactTest(n00, n01, n11);
-							if (fisherPValue < minHwePValue) {
+						if (ploidy > 2 && polyDosageCounts != null && nGenotypedPoly >= 5) {
+							// Polyploid Polysomic HWE Chi-square test
+							double totalAltDosage = 0;
+							for (int d = 0; d <= ploidy; d++) totalAltDosage += polyDosageCounts[d] * d;
+							double q = totalAltDosage / (nGenotypedPoly * ploidy);
+							double p = 1.0 - q;
+
+							double chi2 = 0.0;
+							double[] logFacs = new double[ploidy + 1];
+							for(int j=1; j<=ploidy; j++) logFacs[j] = logFacs[j-1] + Math.log(j);
+
+							for (int d = 0; d <= ploidy; d++) {
+								double logComb = logFacs[ploidy] - logFacs[d] - logFacs[ploidy - d];
+								double expectedProb = Math.exp(logComb + (ploidy - d)*Math.log(Math.max(1e-10, p)) + d*Math.log(Math.max(1e-10, q)));
+								double expectedCount = Math.max(1e-5, nGenotypedPoly * expectedProb);
+								double observedCount = polyDosageCounts[d];
+								chi2 += (observedCount - expectedCount) * (observedCount - expectedCount) / expectedCount;
+							}
+
+							double pValue = chiSquarePValue(chi2, ploidy - 1);
+							if (pValue < minHwePValue) {
 								continue;
+							}
+						} else if (ploidy <= 2) {
+							// Diploid exact test
+							int nDip = n00 + n01 + n11;
+							if (nDip >= 5) {
+								double fisherPValue = calculateHweFisherExactTest(n00, n01, n11);
+								if (fisherPValue < minHwePValue) {
+									continue;
+								}
 							}
 						}
 					}
@@ -198,5 +266,20 @@ public class VcfFilter {
 			}
 		}
 		return Math.min(1.0, pValue);
+	}
+
+	private double chiSquarePValue(double x, int df) {
+		if (x <= 0 || df < 1) return 1.0;
+		double dfD = df;
+		// Wilson-Hilferty transformation for Chi-Square to Normal distribution
+		double Z = (Math.pow(x / dfD, 1.0 / 3.0) - (1.0 - 2.0 / (9.0 * dfD))) / Math.sqrt(2.0 / (9.0 * dfD));
+		return 0.5 * erfc(Z / Math.sqrt(2.0));
+	}
+
+	private double erfc(double x) {
+		double z = Math.abs(x);
+		double t = 1.0 / (1.0 + 0.5 * z);
+		double ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+		return x >= 0 ? ans : 2.0 - ans;
 	}
 }

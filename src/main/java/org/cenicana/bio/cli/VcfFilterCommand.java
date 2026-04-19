@@ -29,6 +29,9 @@ public class VcfFilterCommand implements Callable<Integer> {
 	@Option(names = {"-b", "--biallelic-only"}, description = "Keep only biallelic SNPs (remove indels and multiallelics)", defaultValue = "false")
 	private boolean onlyBiallelicSnps;
 
+	@Option(names = {"-p", "--ploidy"}, description = "Ploidy level of the organism. If > 2, HWE and MAF will be calculated using Allele Dosages (AD/BSDP) assuming polysomic inheritance.", defaultValue = "2")
+	private int ploidy;
+
 	@Override
 	public Integer call() throws Exception {
 		File f = new File(vcfFile);
@@ -47,6 +50,7 @@ public class VcfFilterCommand implements Callable<Integer> {
 		if (maxMissingness < 1.0) System.out.println(" - Max Missingness: " + maxMissingness);
 		if (minHwePValue > 0) System.out.println(" - Min HWE p-value: " + minHwePValue);
 		if (onlyBiallelicSnps) System.out.println(" - Biallelic SNPs only: true");
+		System.out.println(" - Ploidy assumption: " + ploidy);
 		System.out.println("=================================================\n");
 
 		VcfFilter filter = new VcfFilter();
@@ -54,6 +58,7 @@ public class VcfFilterCommand implements Callable<Integer> {
 		filter.setMaxMissingness(maxMissingness);
 		filter.setMinHwePValue(minHwePValue);
 		filter.setOnlyBiallelicSnps(onlyBiallelicSnps);
+		filter.setPloidy(ploidy);
 
 		filter.filter(vcfFile, outputFile);
 
