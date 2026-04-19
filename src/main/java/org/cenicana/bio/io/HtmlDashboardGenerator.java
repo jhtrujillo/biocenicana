@@ -268,7 +268,7 @@ public class HtmlDashboardGenerator {
 		return sb.append("]");
 	}
 
-    public static void generateLdDecayDashboard(String outputPath, double[] sumR2, long[] countR2, int binSizeBp) throws java.io.IOException {
+    public static void generateLdDecayDashboard(String outputPath, double[] sumR2, long[] countR2, int binSizeBp, int halfDecayDistanceBp, double thresholdR2) throws java.io.IOException {
         StringBuilder xData = new StringBuilder("[");
         StringBuilder yData = new StringBuilder("[");
         
@@ -297,6 +297,9 @@ public class HtmlDashboardGenerator {
                 "        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }\n" +
                 "        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }\n" +
                 "        h1 { color: #2c3e50; text-align: center; }\n" +
+                "        .kpi-container { display: flex; justify-content: center; gap: 20px; margin-bottom: 10px; }\n" +
+                "        .kpi { background: #ecf0f1; padding: 15px 25px; border-radius: 8px; text-align: center; }\n" +
+                "        .kpi span { display: block; font-size: 24px; font-weight: bold; color: #2980b9; }\n" +
                 "        .chart-container { width: 100%; height: 600px; margin-top: 20px; }\n" +
                 "    </style>\n" +
                 "</head>\n" +
@@ -304,6 +307,10 @@ public class HtmlDashboardGenerator {
                 "    <div class=\"container\">\n" +
                 "        <h1>LD Decay Dashboard</h1>\n" +
                 "        <p style=\"text-align: center; color: #7f8c8d;\">Average squared Pearson correlation (R&sup2;) vs Physical Distance (bp)</p>\n" +
+                "        <div class=\"kpi-container\">\n" +
+                "            <div class=\"kpi\">Estimated Half-Decay Distance: <span>" + (halfDecayDistanceBp == -1 ? "Not reached" : halfDecayDistanceBp + " bp") + "</span></div>\n" +
+                "            <div class=\"kpi\">Half-Decay R&sup2; Threshold: <span>" + String.format(java.util.Locale.US, "%.4f", thresholdR2) + "</span></div>\n" +
+                "        </div>\n" +
                 "        <div id=\"ldPlot\" class=\"chart-container\"></div>\n" +
                 "    </div>\n" +
                 "\n" +
@@ -323,8 +330,27 @@ public class HtmlDashboardGenerator {
                 "            yaxis: { title: 'Average R&sup2;', range: [0, 1.05], gridcolor: '#ecf0f1' },\n" +
                 "            plot_bgcolor: '#ffffff',\n" +
                 "            paper_bgcolor: '#ffffff',\n" +
-                "            hovermode: 'closest'\n" +
-                "        };\n" +
+                "            hovermode: 'closest',\n";
+                
+        if (halfDecayDistanceBp != -1) {
+            htmlTemplate += "            shapes: [{\n" +
+                    "                type: 'line',\n" +
+                    "                x0: " + halfDecayDistanceBp + ",\n" +
+                    "                y0: 0,\n" +
+                    "                x1: " + halfDecayDistanceBp + ",\n" +
+                    "                y1: " + thresholdR2 + ",\n" +
+                    "                line: { color: 'rgba(231, 76, 60, 0.8)', width: 2, dash: 'dash' }\n" +
+                    "            }, {\n" +
+                    "                type: 'line',\n" +
+                    "                x0: 0,\n" +
+                    "                y0: " + thresholdR2 + ",\n" +
+                    "                x1: " + halfDecayDistanceBp + ",\n" +
+                    "                y1: " + thresholdR2 + ",\n" +
+                    "                line: { color: 'rgba(231, 76, 60, 0.8)', width: 2, dash: 'dash' }\n" +
+                    "            }]\n";
+        }
+        
+        htmlTemplate += "        };\n" +
                 "\n" +
                 "        Plotly.newPlot('ldPlot', [trace1], layout);\n" +
                 "    </script>\n" +

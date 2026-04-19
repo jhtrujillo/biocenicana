@@ -181,10 +181,39 @@ public class LinkageDisequilibriumCalculator {
             System.out.println("[LD] Complete. Processed markers: " + totalProcessed);
             System.out.println("[LD] Pairwise LD combinations calculated: " + totalPairs);
 
+            // Calculate LD Half-Decay Distance
+            double maxR2 = 0.0;
+            int halfDecayDistanceBp = -1;
+            
+            for (int i = 0; i < sumR2.length; i++) {
+                if (countR2[i] > 0) {
+                    double avg = sumR2[i] / countR2[i];
+                    if (avg > maxR2) maxR2 = avg;
+                }
+            }
+            
+            double thresholdR2 = maxR2 / 2.0;
+            for (int i = 0; i < sumR2.length; i++) {
+                if (countR2[i] > 0) {
+                    double avg = sumR2[i] / countR2[i];
+                    if (avg <= thresholdR2) {
+                        halfDecayDistanceBp = i * binSizeBp;
+                        break;
+                    }
+                }
+            }
+
+            System.out.println("[LD] Maximum Average R2 (Baseline): " + String.format(java.util.Locale.US, "%.4f", maxR2));
+            if (halfDecayDistanceBp != -1) {
+                System.out.println("[LD] Estimated Half-Decay Distance (R2 drops below " + String.format(java.util.Locale.US, "%.4f", thresholdR2) + "): ~" + halfDecayDistanceBp + " bp");
+            } else {
+                System.out.println("[LD] Estimated Half-Decay Distance: Not reached within " + maxDistanceBp + " bp. Consider increasing window size.");
+            }
+
             if (generateHtml) {
                 System.out.println("[LD] Generating Interactive LD Decay Dashboard...");
                 String htmlFile = outputTsv.endsWith(".tsv") ? outputTsv.replace(".tsv", "_decay.html") : outputTsv + "_decay.html";
-                org.cenicana.bio.io.HtmlDashboardGenerator.generateLdDecayDashboard(htmlFile, sumR2, countR2, binSizeBp);
+                org.cenicana.bio.io.HtmlDashboardGenerator.generateLdDecayDashboard(htmlFile, sumR2, countR2, binSizeBp, halfDecayDistanceBp, thresholdR2);
                 System.out.println("[LD] HTML Dashboard generated at: " + htmlFile);
             }
         }
