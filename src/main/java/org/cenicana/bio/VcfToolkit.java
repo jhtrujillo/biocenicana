@@ -6,11 +6,9 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import org.cenicana.bio.cli.AlleleDosageCommand;
 import org.cenicana.bio.cli.GeneticDistanceCommand;
-import org.cenicana.bio.cli.TargetedAlleleDosageCommand;
 
 @Command(name = "biocenicana", mixinStandardHelpOptions = true, version = "1.0", description = "Bioinformatics tools for Cenicana", subcommands = {
 		AlleleDosageCommand.class,
-		TargetedAlleleDosageCommand.class,
 		GeneticDistanceCommand.class
 })
 public class VcfToolkit {
@@ -64,14 +62,7 @@ public class VcfToolkit {
 		vcfcounter.CounterHaplotipes(vcfFile);
 	}
 
-	@Command(name = "CompareDosageFingerprintVsTargeted", aliases = {
-			"10" }, description = "Comparar Dosis Huella Vs Targeted")
-	public void CompareDosageFingerprintVsTargeted(
-			@Parameters(index = "0", description = "dosisSecuenciacion") String dosisSec,
-			@Parameters(index = "1", description = "dosisTargeted") String dosisTar) throws Exception {
-		CompareDosageFingerprintVsTargeted cdht = new CompareDosageFingerprintVsTargeted();
-		cdht.compararIndividuos(dosisSec, dosisTar);
-	}
+
 
 	@Command(name = "vcf-to-tab-targeted", aliases = { "11" }, description = "VCF to tab targeted")
 	public void vcfToTabTargeted(@Parameters(index = "0", description = "vcf_targeted") String vcfTargeted)
@@ -139,11 +130,7 @@ public class VcfToolkit {
 		vcftosctructure.printMatrixTranspuesta();
 	}
 
-	@Command(name = "addfuntionstogff", aliases = { "19" }, description = "Add functions to gff")
-	public void addfuntionstogff(@Parameters(index = "0", description = "gffFile") String gffFile) throws Exception {
-		AddFunctionsGff gff = new AddFunctionsGff();
-		gff.loadgff(gffFile);
-	}
+
 
 	@Command(name = "joinmap", aliases = { "20" }, description = "Join map format")
 	public void joinmap(@Parameters(index = "0", description = "joinmap-file-ngsep") String joinmapFile)
@@ -225,11 +212,7 @@ public class VcfToolkit {
 		gff.filtrargffporTamano(gffFile, minSize, maxSize);
 	}
 
-	@Command(name = "ajustargfffunciones", description = "Ajustar gff funciones")
-	public void ajustargfffunciones(@Parameters(index = "0", description = "gffFile") String gffFile) throws Exception {
-		AddFunctionsGff gff = new AddFunctionsGff();
-		gff.ajustargfffunciones(gffFile);
-	}
+
 
 	@Command(name = "vcfToACGT", aliases = { "30" }, description = "VCF To ACGT")
 	public void vcfToACGT(@Parameters(index = "0", description = "VCFfile") String vcfFile,
