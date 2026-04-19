@@ -4,7 +4,6 @@ import org.cenicana.bio.VcfStatisticsCalculator;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
 
 public class HtmlDashboardGenerator {
 
@@ -97,6 +96,17 @@ public class HtmlDashboardGenerator {
 			siteMissJs.append("]");
 
 			writer.println("    <script>");
+			writer.println("        function calcStats(arr) {");
+			writer.println("            if(arr.length === 0) return { mean: 0, sd: 0, median: 0, min: 0, max: 0 };");
+			writer.println("            let sum = arr.reduce((a, b) => a + b, 0);");
+			writer.println("            let mean = sum / arr.length;");
+			writer.println("            let sqDiff = arr.map(x => Math.pow(x - mean, 2));");
+			writer.println("            let sd = Math.sqrt(sqDiff.reduce((a, b) => a + b, 0) / arr.length);");
+			writer.println("            let sorted = [...arr].sort((a,b) => a - b);");
+			writer.println("            let median = sorted[Math.floor(sorted.length / 2)];");
+			writer.println("            return { mean: mean.toFixed(2), sd: sd.toFixed(2), median: median.toFixed(2), max: sorted[sorted.length - 1].toFixed(2) };");
+			writer.println("        }");
+
 			writer.println("        var sampleNames = " + sampleNamesJs.toString() + ";");
 			writer.println("        var sampleDepths = " + sampleDepthsJs.toString() + ";");
 			writer.println("        var sampleMissing = " + sampleMissingJs.toString() + ";");
@@ -105,29 +115,32 @@ public class HtmlDashboardGenerator {
 			writer.println("        var config = { responsive: true, displayModeBar: true, toImageButtonOptions: { format: 'png', filename: 'biocenicana_chart', height: 1080, width: 1920, scale: 2 } };");
 
 			// Chart 1: Depth
+			writer.println("        var dStats = calcStats(sampleDepths);");
 			writer.println("        var trDepth = { x: sampleNames, y: sampleDepths, type: 'bar', marker: { color: '#3b82f6' } };");
-			writer.println("        var layDepth = { margin: { b: 120 }, xaxis: { tickangle: -45 } };");
+			writer.println("        var layDepth = { margin: { b: 120 }, xaxis: { title: 'Sample ID', tickangle: -45 }, yaxis: { title: 'Average Depth (Reads)' }, annotations: [{ xref: 'paper', yref: 'paper', x: 0.98, y: 0.98, xanchor: 'right', yanchor: 'top', text: 'Mean: ' + dStats.mean + '<br>Std Dev: ' + dStats.sd + '<br>Median: ' + dStats.median, showarrow: false, font: {size: 14}, bordercolor: '#cbd5e1', borderwidth: 1, borderpad: 6, bgcolor: 'rgba(255,255,255,0.9)' }] };");
 			writer.println("        Plotly.newPlot('chart-depth', [trDepth], layDepth, config);");
 
 			// Chart 2: Sample Missingness
+			writer.println("        var mStats = calcStats(sampleMissing);");
 			writer.println("        var trMiss = { x: sampleNames, y: sampleMissing, type: 'scatter', mode: 'markers', marker: { size: 10, color: '#ef4444' } };");
-			writer.println("        var layMiss = { margin: { b: 120 }, xaxis: { tickangle: -45 }, yaxis: { title: '% Missing', rangemode: 'tozero' } };");
+			writer.println("        var layMiss = { margin: { b: 120 }, xaxis: { title: 'Sample ID', tickangle: -45 }, yaxis: { title: 'Missing Genotypes (%)', rangemode: 'tozero' }, annotations: [{ xref: 'paper', yref: 'paper', x: 0.98, y: 0.98, xanchor: 'right', yanchor: 'top', text: 'Mean: ' + mStats.mean + '%<br>Std Dev: ' + mStats.sd + '%<br>Max: ' + mStats.max + '%', showarrow: false, font: {size: 14}, bordercolor: '#cbd5e1', borderwidth: 1, borderpad: 6, bgcolor: 'rgba(255,255,255,0.9)' }] };");
 			writer.println("        Plotly.newPlot('chart-missing', [trMiss], layMiss, config);");
 
 			// Chart 3: MAF Spectrum
 			writer.println("        var mafLabels = ['0-0.05', '0.05-0.1', '0.1-0.15', '0.15-0.2', '0.2-0.25', '0.25-0.3', '0.3-0.35', '0.35-0.4', '0.4-0.45', '0.45-0.5'];");
 			writer.println("        var trMaf = { x: mafLabels, y: " + mafJs.toString() + ", type: 'bar', marker: { color: '#10b981' } };");
-			writer.println("        var layMaf = { xaxis: { title: 'Minor Allele Frequency' }, yaxis: { title: 'Variant Count' } };");
+			writer.println("        var layMaf = { xaxis: { title: 'Minor Allele Frequency (MAF) Range', tickangle: -45 }, yaxis: { title: 'Number of Variants' } };");
 			writer.println("        Plotly.newPlot('chart-maf', [trMaf], layMaf, config);");
 
 			// Chart 4: Variant Types Pie
 			writer.println("        var trPie = { labels: ['Transitions (Ts)', 'Transversions (Tv)', 'InDels'], values: [" + stats.numTransitions + ", " + stats.numTransversions + ", " + stats.numIndels + "], type: 'pie', hole: 0.4, marker: { colors: ['#6366f1', '#f59e0b', '#8b5cf6'] } };");
-			writer.println("        Plotly.newPlot('chart-types', [trPie], {}, config);");
+			writer.println("        var layPie = { annotations: [{ font: { size: 16, weight: 'bold' }, showarrow: false, text: 'Variants', x: 0.5, y: 0.5 }] };");
+			writer.println("        Plotly.newPlot('chart-types', [trPie], layPie, config);");
 
 			// Chart 5: Site Missingness Histogram
 			writer.println("        var smLabels = ['0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'];");
 			writer.println("        var trSiteMiss = { x: smLabels, y: " + siteMissJs.toString() + ", type: 'bar', marker: { color: '#f43f5e' } };");
-			writer.println("        var laySiteMiss = { xaxis: { title: 'Percentage of missing genotypes per SNP' }, yaxis: { title: 'Number of SNPs' } };");
+			writer.println("        var laySiteMiss = { xaxis: { title: 'Percentage of missing genotypes per SNP', tickangle: -45 }, yaxis: { title: 'Number of SNPs' } };");
 			writer.println("        Plotly.newPlot('chart-site-missing', [trSiteMiss], laySiteMiss, config);");
 
 			writer.println("    </script>");
