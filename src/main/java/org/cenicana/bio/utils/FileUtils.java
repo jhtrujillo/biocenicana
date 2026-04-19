@@ -1,4 +1,8 @@
-package org.cenicana.bio;
+package org.cenicana.bio.utils;
+import org.cenicana.bio.core.JoinMapCpFormat;
+import org.cenicana.bio.core.AlleleDosageCalculator;
+import org.cenicana.bio.core.VcfStatisticsCalculator;
+import org.cenicana.bio.core.VcfFilter;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

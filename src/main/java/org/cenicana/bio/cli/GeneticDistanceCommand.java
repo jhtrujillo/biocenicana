@@ -1,8 +1,12 @@
 package org.cenicana.bio.cli;
+import org.cenicana.bio.utils.FileUtils;
+import org.cenicana.bio.core.JoinMapCpFormat;
+import org.cenicana.bio.core.AlleleDosageCalculator;
+import org.cenicana.bio.core.VcfStatisticsCalculator;
+import org.cenicana.bio.core.VcfFilter;
 
 import java.util.concurrent.Callable;
 
-import org.cenicana.bio.AlleleDosageCalculator;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ITypeConverter;

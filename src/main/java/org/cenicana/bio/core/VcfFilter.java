@@ -1,4 +1,5 @@
-package org.cenicana.bio;
+package org.cenicana.bio.core;
+import org.cenicana.bio.utils.FileUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;

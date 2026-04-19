@@ -1,4 +1,9 @@
-package org.cenicana.bio;
+package org.cenicana.bio.cli;
+import org.cenicana.bio.utils.FileUtils;
+import org.cenicana.bio.core.JoinMapCpFormat;
+import org.cenicana.bio.core.AlleleDosageCalculator;
+import org.cenicana.bio.core.VcfStatisticsCalculator;
+import org.cenicana.bio.core.VcfFilter;
 
 import java.io.IOException;
 import picocli.CommandLine;
