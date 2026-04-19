@@ -18,10 +18,14 @@ public class LinkageDisequilibriumCalculator {
     private int ploidy = 2;
     private double minMaf = 0.05;
     private int maxDistanceBp = 50000;
+    private boolean generateHtml = false;
+    private int binSizeBp = 1000; // Default bin size for decay curve
 
     public void setPloidy(int ploidy) { this.ploidy = ploidy; }
     public void setMinMaf(double minMaf) { this.minMaf = minMaf; }
     public void setMaxDistanceBp(int maxDistanceBp) { this.maxDistanceBp = maxDistanceBp; }
+    public void setGenerateHtml(boolean generateHtml) { this.generateHtml = generateHtml; }
+    public void setBinSizeBp(int binSizeBp) { this.binSizeBp = binSizeBp; }
 
     private static class MarkerDosage {
         String chrom;
@@ -52,6 +56,11 @@ public class LinkageDisequilibriumCalculator {
 
             // Header for TSV
             pw.println("CHR\tPOS1\tID1\tPOS2\tID2\tDISTANCE\tR2");
+
+            // Bins for LD Decay Curve
+            int numBins = (maxDistanceBp / binSizeBp) + 1;
+            double[] sumR2 = new double[numBins];
+            long[] countR2 = new long[numBins];
 
             LinkedList<MarkerDosage> slidingWindow = new LinkedList<>();
 
@@ -153,6 +162,14 @@ public class LinkageDisequilibriumCalculator {
                         int distance = pos - pastMarker.pos;
                         pw.printf("%s\t%d\t%s\t%d\t%s\t%d\t%.6f%n",
                                 chrom, pastMarker.pos, pastMarker.id, pos, id, distance, r2);
+                        
+                        // Accumulate for LD Decay
+                        if (distance <= maxDistanceBp) {
+                            int binIdx = distance / binSizeBp;
+                            sumR2[binIdx] += r2;
+                            countR2[binIdx]++;
+                        }
+                        
                         totalPairs++;
                     }
                 }
@@ -163,6 +180,13 @@ public class LinkageDisequilibriumCalculator {
 
             System.out.println("[LD] Complete. Processed markers: " + totalProcessed);
             System.out.println("[LD] Pairwise LD combinations calculated: " + totalPairs);
+
+            if (generateHtml) {
+                System.out.println("[LD] Generating Interactive LD Decay Dashboard...");
+                String htmlFile = outputTsv.endsWith(".tsv") ? outputTsv.replace(".tsv", "_decay.html") : outputTsv + "_decay.html";
+                org.cenicana.bio.io.HtmlDashboardGenerator.generateLdDecayDashboard(htmlFile, sumR2, countR2, binSizeBp);
+                System.out.println("[LD] HTML Dashboard generated at: " + htmlFile);
+            }
         }
     }
 

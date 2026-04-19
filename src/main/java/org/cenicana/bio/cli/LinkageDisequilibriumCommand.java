@@ -24,6 +24,12 @@ public class LinkageDisequilibriumCommand implements Callable<Integer> {
     @Option(names = {"-w", "--window-size"}, description = "Maximum distance (in bp) between two markers to calculate LD.", defaultValue = "50000")
     private int windowSize;
 
+    @Option(names = {"--html"}, description = "Generate an interactive HTML dashboard plotting the LD Decay curve.")
+    private boolean generateHtml;
+
+    @Option(names = {"--bin-size"}, description = "Bin size in bp for the LD decay curve graph.", defaultValue = "1000")
+    private int binSize;
+
     @Override
     public Integer call() throws Exception {
         File f = new File(vcfFile);
@@ -41,12 +47,15 @@ public class LinkageDisequilibriumCommand implements Callable<Integer> {
         System.out.println(" - Ploidy assumption: " + ploidy);
         System.out.println(" - Min MAF: " + minMaf);
         System.out.println(" - Sliding Window (bp): " + windowSize);
+        if (generateHtml) System.out.println(" - HTML Dashboard: yes (bin size: " + binSize + " bp)");
         System.out.println("=================================================\n");
 
         LinkageDisequilibriumCalculator ldCalc = new LinkageDisequilibriumCalculator();
         ldCalc.setPloidy(ploidy);
         ldCalc.setMinMaf(minMaf);
         ldCalc.setMaxDistanceBp(windowSize);
+        ldCalc.setGenerateHtml(generateHtml);
+        ldCalc.setBinSizeBp(binSize);
         ldCalc.computeLD(vcfFile, outputFile);
 
         return 0;

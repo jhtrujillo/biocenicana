@@ -267,4 +267,72 @@ public class HtmlDashboardGenerator {
 		}
 		return sb.append("]");
 	}
+
+    public static void generateLdDecayDashboard(String outputPath, double[] sumR2, long[] countR2, int binSizeBp) throws java.io.IOException {
+        StringBuilder xData = new StringBuilder("[");
+        StringBuilder yData = new StringBuilder("[");
+        
+        for (int i = 0; i < sumR2.length; i++) {
+            if (countR2[i] > 0) {
+                double avgR2 = sumR2[i] / countR2[i];
+                int distance = i * binSizeBp;
+                xData.append(distance).append(",");
+                yData.append(String.format(java.util.Locale.US, "%.5f", avgR2)).append(",");
+            }
+        }
+        
+        if (xData.length() > 1) {
+            xData.setLength(xData.length() - 1);
+            yData.setLength(yData.length() - 1);
+        }
+        xData.append("]");
+        yData.append("]");
+
+        String htmlTemplate = "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <title>Linkage Disequilibrium (LD) Decay</title>\n" +
+                "    <script src=\"https://cdn.plot.ly/plotly-2.24.1.min.js\"></script>\n" +
+                "    <style>\n" +
+                "        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }\n" +
+                "        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }\n" +
+                "        h1 { color: #2c3e50; text-align: center; }\n" +
+                "        .chart-container { width: 100%; height: 600px; margin-top: 20px; }\n" +
+                "    </style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <div class=\"container\">\n" +
+                "        <h1>LD Decay Dashboard</h1>\n" +
+                "        <p style=\"text-align: center; color: #7f8c8d;\">Average squared Pearson correlation (R&sup2;) vs Physical Distance (bp)</p>\n" +
+                "        <div id=\"ldPlot\" class=\"chart-container\"></div>\n" +
+                "    </div>\n" +
+                "\n" +
+                "    <script>\n" +
+                "        var trace1 = {\n" +
+                "            x: " + xData.toString() + ",\n" +
+                "            y: " + yData.toString() + ",\n" +
+                "            mode: 'lines+markers',\n" +
+                "            name: 'LD Decay',\n" +
+                "            line: {color: 'rgb(55, 128, 191)', width: 3, shape: 'spline'},\n" +
+                "            marker: {color: 'rgb(55, 128, 191)', size: 6}\n" +
+                "        };\n" +
+                "\n" +
+                "        var layout = {\n" +
+                "            title: 'Linkage Disequilibrium Decay (Bin Size = " + binSizeBp + " bp)',\n" +
+                "            xaxis: { title: 'Physical Distance (bp)', gridcolor: '#ecf0f1' },\n" +
+                "            yaxis: { title: 'Average R&sup2;', range: [0, 1.05], gridcolor: '#ecf0f1' },\n" +
+                "            plot_bgcolor: '#ffffff',\n" +
+                "            paper_bgcolor: '#ffffff',\n" +
+                "            hovermode: 'closest'\n" +
+                "        };\n" +
+                "\n" +
+                "        Plotly.newPlot('ldPlot', [trace1], layout);\n" +
+                "    </script>\n" +
+                "</body>\n" +
+                "</html>";
+
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(outputPath))) {
+            pw.write(htmlTemplate);
+        }
+    }
 }
