@@ -11,6 +11,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import org.cenicana.bio.cli.AlleleDosageCommand;
 import org.cenicana.bio.cli.GeneticDistanceCommand;
+import org.cenicana.bio.cli.LinkageDisequilibriumCommand;
 import org.cenicana.bio.cli.VcfFilterCommand;
 import org.cenicana.bio.cli.VcfStatsCommand;
 
@@ -18,7 +19,8 @@ import org.cenicana.bio.cli.VcfStatsCommand;
 		AlleleDosageCommand.class,
 		GeneticDistanceCommand.class,
 		VcfStatsCommand.class,
-		VcfFilterCommand.class
+		VcfFilterCommand.class,
+		LinkageDisequilibriumCommand.class
 })
 public class VcfToolkit {
 
