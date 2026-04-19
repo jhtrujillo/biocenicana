@@ -22,7 +22,9 @@ public class AlleleDosageCommand implements Callable<Integer> {
 		mode      ("mode",      "Imputes missing values with the mode dosage of the SNP."),
 		mean      ("mean",      "Imputes missing values with the mean dosage of the SNP."),
 		bsdp_mode ("bsdp-mode", "Counts first; remaining missing values imputed with the mode."),
-		bsdp_mean ("bsdp-mean", "Counts first; remaining missing values imputed with the mean.");
+		bsdp_mean ("bsdp-mean", "Counts first; remaining missing values imputed with the mean."),
+		knn       ("knn",       "Imputes missing values using K-Nearest Neighbors based on population distance."),
+		bsdp_knn  ("bsdp-knn",  "Counts first; remaining missing values imputed using KNN.");
 
 		private final String cliName;
 
@@ -44,7 +46,7 @@ public class AlleleDosageCommand implements Callable<Integer> {
 				if (m.name().equals(normalized)) return m;
 			}
 			throw new TypeConversionException(
-				"Invalid imputation method '" + value + "'. Valid: bsdp, mode, mean, bsdp-mode, bsdp-mean");
+				"Invalid imputation method '" + value + "'. Valid: bsdp, mode, mean, bsdp-mode, bsdp-mean, knn, bsdp-knn");
 		}
 	}
 
@@ -102,14 +104,30 @@ public class AlleleDosageCommand implements Callable<Integer> {
 		converter = CallerConverter.class)
 	private CallerType caller;
 
+	@Option(names = {"-md", "--min-depth"},
+		description = "Minimum total read depth (Ref + Alt) required to trust a genotype call. Lower depth calls will be treated as missing and imputed. Default: ${DEFAULT-VALUE}.",
+		defaultValue = "0")
+	private int minDepth;
+
+	@Option(names = {"-k", "--knn-neighbors"},
+		description = "Number of neighbors (K) to use for KNN imputation. Default: ${DEFAULT-VALUE}.",
+		defaultValue = "5")
+	private int knnK;
+
+	@Option(names = {"-ar", "--adaptive-rounding"},
+		description = "Enable Machine Learning (K-Means 1D) adaptive rounding to overcome reference bias. If false, strict mathematical rounding is used.",
+		defaultValue = "false")
+	private boolean adaptiveRounding;
+
 	// ── Execution ──────────────────────────────────────────────────────────────
 
 	@Override
 	public Integer call() throws Exception {
 		try {
 			AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
-			dosiscgene.computeAlleleDosage(vcfFile, ploidy, impute.toInternalKey(), false, caller.toString());
+			dosiscgene.computeAlleleDosage(vcfFile, ploidy, impute.toInternalKey(), false, caller.toString(), minDepth, knnK, adaptiveRounding);
 			return 0;
+
 		} catch (Exception e) {
 			System.err.println("Error running allele-dosage: " + e.getMessage());
 			e.printStackTrace();
