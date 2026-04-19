@@ -5,6 +5,11 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
 import org.cenicana.bio.io.VcfFastReader;
 
 /**
@@ -18,12 +23,32 @@ public class VcfFilter {
 	private double minHwePValue = 0.0;
 	private boolean onlyBiallelicSnps = false;
 	private int ploidy = 2;
+	private double minEh = 0.0;
+	private int topN = -1;
+
+	// Helper class for PriorityQueue to keep Top N polymorphic markers
+	private static class VcfLineScore implements Comparable<VcfLineScore> {
+		long order;
+		String line;
+		double eh;
+		public VcfLineScore(long order, String line, double eh) {
+			this.order = order;
+			this.line = line;
+			this.eh = eh;
+		}
+		@Override
+		public int compareTo(VcfLineScore o) {
+			return Double.compare(this.eh, o.eh); // Min-heap (lowest EH at the head)
+		}
+	}
 
 	public void setMinMaf(double minMaf) { this.minMaf = minMaf; }
 	public void setMaxMissingness(double maxMissingness) { this.maxMissingness = maxMissingness; }
 	public void setMinHwePValue(double minHwePValue) { this.minHwePValue = minHwePValue; }
 	public void setOnlyBiallelicSnps(boolean onlyBiallelicSnps) { this.onlyBiallelicSnps = onlyBiallelicSnps; }
 	public void setPloidy(int ploidy) { this.ploidy = ploidy; }
+	public void setMinEh(double minEh) { this.minEh = minEh; }
+	public void setTopN(int topN) { this.topN = topN; }
 
 	public void filter(String inputVcf, String outputVcf) throws IOException {
 		String[] sampleNames = VcfFastReader.getSampleIds(inputVcf);
@@ -31,6 +56,8 @@ public class VcfFilter {
 
 		int totalVariants = 0;
 		int keptVariants = 0;
+
+		PriorityQueue<VcfLineScore> topQueue = new PriorityQueue<>();
 
 		try (BufferedReader br = new BufferedReader(new FileReader(inputVcf));
 			 PrintWriter pw = new PrintWriter(new FileWriter(outputVcf))) {
@@ -41,7 +68,7 @@ public class VcfFilter {
 					pw.println(line);
 					if (line.startsWith("#CHROM")) {
 						// Add a filter header before the CHROM line
-						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + "\"");
+						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + ",minEh=" + minEh + ",topN=" + topN + "\"");
 					}
 					continue;
 				}
@@ -209,13 +236,48 @@ public class VcfFilter {
 							}
 						}
 					}
+					// 4. Expected Heterozygosity (EH) filter
+					double eh = 0.0;
+					for (int c : siteAlleleCounts) {
+						if (c > 0) {
+							double freq = (double) c / totalGenotypedAlleles;
+							eh += freq * freq;
+						}
+					}
+					eh = 1.0 - eh;
+
+					if (eh < minEh) {
+						continue;
+					}
+
+					// If we are keeping Top N, add to PriorityQueue instead of writing immediately
+					if (topN > 0) {
+						if (topQueue.size() < topN) {
+							topQueue.add(new VcfLineScore(totalVariants, line, eh));
+						} else if (eh > topQueue.peek().eh) {
+							topQueue.poll();
+							topQueue.add(new VcfLineScore(totalVariants, line, eh));
+						}
+						continue; // Skip the direct writing below
+					}
+
 				} else {
 					continue; // Filter out sites with 100% missing data
 				}
 
-				// If it passed all filters, keep it
+				// If it passed all filters and we are not in Top N mode, keep it
 				pw.println(line);
 				keptVariants++;
+			}
+
+			// If Top N mode is active, write the buffered markers in their original genomic order
+			if (topN > 0) {
+				List<VcfLineScore> sortedList = new ArrayList<>(topQueue);
+				sortedList.sort(Comparator.comparingLong(s -> s.order));
+				for (VcfLineScore s : sortedList) {
+					pw.println(s.line);
+					keptVariants++;
+				}
 			}
 		}
 

@@ -32,6 +32,12 @@ public class VcfFilterCommand implements Callable<Integer> {
 	@Option(names = {"-p", "--ploidy"}, description = "Ploidy level of the organism. If > 2, HWE and MAF will be calculated using Allele Dosages (AD/BSDP) assuming polysomic inheritance.", defaultValue = "2")
 	private int ploidy;
 
+	@Option(names = {"--min-eh"}, description = "Minimum Expected Heterozygosity (EH) score. Ranges from 0.0 to 1.0.", defaultValue = "0.0")
+	private double minEh;
+
+	@Option(names = {"-t", "--top-n"}, description = "Keep only the Top N most polymorphic markers based on Expected Heterozygosity (EH).", defaultValue = "-1")
+	private int topN;
+
 	@Override
 	public Integer call() throws Exception {
 		File f = new File(vcfFile);
@@ -51,6 +57,8 @@ public class VcfFilterCommand implements Callable<Integer> {
 		if (minHwePValue > 0) System.out.println(" - Min HWE p-value: " + minHwePValue);
 		if (onlyBiallelicSnps) System.out.println(" - Biallelic SNPs only: true");
 		System.out.println(" - Ploidy assumption: " + ploidy);
+		if (minEh > 0) System.out.println(" - Minimum EH: " + minEh);
+		if (topN > 0) System.out.println(" - Keep Top N polymorphic: " + topN);
 		System.out.println("=================================================\n");
 
 		VcfFilter filter = new VcfFilter();
@@ -59,6 +67,8 @@ public class VcfFilterCommand implements Callable<Integer> {
 		filter.setMinHwePValue(minHwePValue);
 		filter.setOnlyBiallelicSnps(onlyBiallelicSnps);
 		filter.setPloidy(ploidy);
+		filter.setMinEh(minEh);
+		filter.setTopN(topN);
 
 		filter.filter(vcfFile, outputFile);
 
