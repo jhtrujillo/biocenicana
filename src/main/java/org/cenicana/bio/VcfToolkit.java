@@ -6,12 +6,10 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import org.cenicana.bio.cli.AlleleDosageCommand;
 import org.cenicana.bio.cli.GeneticDistanceCommand;
-import org.cenicana.bio.cli.GeneticSimilarityCommand;
 import org.cenicana.bio.cli.TargetedAlleleDosageCommand;
 
 @Command(name = "biocenicana", mixinStandardHelpOptions = true, version = "1.0", description = "Bioinformatics tools for Cenicana", subcommands = {
 		AlleleDosageCommand.class,
-		GeneticSimilarityCommand.class,
 		TargetedAlleleDosageCommand.class,
 		GeneticDistanceCommand.class
 })
