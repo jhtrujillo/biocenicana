@@ -631,4 +631,82 @@ public class AlleleDosageCalculator {
 			System.out.println(row);
 		}
 	}
+
+	/**
+	 * Legacy method: Extracts and outputs only the total read depth (Ref + Alt) 
+	 * for each genotype across the VCF file.
+	 */
+	public void get_depth_sequ(String vcfFile) throws IOException {
+		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
+		int numG = sampleIds.length;
+
+		StringBuilder headerBuilder = new StringBuilder("Chr\tpos\t");
+		for (String id : sampleIds) {
+			headerBuilder.append(id).append("\t");
+		}
+		matrizDosisString.add(headerBuilder.toString());
+
+		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
+
+		String lastFormat = "";
+		int adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
+
+		for (String[] columns : blockIterator) {
+			String chr = columns[0];
+			String pos = columns[1];
+			String format = columns.length > 8 ? columns[8] : "";
+
+			if (!format.equals(lastFormat)) {
+				lastFormat = format;
+				adIdx = -1; roIdx = -1; aoIdx = -1; adpIdx = -1; bsdpIdx = -1;
+				String[] tokens = format.split(":");
+				for (int i = 0; i < tokens.length; i++) {
+					switch (tokens[i]) {
+						case "AD":   adIdx   = i; break;
+						case "ADP":  adpIdx  = i; break;
+						case "RO":   roIdx   = i; break;
+						case "AO":   aoIdx   = i; break;
+						case "BSDP": bsdpIdx = i; break;
+					}
+				}
+			}
+
+			int len = Math.min(columns.length - 9, numG);
+			StringBuilder rowBuilder = new StringBuilder();
+			rowBuilder.append(chr).append("\t").append(pos).append("\t");
+
+			for (int i = 0; i < len; i++) {
+				String genotypeStr = columns[9 + i];
+				String[] gtTokens = genotypeStr.split(":");
+				float countRef = 0;
+				float countAlt = 0;
+
+				try {
+					if (bsdpIdx != -1 && gtTokens.length > bsdpIdx) {
+						String[] bsdp = gtTokens[bsdpIdx].split(",");
+						if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
+							countAlt = Float.parseFloat(bsdp[0]);
+							countRef = Float.parseFloat(bsdp[1]);
+						}
+					} else if (adIdx != -1 && gtTokens.length > adIdx) {
+						String[] ads = gtTokens[adIdx].split(",");
+						if (ads.length >= 2 && !ads[0].equals(".") && !ads[1].equals(".")) {
+							countRef = Float.parseFloat(ads[0]);
+							countAlt = Float.parseFloat(ads[1]);
+						}
+					} else if (roIdx != -1 && aoIdx != -1 && gtTokens.length > Math.max(roIdx, aoIdx)) {
+						if (!gtTokens[roIdx].equals(".") && !gtTokens[aoIdx].equals(".")) {
+							countRef = Float.parseFloat(gtTokens[roIdx]);
+							String aoStr = gtTokens[aoIdx];
+							if (aoStr.contains(",")) aoStr = aoStr.split(",")[0];
+							countAlt = Float.parseFloat(aoStr);
+						}
+					}
+				} catch (NumberFormatException e) { }
+				
+				rowBuilder.append((countRef + countAlt)).append("\t");
+			}
+			matrizDosisString.add(rowBuilder.toString());
+		}
+	}
 }
