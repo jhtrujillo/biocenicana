@@ -269,146 +269,45 @@ public class HtmlDashboardGenerator {
 	}
 
     public static void generateLdDecayDashboard(String outputPath, double[] sumR2, long[] countR2, int binSizeBp, int halfDecayDistanceBp, double thresholdR2) throws java.io.IOException {
-
-        // ── 1. Collect binned data points ─────────────────────────────────────
-        java.util.List<Double> xList = new java.util.ArrayList<>();
-        java.util.List<Double> yList = new java.util.ArrayList<>();
-
+        java.util.List<Double> xL = new java.util.ArrayList<>(), yL = new java.util.ArrayList<>();
         for (int i = 0; i < sumR2.length; i++) {
-            if (countR2[i] > 0) {
-                double avgR2 = sumR2[i] / countR2[i];
-                if (avgR2 > 0) { // Must be > 0 for log transform
-                    xList.add((double)(i * binSizeBp));
-                    yList.add(avgR2);
-                }
-            }
+            if (countR2[i] > 0) { double avg = sumR2[i] / countR2[i]; if (avg > 0) { xL.add((double)(i * binSizeBp)); yL.add(avg); } }
         }
-
-        // ── 2. Fit Exponential Decay: r² = a * exp(-b * d) via log-linear regression ──
-        // Linearize: ln(r²) = ln(a) - b*d  →  Y = A + B*X
-        double sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        int n = xList.size();
-
-        for (int i = 0; i < n; i++) {
-            double x = xList.get(i);
-            double y = Math.log(yList.get(i)); // ln(r²)
-            sumX  += x;
-            sumY  += y;
-            sumXY += x * y;
-            sumXX += x * x;
-        }
-
-        double b = 0, a = 1.0; // defaults if fit fails
-        if (n >= 2) {
-            double denom = (n * sumXX - sumX * sumX);
-            if (Math.abs(denom) > 1e-15) {
-                b = -(n * sumXY - sumX * sumY) / denom; // decay rate (positive)
-                double lnA = (sumY + b * sumX) / n;
-                a = Math.exp(lnA);
-                b = Math.max(b, 0); // enforce positive decay
-            }
-        }
-
-        // ── 3. Generate smooth fitted curve (100 points across the full range) ─
-        int maxDist = sumR2.length * binSizeBp;
-        StringBuilder fitX = new StringBuilder("[");
-        StringBuilder fitY = new StringBuilder("[");
-
-        int numFitPoints = 200;
-        for (int i = 0; i <= numFitPoints; i++) {
-            double d = (double)(i * maxDist) / numFitPoints;
-            double fittedR2 = a * Math.exp(-b * d);
-            fittedR2 = Math.min(Math.max(fittedR2, 0), 1.05);
-            fitX.append(String.format(java.util.Locale.US, "%.1f", d)).append(",");
-            fitY.append(String.format(java.util.Locale.US, "%.6f", fittedR2)).append(",");
-        }
-        if (fitX.length() > 1) {
-            fitX.setLength(fitX.length() - 1);
-            fitY.setLength(fitY.length() - 1);
-        }
-        fitX.append("]");
-        fitY.append("]");
-
-        // ── 4. Raw binned data arrays ─────────────────────────────────────────
-        StringBuilder xData = new StringBuilder("[");
-        StringBuilder yData = new StringBuilder("[");
-        for (int i = 0; i < xList.size(); i++) {
-            xData.append(String.format(java.util.Locale.US, "%.1f", xList.get(i))).append(",");
-            yData.append(String.format(java.util.Locale.US, "%.5f", yList.get(i))).append(",");
-        }
-        if (xData.length() > 1) { xData.setLength(xData.length() - 1); yData.setLength(yData.length() - 1); }
+        int n = xL.size();
+        double[] xd = new double[n], yd = new double[n];
+        for (int i = 0; i < n; i++) { xd[i] = xL.get(i); yd[i] = yL.get(i); }
+        org.cenicana.bio.utils.CurveFitter best = org.cenicana.bio.utils.CurveFitter.selectBest(xd, yd, 300);
+        StringBuilder xData = new StringBuilder("["), yData = new StringBuilder("[");
+        for (int i = 0; i < n; i++) { xData.append(String.format(java.util.Locale.US, "%.1f", xd[i])).append(","); yData.append(String.format(java.util.Locale.US, "%.5f", yd[i])).append(","); }
+        if (n > 0) { xData.setLength(xData.length()-1); yData.setLength(yData.length()-1); }
         xData.append("]"); yData.append("]");
-
-        // ── 5. Equation label ─────────────────────────────────────────────────
-        String equation = String.format(java.util.Locale.US, "r\u00B2 = %.4f \u00D7 e<sup>-%.8f\u00D7d</sup>", a, b);
-        String halfDecayLabel = (halfDecayDistanceBp == -1) ? "Not reached" : halfDecayDistanceBp + " bp";
-
-        // ── 6. Build HTML ─────────────────────────────────────────────────────
+        StringBuilder fitX = new StringBuilder("["), fitY = new StringBuilder("[");
+        for (int i = 0; i < best.fitX.length; i++) { fitX.append(String.format(java.util.Locale.US, "%.1f", best.fitX[i])).append(","); fitY.append(String.format(java.util.Locale.US, "%.6f", best.fitY[i])).append(","); }
+        if (best.fitX.length > 0) { fitX.setLength(fitX.length()-1); fitY.setLength(fitY.length()-1); }
+        fitX.append("]"); fitY.append("]");
+        String halfLabel = halfDecayDistanceBp == -1 ? "Not reached" : halfDecayDistanceBp + " bp";
+        String r2Label = String.format(java.util.Locale.US, "%.4f", best.r2);
         StringBuilder html = new StringBuilder();
-        html.append("<!DOCTYPE html>\n<html>\n<head>\n");
-        html.append("    <title>Linkage Disequilibrium (LD) Decay</title>\n");
-        html.append("    <script src=\"https://cdn.plot.ly/plotly-2.24.1.min.js\"></script>\n");
-        html.append("    <style>\n");
-        html.append("        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f0f4f8; }\n");
-        html.append("        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }\n");
-        html.append("        h1 { color: #2c3e50; text-align: center; margin-bottom: 4px; }\n");
-        html.append("        .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 20px; }\n");
-        html.append("        .kpi-container { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }\n");
-        html.append("        .kpi { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 16px 28px; border-radius: 10px; text-align: center; min-width: 180px; }\n");
-        html.append("        .kpi label { font-size: 12px; opacity: 0.85; display: block; margin-bottom: 4px; }\n");
-        html.append("        .kpi span { font-size: 22px; font-weight: bold; }\n");
-        html.append("        .eq-box { text-align: center; background: #f8f9fa; border-left: 4px solid #2980b9; padding: 10px 20px; border-radius: 6px; margin-bottom: 16px; font-size: 15px; color: #2c3e50; }\n");
-        html.append("        .chart-container { width: 100%; height: 580px; }\n");
-        html.append("    </style>\n</head>\n<body>\n");
-        html.append("    <div class=\"container\">\n");
-        html.append("        <h1>&#x1F9EC; LD Decay Dashboard</h1>\n");
-        html.append("        <p class=\"subtitle\">Exponential Trend Fit &mdash; Pearson r&sup2; vs Physical Distance (bp)</p>\n");
-
-        // KPIs
-        html.append("        <div class=\"kpi-container\">\n");
-        html.append("            <div class=\"kpi\"><label>Half-Decay Distance</label><span>").append(halfDecayLabel).append("</span></div>\n");
-        html.append("            <div class=\"kpi\"><label>r&sup2; Threshold</label><span>").append(String.format(java.util.Locale.US, "%.4f", thresholdR2)).append("</span></div>\n");
-        html.append("            <div class=\"kpi\"><label>Decay Rate (&beta;)</label><span>").append(String.format(java.util.Locale.US, "%.2e", b)).append("</span></div>\n");
-        html.append("        </div>\n");
-
-        // Equation box
-        html.append("        <div class=\"eq-box\">Fitted Model: ").append(equation).append("</div>\n");
-
-        html.append("        <div id=\"ldPlot\" class=\"chart-container\"></div>\n");
-        html.append("    </div>\n<script>\n");
-
-        // Raw data scatter trace
-        html.append("var traceRaw = { x:").append(xData).append(", y:").append(yData)
-            .append(", mode:'markers', name:'Observed (binned avg r\u00B2)',")
-            .append(" marker:{color:'rgba(150,150,180,0.5)', size:7}, type:'scatter' };\n");
-
-        // Fitted trend line trace
-        html.append("var traceFit = { x:").append(fitX).append(", y:").append(fitY)
-            .append(", mode:'lines', name:'Exponential Fit: r\u00B2 = a\u00B7e<sup>-\u03B2d</sup>',")
-            .append(" line:{color:'rgb(41,128,185)', width:3}, type:'scatter' };\n");
-
-        // Layout with optional crosshair shapes
-        html.append("var layout = { title:'LD Decay \u2014 Exponential Trend (bin=").append(binSizeBp).append(" bp)',")
-            .append(" xaxis:{title:'Physical Distance (bp)', gridcolor:'#ecf0f1'},")
-            .append(" yaxis:{title:'Average r\u00B2', range:[0,1.05], gridcolor:'#ecf0f1'},")
-            .append(" plot_bgcolor:'#ffffff', paper_bgcolor:'#ffffff', legend:{x:0.7,y:0.95},");
-
+        html.append("<!DOCTYPE html><html><head><title>LD Decay</title>\n");
+        html.append("<script src=\"https://cdn.plot.ly/plotly-2.24.1.min.js\"></script>\n");
+        html.append("<style>body{font-family:\'Segoe UI\',sans-serif;margin:0;padding:20px;background:#f0f4f8;}.wrap{max-width:1200px;margin:0 auto;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);}h1{color:#2c3e50;text-align:center;}.sub{text-align:center;color:#7f8c8d;margin-bottom:18px;}.kpis{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;}.kpi{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 22px;border-radius:10px;text-align:center;min-width:155px;}.kpi label{font-size:11px;opacity:.8;display:block;margin-bottom:3px;text-transform:uppercase;}.kpi span{font-size:19px;font-weight:700;}.eq{text-align:center;background:#eaf4fb;border-left:4px solid #2980b9;padding:10px 18px;border-radius:6px;margin-bottom:14px;font-size:14px;color:#1a5276;}.chart{width:100%;height:570px;}</style></head><body><div class=\"wrap\">\n");
+        html.append("<h1>&#x1F9EC; LD Decay Dashboard</h1>\n");
+        html.append("<p class=\"sub\">Best model auto-selected from 5 candidates</p>\n");
+        html.append("<div class=\"kpis\">");
+        html.append("<div class=\"kpi\"><label>Best Model</label><span>").append(best.name).append("</span></div>");
+        html.append("<div class=\"kpi\"><label>Model Fit R&sup2;</label><span>").append(r2Label).append("</span></div>");
+        html.append("<div class=\"kpi\"><label>Half-Decay Distance</label><span>").append(halfLabel).append("</span></div>");
+        html.append("</div>\n");
+        html.append("<div class=\"eq\">Fitted equation: <b>").append(best.equation).append("</b></div>\n");
+        html.append("<div id=\"ldPlot\" class=\"chart\"></div></div>\n<script>\n");
+        html.append("var raw={x:").append(xData).append(",y:").append(yData).append(",mode:\'markers\',name:\'Observed r\u00B2\',marker:{color:\'rgba(120,120,160,0.4)\',size:7},type:\'scatter\'};\n");
+        html.append("var fit={x:").append(fitX).append(",y:").append(fitY).append(",mode:\'lines\',name:\'").append(best.name).append(" (R\u00B2=").append(r2Label).append(")\',line:{color:\'rgb(41,128,185)\',width:3},type:\'scatter\'};\n");
+        html.append("var layout={title:\'LD Decay \u2014 ").append(best.name).append("\',xaxis:{title:\'Distance (bp)\',gridcolor:\'#ecf0f1\'},yaxis:{title:\'r\u00B2\',range:[0,1.05],gridcolor:\'#ecf0f1\'},plot_bgcolor:\'#fff\',paper_bgcolor:\'#fff\'");
         if (halfDecayDistanceBp != -1) {
-            html.append(" shapes:[{type:'line',x0:").append(halfDecayDistanceBp).append(",y0:0,x1:")
-                .append(halfDecayDistanceBp).append(",y1:").append(thresholdR2)
-                .append(",line:{color:'rgba(231,76,60,0.85)',width:2,dash:'dash'}},")
-                .append("{type:'line',x0:0,y0:").append(thresholdR2).append(",x1:")
-                .append(halfDecayDistanceBp).append(",y1:").append(thresholdR2)
-                .append(",line:{color:'rgba(231,76,60,0.85)',width:2,dash:'dash'}}],");
+            html.append(",shapes:[{type:\'line\',x0:").append(halfDecayDistanceBp).append(",y0:0,x1:").append(halfDecayDistanceBp).append(",y1:").append(thresholdR2).append(",line:{color:\'rgba(231,76,60,.85)\',width:2,dash:\'dash\'}},{type:\'line\',x0:0,y0:").append(thresholdR2).append(",x1:").append(halfDecayDistanceBp).append(",y1:").append(thresholdR2).append(",line:{color:\'rgba(231,76,60,.85)\',width:2,dash:\'dash\'}}]");
         }
-
-        html.append(" };\n");
-        html.append("Plotly.newPlot('ldPlot', [traceRaw, traceFit], layout, {responsive:true});\n");
-        html.append("</script>\n</body>\n</html>\n");
-
-        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(outputPath))) {
-            pw.write(html.toString());
-        }
+        html.append("};\nPlotly.newPlot(\'ldPlot\',[raw,fit],layout,{responsive:true});\n");
+        html.append("</script></body></html>\n");
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(outputPath))) { pw.write(html.toString()); }
     }
 }
-
