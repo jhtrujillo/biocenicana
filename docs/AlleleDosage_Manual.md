@@ -99,3 +99,21 @@ java -jar biocenicana.jar allele-dosage \
 2. **(Fase 1):** Elimina sin piedad a cualquier genotipo con menos de 15 lecturas (`-md 15`), porque no confiamos en ellos.
 3. **(Fase 3):** Toma a los sobrevivientes y usa IA No Supervisada (`--adaptive-rounding`) para asignarles su dosis real, corrigiendo el sesgo de la máquina secuenciadora.
 4. **(Fase 2):** A todos los genotipos que eliminamos en el paso 2, los reconstruye (`--impute bsdp-knn`) copiando el ADN de sus 7 familiares más parecidos (`-k 7`).
+
+---
+
+## 🕰️ El "Modo Clásico" (¿Cómo correrlo como antes?)
+
+¡No te preocupes! Todo este nuevo poder de Inteligencia artificial y Estadística es **100% opcional**. 
+
+Si quieres calcular las dosis exactamente como lo hacía la versión antigua del software (con redondeo matemático rígido y sin filtros), simplemente no incluyas ninguna de las banderas nuevas. El comportamiento por defecto sigue siendo el clásico:
+
+```bash
+java -jar biocenicana.jar allele-dosage -v archivo.vcf -p 10 --impute mode
+```
+
+Al omitir `-md`, `--adaptive-rounding` y `-k`, el programa asume que:
+1. Todas las lecturas son válidas (Profundidad mínima = 0).
+2. Los cortes matemáticos son rígidos (Sin clustering).
+3. Los huecos se rellenan con la moda poblacional tradicional (`--impute mode`).
+
