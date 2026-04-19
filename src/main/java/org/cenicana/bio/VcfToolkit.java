@@ -34,21 +34,6 @@ public class VcfToolkit {
 	}
 
 
-	@Command(name = "VcfFilter", aliases = { "5" }, description = "Filtrar VCF")
-	public void VcfFilter(
-			@Parameters(index = "0", description = "snps_dosis_aus.txt o snps_dosis_abanico.txt") String filterFile,
-			@Parameters(index = "1", description = "path_vcf") String vcfFile) throws Exception {
-		VcfFilter al = new VcfFilter();
-		al.filtrarvcf(filterFile, vcfFile);
-	}
-
-	@Command(name = "ReducirHuellaVCF", aliases = { "6" }, description = "Reducir Huella VCF")
-	public void ReducirHuellaVCF(@Parameters(index = "0", description = "path_vcf_original") String vcfOriginal,
-			@Parameters(index = "1", description = "path_vcf_filtrado") String vcfFiltrado,
-			@Parameters(index = "2", description = "numSNP") int numSnp) throws Exception {
-		VcfFilterPrint vcfmatrix = new VcfFilterPrint();
-		vcfmatrix.VCFfingerprint(vcfOriginal, vcfFiltrado, 0.0, 0.0, numSnp);
-	}
 
 	@Command(name = "frecuenciaAlelos", aliases = { "8" }, description = "Frecuencia Alelos")
 	public void frecuenciaAlelos(@Parameters(index = "0", description = "path_vcf") String vcfFile) throws Exception {
