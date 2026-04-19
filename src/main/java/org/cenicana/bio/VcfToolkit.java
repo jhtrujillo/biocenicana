@@ -175,42 +175,7 @@ public class VcfToolkit {
 		rg.leerarchivo2(fastafile, patron);
 	}
 
-	@Command(name = "generarSNPsformatoRG", aliases = { "25" }, description = "Generar SNPs formato RG")
-	public void generarSNPsformatoRG(@Parameters(index = "0", description = "posicionesSNPsgenoCompleto") String pos,
-			@Parameters(index = "1", description = "VCF") String vcf) throws Exception {
-		RapidGenomic rg = new RapidGenomic();
-		rg.generarSNPsformatoRG(pos, vcf);
-	}
 
-	@Command(name = "generarSNPsformatoRG2", aliases = { "26" }, description = "Generar SNPs formato RG2")
-	public void generarSNPsformatoRG2(@Parameters(index = "0", description = "posiciones") String pos,
-			@Parameters(index = "1", description = "VCF") String vcf,
-			@Parameters(index = "2", description = "Chr") String chr,
-			@Parameters(index = "3", description = "SNP") String snp) throws Exception {
-		RapidGenomic rg = new RapidGenomic();
-		rg.generarSNPsformatoRG(pos, vcf);
-	}
-
-	@Command(name = "generarSNPsformatoRG3", aliases = { "27" }, description = "Generar SNPs formato RG3")
-	public void generarSNPsformatoRG3(@Parameters(index = "0", description = "posiciones") String pos,
-			@Parameters(index = "1", description = "VCF") String vcf) throws Exception {
-		RapidGenomic rg = new RapidGenomic();
-		rg.generarSNPsformatoRG3(pos, vcf);
-	}
-
-	@Command(name = "fixgffformat", aliases = { "28" }, description = "Fix gff format")
-	public void fixgffformat(@Parameters(index = "0", description = "gffFile") String gffFile) throws Exception {
-		AddFunctionsGff gff = new AddFunctionsGff();
-		gff.fixgffformat(gffFile);
-	}
-
-	@Command(name = "filtrargffporTamano", aliases = { "29" }, description = "Filtrar gff por tamaño")
-	public void filtrargffporTamano(@Parameters(index = "0", description = "gffFile") String gffFile,
-			@Parameters(index = "1", description = "minSize") String minSize,
-			@Parameters(index = "2", description = "maxSize") String maxSize) throws Exception {
-		AddFunctionsGff gff = new AddFunctionsGff();
-		gff.filtrargffporTamano(gffFile, minSize, maxSize);
-	}
 
 
 
