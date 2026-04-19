@@ -45,7 +45,6 @@ public class AlleleDosageCalculator {
 	// Formatter to round decimal representations to a single decimal point.
 	private final DecimalFormat df = new DecimalFormat("#.0");
 
-	private String[][] matrizTranspuestaDosis;
 	private List<String> matrizDosisString = new ArrayList<>();
 
 	// ── Getters ────────────────────────────────────────────────────────────────
@@ -576,31 +575,6 @@ public class AlleleDosageCalculator {
 	/**
 	 * Transposes the matrix so that Samples are rows and SNPs are columns.
 	 */
-	public void TransposeDosisMatrix() {
-		int numRows = numGenotypes + 2;
-		int numCol  = numSNPs + 1;
-		matrizTranspuestaDosis = new String[numRows][numCol];
-
-		for (int i = 0; i < numCol; i++) {
-			String[] tmp = matrizDosisString.get(i).split("\t");
-			for (int j = 0; j < tmp.length; j++) {
-				matrizTranspuestaDosis[j][i] = tmp[j];
-			}
-		}
-	}
-
-	/**
-	 * Prints the transposed matrix to stdout.
-	 */
-	public void printTransposeDosisMatrix() {
-		for (String[] row : matrizTranspuestaDosis) {
-			for (String cell : row) {
-				System.out.print(cell + "\t");
-			}
-			System.out.println();
-		}
-	}
-
 	// ── Internal helpers ───────────────────────────────────────────────────────
 
 	/**
