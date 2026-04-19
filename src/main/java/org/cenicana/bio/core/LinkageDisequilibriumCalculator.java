@@ -183,7 +183,7 @@ public class LinkageDisequilibriumCalculator {
             }
         }
 
-        if (n < 5) return -1.0; // Need at least 5 common valid samples to compute correlation
+        if (n < 3) return -1.0; // Need at least 3 common valid samples to compute correlation
 
         double num = pSum - (sum1 * sum2 / n);
         double den = Math.sqrt((sum1Sq - (sum1 * sum1) / n) * (sum2Sq - (sum2 * sum2) / n));
