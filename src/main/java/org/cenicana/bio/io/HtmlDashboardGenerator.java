@@ -286,7 +286,6 @@ public class HtmlDashboardGenerator {
         if (best.fitX.length > 0) { fitX.setLength(fitX.length()-1); fitY.setLength(fitY.length()-1); }
         fitX.append("]"); fitY.append("]");
         String halfLabel = halfDecayDistanceBp == -1 ? "Not reached" : halfDecayDistanceBp + " bp";
-        String analyticalLabel = best.analyticalHalfDecay == -1 ? "Not computable" : best.analyticalHalfDecay + " bp";
         String r2Label = String.format(java.util.Locale.US, "%.4f", best.r2);
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html><html><head><title>LD Decay</title>\n");
@@ -297,11 +296,9 @@ public class HtmlDashboardGenerator {
         html.append("<div class=\"kpis\">");
         html.append("<div class=\"kpi\"><label>Best Model</label><span>").append(best.name).append("</span></div>");
         html.append("<div class=\"kpi\"><label>Model Fit R&sup2;</label><span>").append(r2Label).append("</span></div>");
-        html.append("<div class=\"kpi\" style=\"background:linear-gradient(135deg,#f093fb,#f5576c)\"><label>&#x1F4CA; Observed Half-Decay</label><span>").append(halfLabel).append("</span></div>");
-        html.append("<div class=\"kpi\" style=\"background:linear-gradient(135deg,#4facfe,#00f2fe);color:#1a3a4a\"><label>&#x1F9EE; Analytical Half-Decay</label><span>").append(analyticalLabel).append("</span></div>");
+        html.append("<div class=\"kpi\" style=\"background:linear-gradient(135deg,#f093fb,#f5576c)\"><label>Half-Decay Distance</label><span>").append(halfLabel).append("</span></div>");
         html.append("</div>\n");
         html.append("<div class=\"eq\">Fitted equation: <b>").append(best.equation).append("</b></div>\n");
-        html.append("<div style=\"text-align:center;font-size:12px;color:#95a5a6;margin-bottom:14px\">&#x1F4CA; Observed: first bin where r&sup2; drops below baseline/2 &nbsp;|&nbsp; &#x1F9EE; Analytical: solved algebraically from the model equation</div>\n");
         html.append("<div id=\"ldPlot\" class=\"chart\"></div></div>\n<script>\n");
         html.append("var raw={x:").append(xData).append(",y:").append(yData).append(",mode:\'markers\',name:\'Observed r\u00B2\',marker:{color:\'rgba(120,120,160,0.4)\',size:7},type:\'scatter\'};\n");
         html.append("var fit={x:").append(fitX).append(",y:").append(fitY).append(",mode:\'lines\',name:\'").append(best.name).append(" (R\u00B2=").append(r2Label).append(")\',line:{color:\'rgb(41,128,185)\',width:3},type:\'scatter\'};\n");
