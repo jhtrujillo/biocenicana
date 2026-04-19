@@ -1,65 +1,55 @@
-# Biocenicana
+# BioCenicana
 
-Bioinformatics tools for population genomics and molecular fingerprinting studies in polyploid organisms (such as sugarcane). Built with Java, Maven, and [PicoCLI](https://picocli.info/).
+A high-performance, streaming bioinformatics CLI toolkit optimized for the complex genomics of Sugarcane (*Saccharum spp.*) and other polyploid crops.
 
-## Key Features
+## Features & Commands
 
-*   **`allele-dosage`**: Rapidly generates allele dosage matrices from massive VCF files, bypassing memory overhead and avoiding `OutOfMemoryError` exceptions. It features built-in support to auto-detect VCFs generated from NGSEP, GATK, and FreeBayes, allowing dynamic, on-the-fly imputation models.
-*   **Optimized VCF Parsing**: Implements a highly efficient stream-based reader (`VcfFastReader.java`) to guarantee extremely low RAM consumption, which is ideal for processing highly repetitive and polyploid genomes.
+BioCenicana provides several tools to analyze, filter, and process VCF files efficiently without memory bottlenecks.
 
-## Requirements
+### 1. `vcf-stats` (Advanced Statistics & HTML Dashboard)
+Calculates highly precise population genetics statistics in a single pass. 
+* **Multiallelic Expected Heterozygosity (EH):** Uses exact formulas (`1 - Σ(pi²)`) for accurate metrics in complex genomes.
+* **Fisher Exact Test for HWE:** Mathematically exact p-values for Hardy-Weinberg Equilibrium, replacing standard Chi-square approximations.
+* **Per-Sample Metrics:** Homozygous/Heterozygous counts, TS/TV ratios, rare allele counts.
+* **Interactive HTML Dashboard:** Generates a stunning Plotly-based HTML report with high-resolution MAF spectra and HWE distribution charts.
 
-*   **Java 11** or higher.
-*   **Apache Maven 3.6+** (for building the project).
-
-*(Note: The core `NGSEPcore` library dependency is included locally in the `/lib` folder of this repository).*
-
-## Build Instructions
-
-To build the project and generate the executable JAR file containing all dependencies, run the following command in the root directory:
-
+**Usage:**
 ```bash
-mvn clean package -DskipTests
+java -jar biocenicana.jar vcf-stats -v input.vcf -o output_dir
 ```
 
-This will automatically create a standalone packaged jar in the `target/` folder named `biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar`.
+### 2. `vcf-filter` (Polyploid-Aware VCF Filtering)
+A memory-efficient streaming filter that cleans your VCF files based on strict quality thresholds. Exceeds standard tools by supporting polysomic inheritance natively.
 
-## Usage
-
-The packaged jar acts as a central executable toolkit containing multiple CLI commands. We recommend running it directly via `java -jar`.
-
-### View general help menu
+**Standard Filtering:**
 ```bash
-java -jar target/biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar --help
+java -jar biocenicana.jar vcf-filter -v input.vcf -o clean.vcf -m 0.05 -x 0.2 -e 0.05 -b
+```
+* `-m` / `--min-maf`: Minimum Minor Allele Frequency.
+* `-x` / `--max-missingness`: Maximum allowed missing data (e.g. 0.2 = 20%).
+* `-e` / `--min-hwe-pvalue`: Filter extreme HWE violations (e.g. 0.05).
+* `-b` / `--biallelic-only`: Keeps only biallelic SNPs.
+
+**Polyploid Mode (`-p` / `--ploidy`):**
+Essential for sugarcane! If ploidy > 2, the tool ignores erroneous `0/1` diploid calls from GATK/NGSEP/FreeBayes and **automatically estimates allele dosages** using the `AD` or `BSDP` read depths. HWE and MAF are calculated accurately assuming polysomic inheritance.
+```bash
+java -jar biocenicana.jar vcf-filter -v cane.vcf -o clean.vcf -p 10 -e 0.05
 ```
 
-### Allele Dosage Matrix Calculation (`allele-dosage`)
-
-Computes a matrix of genotypes converted to allele dosages for a given ploidy, extracting depths directly from the VCF FORMAT fields.
-
+**Top-N Polymorphic Selection (`-t` / `--top-n`):**
+Perfect for designing targeted sequencing panels or SNP arrays. Uses an ultra-fast `PriorityQueue` (Min-Heap) to stream the VCF and extract only the top $N$ most polymorphic markers based on their Expected Heterozygosity (EH).
 ```bash
-java -jar target/biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar allele-dosage \
-  --vcf path/to/your_file.vcf \
-  --ploidy 10 \
-  --impute bsdp-mode
+java -jar biocenicana.jar vcf-filter -v cane.vcf -o top_5000.vcf -p 10 -t 5000 --min-eh 0.4
 ```
 
-#### Available Options:
-*   `-p, --ploidy`: Sets the ploidy level of the targeted organism (e.g., `10` for sugarcane). Defaults to `2`.
-*   `-i, --impute`: Missing value imputation method.
-    *   `bsdp`: Leaves missing/uncalled genotypes as `-1`.
-    *   `mode`: Imputes missing genotypes with the mode dosage of the SNP across all samples.
-    *   `mean`: Imputes missing genotypes with the mean dosage of the SNP across all samples.
-    *   `bsdp-mode` / `bsdp-mean`: Dynamically extracts available counts first, and then imputes only the remaining `-1` values with the mode or mean.
-*   `-c, --caller`: Define which Variant Calling software generated the VCF. Options: `auto`, `ngsep`, `gatk`, `freebayes`. If left empty, it defaults to `auto`.
+### 3. Other Commands
+* `allele-dosage`: Calculates allele dosages.
+* `genetic-distance`: Computes genetic distance matrices.
+* `joinmap`: Fixes/formats files for JoinMap.
 
-## Code Structure
-
-This repository was recently modernized to abandon monolithic scripts in favor of a clean, class-based architecture:
-*   `src/main/java/org/cenicana/bio/cli/`: Contains the individual CLI endpoint commands managed by PicoCLI.
-*   `src/main/java/org/cenicana/bio/io/`: Contains efficient custom parsers (like `VcfFastReader`) focused on I/O optimization.
-*   `src/main/java/org/cenicana/bio/`: Legacy analytical classes (e.g., `GeneDosis.java`) refactored into modern data streams.
-*   `lib/`: Contains critical external dependencies not found in Maven Central (e.g., `NGSEPcore`).
-
----
-Project managed and maintained by [jhtrujillo](https://github.com/jhtrujillo) and the Cenicaña Bioinformatics Research Team.
+## Compilation
+Requires Java 11+ and Maven.
+```bash
+mvn clean package
+```
+*The executable fat JAR will be located at `target/biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar`.*
