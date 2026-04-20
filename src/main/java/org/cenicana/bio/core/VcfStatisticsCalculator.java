@@ -49,6 +49,10 @@ public class VcfStatisticsCalculator {
 
 	// ── Density per chromosome ────────────────────────────────────────────────
 	public Map<String, Integer> variantsPerChromosome = new LinkedHashMap<>();
+	// Bin size for genomic density (1Mb)
+	public static final int DENSITY_BIN_SIZE = 1000000;
+	// Map<Chrom, Map<BinIdx, Count>>
+	public Map<String, Map<Integer, Integer>> binnedDensity = new LinkedHashMap<>();
 
 	// ── Histograms ────────────────────────────────────────────────────────────
 	public int[] siteMissingnessHistogram = new int[10]; // 0-10% ... 90-100%
@@ -155,9 +159,14 @@ public class VcfStatisticsCalculator {
 				if (cols.length < 9 + numSamples) continue;
 
 				String chrom = cols[0];
+				int    pos   = Integer.parseInt(cols[1]);
 				String ref   = cols[3];
 				String alt   = cols[4];
-
+				
+				// Update counters
+				variantsPerChromosome.merge(chrom, 1, Integer::sum);
+				int binIdx = pos / DENSITY_BIN_SIZE;
+				binnedDensity.computeIfAbsent(chrom, k -> new HashMap<>()).merge(binIdx, 1, Integer::sum);
 				String[] altAllelesList = alt.equals(".") ? new String[0] : alt.split(",");
 				int numAllelesAtSite = 1 + altAllelesList.length;
 
@@ -178,8 +187,6 @@ public class VcfStatisticsCalculator {
 				} else {
 					numIndels++;
 				}
-
-				variantsPerChromosome.merge(chrom, 1, Integer::sum);
 
 				String[] fmt  = cols[8].split(":");
 				int depthIdx  = -1;

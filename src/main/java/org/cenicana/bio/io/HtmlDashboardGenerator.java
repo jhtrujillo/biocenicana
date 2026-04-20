@@ -57,6 +57,7 @@ public class HtmlDashboardGenerator {
 			StringBuilder hweJs      = buildArray(stats.hweChiSqHistogram);
 
 			// ── Chromosome density ────────────────────────────────────────────
+			// ── Chromosome density ────────────────────────────────────────────
 			StringBuilder chromNames  = new StringBuilder("[");
 			StringBuilder chromCounts = new StringBuilder("[");
 			boolean first = true;
@@ -67,6 +68,26 @@ public class HtmlDashboardGenerator {
 				first = false;
 			}
 			chromNames.append("]"); chromCounts.append("]");
+
+			// ── Genomic density along chromosomes ─────────────────────────────
+			StringBuilder densityChroms = new StringBuilder("[");
+			StringBuilder densityPos    = new StringBuilder("[");
+			StringBuilder densityCounts = new StringBuilder("[");
+			boolean dFirst = true;
+			for (Map.Entry<String, Map<Integer, Integer>> chromEntry : stats.binnedDensity.entrySet()) {
+				String chrom = chromEntry.getKey();
+				// Sort bins by position
+				java.util.List<Integer> sortedBins = new java.util.ArrayList<>(chromEntry.getValue().keySet());
+				java.util.Collections.sort(sortedBins);
+				for (int binIdx : sortedBins) {
+					if (!dFirst) { densityChroms.append(","); densityPos.append(","); densityCounts.append(","); }
+					densityChroms.append("'").append(chrom).append("'");
+					densityPos.append(binIdx * VcfStatisticsCalculator.DENSITY_BIN_SIZE);
+					densityCounts.append(chromEntry.getValue().get(binIdx));
+					dFirst = false;
+				}
+			}
+			densityChroms.append("]"); densityPos.append("]"); densityCounts.append("]");
 
 			// ── Fst heatmap data ──────────────────────────────────────────────
 			StringBuilder fstHeatZ    = new StringBuilder("[");
@@ -155,7 +176,7 @@ public class HtmlDashboardGenerator {
 			w.println("<div class='card'><h3>Minor Allele Frequency (MAF) Spectrum</h3><div id='c-maf'></div></div>");
 			w.println("<div class='card'><h3>Expected Heterozygosity (EH) Distribution per Site</h3><div id='c-eh'></div></div>");
 			w.println("<div class='card'><h3>Variant Types (Ts / Tv / InDel)</h3><div id='c-types'></div></div>");
-			w.println("<div class='card'><h3>Variant Density per Chromosome</h3><div id='c-chrom'></div></div>");
+			w.println("<div class='card full'><h3>Genomic Density Along Chromosomes (SNP/1Mb)</h3><div id='c-dist'></div></div>");
 			w.println("<div class='card full'><h3>Site Missingness Distribution</h3><div id='c-sitemiss'></div></div>");
 			w.println("</div>");
 
@@ -226,6 +247,20 @@ public class HtmlDashboardGenerator {
 			// ── Chart 8: Chromosome density
 			w.println("Plotly.newPlot('c-chrom',[{x:" + chromNames + ",y:" + chromCounts + ",type:'bar',marker:{color:'#0ea5e9'}}],");
 			w.println("{xaxis:{title:'Chromosome / Scaffold'},yaxis:{title:'Number of Variants'}},cfg);");
+
+			// ── Chart 8b: Genomic Distribution (Density along chromosomes)
+			w.println("(()=>{");
+			w.println("var dC=" + densityChroms + ", dP=" + densityPos + ", dY=" + densityCounts + ";");
+			w.println("var traces = [];");
+			w.println("var uC = [...new Set(dC)];");
+			w.println("uC.forEach(c => {");
+			w.println("  var cx = [], cy = [];");
+			w.println("  for(var i=0; i<dC.length; i++) { if(dC[i]===c) { cx.push(dP[i]); cy.push(dY[i]); } }");
+			w.println("  traces.push({x:cx, y:cy, name:c, type:'scatter', fill:'tozeroy'});");
+			w.println("});");
+			w.println("Plotly.newPlot('c-dist', traces, {");
+			w.println("  xaxis:{title:'Position (bp)'}, yaxis:{title:'SNPs per 1Mb'}, showlegend:true, margin:{t:30}");
+			w.println("}, cfg);})();");
 
 			// ── Chart 9: Site missingness histogram
 			w.println("(()=>{var smL=['0-10%','10-20%','20-30%','30-40%','40-50%','50-60%','60-70%','70-80%','80-90%','90-100%'];");

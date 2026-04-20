@@ -73,8 +73,9 @@ public class VcfStatsCommand implements Callable<Integer> {
 		}
 
 		// Build output file paths
-		String htmlPath = outDir.getPath() + File.separator + baseName + ".html";
-		String tsvPath  = outDir.getPath() + File.separator + baseName + ".tsv";
+		String simpleName = new File(baseName).getName();
+		String htmlPath = outDir.getPath() + File.separator + simpleName + ".html";
+		String tsvPath  = outDir.getPath() + File.separator + simpleName + ".tsv";
 
 		HtmlDashboardGenerator.generateReport(calc, htmlPath);
 		System.out.println("[biocenicana] HTML Dashboard → " + htmlPath);
