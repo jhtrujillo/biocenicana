@@ -7,80 +7,102 @@
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Times New Roman', serif; line-height: 1.6; color: #1a202c; max-width: 900px; margin: 0 auto; padding: 40px; background-color: #ffffff; }
-        h1 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; font-size: 2.5em; text-align: center; }
-        h2 { color: #34495e; margin-top: 30px; border-left: 5px solid #3498db; padding-left: 15px; }
-        h3 { color: #2980b9; margin-top: 25px; }
-        .equation { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; overflow-x: auto; text-align: center; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
-        .footer { margin-top: 50px; text-align: center; font-style: italic; color: #7f8c8d; border-top: 1px solid #eee; padding-top: 20px; }
-        .abstract { font-style: italic; background: #fdfdfd; padding: 20px; border: 1px solid #eee; margin-bottom: 30px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #1a202c; max-width: 1000px; margin: 0 auto; padding: 40px; background-color: #f8fafc; }
+        .page { background-color: #ffffff; padding: 50px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h1 { color: #1e293b; border-bottom: 3px solid #6366f1; padding-bottom: 10px; font-size: 2.8em; text-align: center; margin-bottom: 10px; }
+        h2 { color: #334155; margin-top: 40px; border-left: 6px solid #6366f1; padding-left: 20px; font-size: 1.8em; }
+        h3 { color: #475569; margin-top: 30px; font-size: 1.4em; }
+        .equation { background: #f1f5f9; padding: 25px; border-radius: 10px; margin: 25px 0; overflow-x: auto; text-align: center; border: 1px solid #e2e8f0; }
+        .example-box { background: #eff6ff; border-left: 6px solid #3b82f6; padding: 20px; border-radius: 0 10px 10px 0; margin: 25px 0; font-size: 0.95em; color: #1e3a8a; }
+        .example-box strong { color: #1d4ed8; display: block; margin-bottom: 8px; font-size: 1.1em; }
+        .footer { margin-top: 60px; text-align: center; font-style: italic; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 30px; }
+        .abstract { font-style: italic; background: #f8fafc; padding: 25px; border: 1px solid #e2e8f0; margin-bottom: 40px; border-radius: 10px; line-height: 1.8; }
+        .tag { display: inline-block; background: #6366f1; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>BioCenicana: Manual de Referencia Científica</h1>
-    <p style="text-align: center; font-weight: bold;">Suite Avanzada para el Análisis de Estructura Poblacional y Kinship en Poliploides</p>
+    <div class="page">
+        <div class="tag">Documentación Técnica v1.2</div>
+        <h1>BioCenicana: Manual de Referencia</h1>
+        <p style="text-align: center; color: #64748b; font-size: 1.2em;">Ciencia de Datos Genómicos Explicada para Todos</p>
 
-    <div class="abstract">
-        <strong>Resumen Técnico:</strong> Este documento detalla los fundamentos matemáticos y estadísticos de la suite BioCenicana. Se abordan los procesos de normalización de Patterson, la reducción de dimensionalidad mediante SVD, el modelado de ancestría probabilística vía GMM-EM y la construcción de matrices de relación genómica (GRM) para organismos de ploidía compleja.
-    </div>
+        <div class="abstract">
+            <strong>¿Qué es BioCenicana?</strong> Es una caja de herramientas inteligente que lee el ADN de las plantas (especialmente caña de azúcar) y nos ayuda a entender sus orígenes, sus familias y qué tan parecidas son entre sí. Este manual explica la matemática detrás del software y da ejemplos simples para entender cada paso.
+        </div>
 
-    <h2>1. Inferencia de Dosis Alélica</h2>
-    <p>En el contexto de la genómica de poliploides, la dosis alélica no es una observación directa, sino una inferencia basada en la profundidad de lecturas. BioCenicana utiliza un estimador de Máxima Verosimilitud (MLE). Bajo el supuesto de una distribución binomial para las lecturas del alelo alternativo \( a \) dada una profundidad total \( n \) y una ploidía \( P \):</p>
+        <h2>1. Inferencia de Dosis Alélica</h2>
+        <p>En plantas como la caña de azúcar, cada gen puede tener muchas copias (ploidía). No basta con saber si un rasgo está "presente", necesitamos saber "cuántas copias" tiene.</p>
 
-    <div class="equation">
-        \[ \mathcal{L}(k | a, n) = \binom{n}{a} \left(\frac{k}{P}\right)^{a} \left(1 - \frac{k}{P}\right)^{n-a} \]
-    </div>
+        <div class="equation">
+            \[ \mathcal{L}(k | a, n) = \binom{n}{a} \left(\frac{k}{P}\right)^{a} \left(1 - \frac{k}{P}\right)^{n-a} \]
+        </div>
 
-    <p>La dosis óptima se define como el valor \( k \in \{0, 1, \dots, P\} \) que maximiza esta verosimilitud.</p>
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente?</strong>
+            Imagina que tienes una bolsa con 10 pelotas (Ploidía 10). Metes la mano y sacas 10 pelotas al azar: 3 son rojas y 7 son azules. La "Dosis" nos dice cuántas pelotas rojas había originalmente en la bolsa. En este caso, el software calcula que lo más probable es que la planta tenga una dosis de 3 para ese rasgo.
+        </div>
 
-    <h2>2. Normalización y Estandarización Genómica</h2>
-    <p>Para corregir el sesgo introducido por las frecuencias alélicas dispares, implementamos la transformación de <strong>Patterson et al. (2006)</strong>. Sea \( G_{ij} \) la dosis del individuo \( i \) en el marcador \( j \), la matriz estandarizada \( Z \) se construye como:</p>
+        <h2>2. Normalización de Patterson</h2>
+        <p>Los datos genéticos crudos son ruidosos. Algunos genes cambian mucho y otros poco. La normalización pone a todos los genes en la misma escala para compararlos justamente.</p>
 
-    <div class="equation">
-        \[ Z_{ij} = \frac{G_{ij} - \mu_j}{\sqrt{P \cdot p_j(1 - p_j)}} \]
-    </div>
+        <div class="equation">
+            \[ Z_{ij} = \frac{G_{ij} - \mu_j}{\sqrt{P \cdot p_j(1 - p_j)}} \]
+        </div>
 
-    <p>Donde \( \mu_j \) es el promedio de dosis y \( p_j \) es la frecuencia del alelo minoritario (MAF). Esta normalización es crucial para que el PCA refleje la estructura genética real y no el ruido de los marcadores altamente variables.</p>
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente?</strong>
+            Imagina que comparas el peso de un elefante con el de una hormiga. Si usas kilos, la hormiga parece no existir. La normalización es como pasar todo a una "escala de importancia": nos permite comparar qué tan "grande" es una hormiga respecto a otras hormigas, y un elefante respecto a otros elefantes, en el mismo gráfico.
+        </div>
 
-    <h2>3. Descomposición Espectral (PCA)</h2>
-    <p>El análisis de componentes principales se realiza mediante la Descomposición en Valores Singulares (SVD) de la matriz \( Z \):</p>
+        <h2>3. Análisis de Componentes Principales (PCA)</h2>
+        <p>El PCA reduce miles de datos genéticos a solo 2 o 3 puntos en un mapa para ver agrupaciones.</p>
 
-    <div class="equation">
-        \[ Z = U \Sigma V^T \]
-    </div>
+        <div class="equation">
+            \[ Z = U \Sigma V^T \]
+        </div>
 
-    <p>Los autovalores \( \lambda_i \), que representan la varianza capturada por cada componente principal, se derivan de los valores singulares \( \sigma_i \) en la diagonal de \( \Sigma \):</p>
-    
-    <div class="equation">
-        \[ \lambda_i = \frac{\sigma_i^2}{m - 1} \]
-    </div>
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El truco de la sombra)</strong>
+            Imagina que tienes una estatua compleja en 3D. El PCA es como poner una linterna y buscar el mejor ángulo para que la <strong>sombra</strong> de la estatua nos diga exactamente qué es. Si vemos una sombra con forma de planta, hemos capturado la esencia del objeto 3D en una pared 2D. El PCA encuentra ese "mejor ángulo" para tus datos.
+        </div>
 
-    <h2>4. Modelos de Mezcla Gaussiana (GMM) y Ancestría</h2>
-    <p>La estimación de ancestría compartida se modela como una mezcla de densidades multivariadas. La densidad de probabilidad para una muestra \( \mathbf{x} \) se expresa como:</p>
+        <h2>4. Ancestría y Mezcla (GMM)</h2>
+        <p>Este algoritmo nos dice qué porcentaje de cada "raza" o "población original" tiene una planta.</p>
 
-    <div class="equation">
-        \[ p(\mathbf{x} | \theta) = \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x} | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \]
-    </div>
+        <div class="equation">
+            \[ p(\mathbf{x} | \theta) = \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x} | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \]
+        </div>
 
-    <p>Donde \( \pi_k \) son las proporciones de mezcla (equivalentes a los coeficientes de Admixture). El algoritmo <strong>Expectation-Maximization (EM)</strong> optimiza recursivamente la log-verosimilitud:</p>
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El Cóctel Genético)</strong>
+            Piensa en un cóctel. No es solo "jugo" o "agua". Es 70% jugo de naranja, 20% piña y 10% granadina. Una planta puede ser 80% de una variedad de Colombia y 20% de una variedad de Brasil. Este cálculo nos da la "receta" exacta de cada individuo.
+        </div>
 
-    <div class="equation">
-        \[ \ln p(\mathbf{X} | \theta) = \sum_{i=1}^n \ln \left\{ \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x}_i | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \right\} \]
-    </div>
+        <h2>5. Parentesco Genómico (Kinship)</h2>
+        <p>Mide qué tan "parientes" son dos plantas basándose en su ADN real, no solo en sus papeles de pedigrí.</p>
 
-    <h2>5. Matriz de Kinship de VanRaden</h2>
-    <p>La relación genómica de identidad por descendencia (IBD) se estima mediante el método robusto de VanRaden (2008), que escala la matriz de covarianza genómica por la heterocigosidad esperada:</p>
+        <div class="equation">
+            \[ \mathbf{K} = \frac{(G - \mathbf{M})(G - \mathbf{M})^T}{\sum 2 p_j (1 - p_j)} \]
+        </div>
 
-    <div class="equation">
-        \[ \mathbf{K} = \frac{(G - \mathbf{1}\mathbf{p}^T)(G - \mathbf{1}\mathbf{p}^T)^T}{\sum_{j=1}^m 2 p_j (1 - p_j)} \]
-    </div>
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El termómetro de hermandad)</strong>
+            Es como una red social. Si compartes muchos amigos con alguien, están conectados. Aquí, si dos plantas comparten muchos "pedazos de ADN", el termómetro sube. Un valor de 0.5 significa que son como hermanos; un valor de 0 significa que no se conocen de nada.
+        </div>
 
-    <p>Este estimador permite que los elementos de la diagonal representen directamente el coeficiente de endogamia de cada individuo.</p>
+        <h2>6. DAPC (Análisis Discriminante)</h2>
+        <p>Es un filtro que exagera las diferencias entre grupos para poder separarlos mejor.</p>
 
-    <div class="footer">
-        BioCenicana Technical Documentation - División de Biometría y Bioinformática<br>
-        © 2026 Cenicaña, Colombia.
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (Gafas de contraste)</strong>
+            Imagina que tienes pelotas de color rojo oscuro y rojo claro mezcladas. A simple vista es difícil separarlas. El DAPC es como ponerte unas gafas mágicas que hacen que las rojas oscuras brillen como el sol y las claras se vean negras. Ahora es facilísimo ver que son dos grupos distintos.
+        </div>
+
+        <div class="footer">
+            Manual de Referencia BioCenicana - Versión para Investigadores y Estudiantes<br>
+            Cenicaña, Colombia © 2026
+        </div>
     </div>
 
 </body>
