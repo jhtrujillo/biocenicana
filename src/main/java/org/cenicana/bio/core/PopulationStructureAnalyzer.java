@@ -27,6 +27,7 @@ public class PopulationStructureAnalyzer {
         public int[] dbscanAssignments; // -1 for noise, 0+ for clusters
         public List<double[]> treeSegments; // [x0, y0, x1, y1] for dendrogram
         public int[] gmmAssignments; // GMM cluster labels
+        public double[][] dapcMatrix; // Linear Discriminants (LDs)
     }
 
     /**
@@ -244,7 +245,95 @@ public class PopulationStructureAnalyzer {
         System.out.println("[PCA] Running GMM Clustering (K=" + result.optimalK + ")...");
         result.gmmAssignments = runGMM(result.pcMatrix, result.optimalK);
 
+        // Run DAPC
+        System.out.println("[PCA] Running DAPC (Discriminant Analysis on PCs)...");
+        result.dapcMatrix = runDAPC(result.pcMatrix, result.clusterAssignments, result.optimalK);
+
         return result;
+    }
+
+    private double[][] runDAPC(double[][] pcs, int[] groups, int k) {
+        int n = pcs.length;
+        int d = Math.min(pcs[0].length, 30); // Use top 30 PCs to avoid overfitting
+        
+        // 1. Calculate Group Means
+        double[][] groupMeans = new double[k][d];
+        int[] counts = new int[k];
+        for (int i = 0; i < n; i++) {
+            int g = groups[i];
+            counts[g]++;
+            for (int j = 0; j < d; j++) groupMeans[g][j] += pcs[i][j];
+        }
+        for (int g = 0; g < k; g++) {
+            for (int j = 0; j < d; j++) groupMeans[g][j] /= Math.max(1, counts[g]);
+        }
+
+        // 2. Center data per group (Within-group scatter)
+        double[][] centered = new double[n][d];
+        for (int i = 0; i < n; i++) {
+            int g = groups[i];
+            for (int j = 0; j < d; j++) centered[i][j] = pcs[i][j] - groupMeans[g][j];
+        }
+
+        // 3. For DAPC, we often perform PCA on the group means
+        // But a more robust way is to project onto the discriminant axes.
+        // Simplified DAPC: PCA on Group Means in the PC space
+        double[][] meanScatter = new double[k][d];
+        for (int g = 0; g < k; g++) {
+            for (int j = 0; j < d; j++) meanScatter[g][j] = groupMeans[g][j];
+        }
+
+        // Use SVD on group means to find the discriminant axes (LDs)
+        double[][] ldAxes = computeSVD(meanScatter, Math.min(k - 1, d));
+        
+        // Project all samples onto LDs
+        double[][] ldProjected = new double[n][ldAxes.length];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < ldAxes.length; j++) {
+                double val = 0;
+                for (int l = 0; l < d; l++) val += pcs[i][l] * ldAxes[j][l];
+                ldProjected[i][j] = val;
+            }
+        }
+        
+        return ldProjected;
+    }
+
+    private double[][] computeSVD(double[][] matrix, int components) {
+        // Simplified SVD via Power Iteration for top eigenvectors
+        int d = matrix[0].length;
+        int n = matrix.length;
+        double[][] eigenvectors = new double[components][d];
+        double[][] current = new double[n][d];
+        for(int i=0; i<n; i++) System.arraycopy(matrix[i], 0, current[i], 0, d);
+
+        for (int c = 0; c < components; c++) {
+            double[] v = new double[d];
+            for (int i = 0; i < d; i++) v[i] = Math.random();
+            
+            for (int iter = 0; iter < 50; iter++) {
+                double[] nextV = new double[d];
+                for (int i = 0; i < n; i++) {
+                    double dot = 0;
+                    for (int j = 0; j < d; j++) dot += current[i][j] * v[j];
+                    for (int j = 0; j < d; j++) nextV[j] += current[i][j] * dot;
+                }
+                double norm = 0;
+                for (double val : nextV) norm += val * val;
+                norm = Math.sqrt(norm);
+                if (norm < 1e-10) break;
+                for (int i = 0; i < d; i++) v[i] = nextV[i] / norm;
+            }
+            eigenvectors[c] = v;
+            
+            // Deflation
+            for (int i = 0; i < n; i++) {
+                double dot = 0;
+                for (int j = 0; j < d; j++) dot += current[i][j] * v[j];
+                for (int j = 0; j < d; j++) current[i][j] -= dot * v[j];
+            }
+        }
+        return eigenvectors;
     }
 
     private int[] runGMM(double[][] data, int k) {

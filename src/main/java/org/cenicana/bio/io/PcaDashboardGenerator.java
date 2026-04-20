@@ -32,11 +32,12 @@ public class PcaDashboardGenerator {
             w.println("<div class='header'>");
             w.println("  <h1>BioCenicana | PCA Population Structure</h1>");
             w.println("  <div style='display:flex; align-items:center; gap:20px;'>");
-            w.println("    <div class='stat'>Color by: ");
+            w.println("    <div class='stat'>Visual Mode: ");
             w.println("      <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");
-            w.println("        <option value='kmeans'>K-Means (Optimal K)</option>");
-            w.println("        <option value='dbscan'>DBSCAN (Density/Outliers)</option>");
-            w.println("        <option value='gmm'>Gaussian Mixture Models (GMM)</option>");
+            w.println("        <option value='kmeans'>PCA: K-Means</option>");
+            w.println("        <option value='dbscan'>PCA: DBSCAN</option>");
+            w.println("        <option value='gmm'>PCA: GMM</option>");
+            w.println("        <option value='dapc'>DAPC Analysis</option>");
             w.println("      </select>");
             w.println("    </div>");
             w.println("    <div class='stat'>Samples: " + result.sampleNames.length + " | <b>Global Fst: " + String.format("%.4f", result.fstGlobal) + "</b></div>");
@@ -44,15 +45,14 @@ public class PcaDashboardGenerator {
             w.println("</div>");
 
             w.println("<div class='grid'>");
-            w.println("<div class='card full'><h3>Principal Component Analysis</h3><div id='pc12' style='height: 500px;'></div></div>");
+            w.println("<div class='card full'><h3>Cluster Visualization (PCA / DAPC)</h3><div id='pc12' style='height: 500px;'></div></div>");
             w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree' style='height: 400px;'></div></div>");
             w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow' style='height: 400px;'></div></div>");
             w.println("<div class='card full'><h3>Kinship Analysis (Dendrogram)</h3><div id='dendrogram' style='height: 600px;'></div></div>");
             w.println("<div class='card full'><h3>Genetic Distance Matrix (Heatmap)</h3><div id='heatmap' style='height: 600px;'></div></div>");
             
             if (result.pcMatrix[0].length >= 3) {
-                w.println("<div class='card full'><h3>Principal Component Analysis (3D View: PC1, PC2, PC3)</h3><div id='pc3d' style='height: 700px;'></div></div>");
-                w.println("<div class='card full'><h3>Principal Component Analysis (PC2 vs PC3)</h3><div id='pc23' style='height: 500px;'></div></div>");
+                w.println("<div class='card full'><h3>3D Analysis (PC1, PC2, PC3)</h3><div id='pc3d' style='height: 700px;'></div></div>");
             }
             w.println("</div></div>");
 
@@ -62,44 +62,46 @@ public class PcaDashboardGenerator {
             
             // Data Prep
             StringBuilder labels = new StringBuilder("[");
-            StringBuilder pc1 = new StringBuilder("[");
-            StringBuilder pc2 = new StringBuilder("[");
-            StringBuilder pc3 = new StringBuilder("[");
-            StringBuilder kmeans = new StringBuilder("[");
-            StringBuilder dbscan = new StringBuilder("[");
-            StringBuilder gmm = new StringBuilder("[");
+            StringBuilder pc1 = new StringBuilder("["); StringBuilder pc2 = new StringBuilder("["); StringBuilder pc3 = new StringBuilder("[");
+            StringBuilder ld1 = new StringBuilder("["); StringBuilder ld2 = new StringBuilder("[");
+            StringBuilder kmeans = new StringBuilder("["); StringBuilder dbscan = new StringBuilder("["); StringBuilder gmm = new StringBuilder("[");
+            
             for (int i = 0; i < result.sampleNames.length; i++) {
-                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); }
+                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); ld1.append(","); ld2.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); }
                 labels.append("'").append(result.sampleNames[i]).append("'");
                 pc1.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][0]));
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
+                if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2])); else pc3.append("0");
+                
+                ld1.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][0]));
+                if (result.dapcMatrix[i].length > 1) ld2.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][1])); else ld2.append("0");
+                
                 kmeans.append(result.clusterAssignments[i]);
                 dbscan.append(result.dbscanAssignments[i]);
                 gmm.append(result.gmmAssignments[i]);
-                if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2]));
-                else pc3.append("0");
             }
-            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); kmeans.append("]"); dbscan.append("]"); gmm.append("]");
+            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); ld1.append("]"); ld2.append("]"); kmeans.append("]"); dbscan.append("]"); gmm.append("]");
 
             w.println("const data_labels = " + labels + ";");
             w.println("const data_pc1 = " + pc1 + ";");
             w.println("const data_pc2 = " + pc2 + ";");
             w.println("const data_pc3 = " + pc3 + ";");
+            w.println("const data_ld1 = " + ld1 + ";");
+            w.println("const data_ld2 = " + ld2 + ";");
             w.println("const data_kmeans = " + kmeans + ";");
             w.println("const data_dbscan = " + dbscan + ";");
             w.println("const data_gmm = " + gmm + ";");
             
             w.println("function updateColoring() {");
             w.println("  const mode = document.getElementById('colorMode').value;");
-            w.println("  let assignments;");
+            w.println("  let xArr = data_pc1, yArr = data_pc2, zArr = data_pc3, assignments;");
             w.println("  if(mode === 'kmeans') assignments = data_kmeans;");
             w.println("  else if(mode === 'dbscan') assignments = data_dbscan;");
-            w.println("  else assignments = data_gmm;");
-            w.println("  renderPlot('pc12', data_pc1, data_pc2, null, assignments, mode);");
-            if (result.pcMatrix[0].length >= 3) {
-                w.println("  renderPlot('pc23', data_pc2, data_pc3, null, assignments, mode);");
-                w.println("  renderPlot('pc3d', data_pc1, data_pc2, data_pc3, assignments, mode);");
-            }
+            w.println("  else if(mode === 'gmm') assignments = data_gmm;");
+            w.println("  else { xArr = data_ld1; yArr = data_ld2; zArr = null; assignments = data_kmeans; }"); // DAPC uses LDs and K-Means groups
+            
+            w.println("  renderPlot('pc12', xArr, yArr, null, assignments, mode);");
+            w.println("  if(document.getElementById('pc3d')) renderPlot('pc3d', xArr, yArr, zArr, assignments, mode);");
             w.println("}");
 
             w.println("function renderPlot(id, xArr, yArr, zArr, assignments, mode) {");
@@ -109,15 +111,14 @@ public class PcaDashboardGenerator {
             w.println("    for(var i=0; i<assignments.length; i++) {");
             w.println("      if(assignments[i] === k) { cx.push(xArr[i]); cy.push(yArr[i]); if(zArr) cz.push(zArr[i]); ct.push(data_labels[i]); }");
             w.println("    }");
-            w.println("    var name = k === -1 ? 'Outliers (Noise)' : (mode==='kmeans' ? 'Pop '+(k+1) : (mode==='gmm' ? 'GMM Group '+(k+1) : 'Cluster '+(k+1)));");
+            w.println("    var name = k === -1 ? 'Outliers' : 'Group '+(k+1);");
             w.println("    var color = k === -1 ? '#94a3b8' : colors[Math.abs(k)%10];");
-            w.println("    var size = k === -1 ? (zArr?6:8) : (zArr?8:12);");
-            w.println("    return { x:cx, y:cy, z:zArr?cz:null, text:ct, name:name, type:zArr?'scatter3d':'scatter', mode:'markers', marker:{size:size, color:color, opacity:k===-1?0.6:0.95, line:{width:k===-1?0.5:1.5, color:k===-1?'#64748b':'#ffffff'}}};");
+            w.println("    return { x:cx, y:cy, z:zArr?cz:null, text:ct, name:name, type:zArr?'scatter3d':'scatter', mode:'markers', marker:{size:zArr?8:12, color:color, opacity:0.9, line:{width:1.5, color:'white'}}};");
             w.println("  });");
             w.println("  var layout = { margin: {t:30, b:30, l:50, r:50}, hovermode: 'closest', showlegend: true, legend: { orientation: 'h', y: -0.2 } };");
-            w.println("  if(id==='pc3d') layout = { margin: {t:0,b:0,l:0,r:0}, scene: { xaxis:{title:'PC1'}, yaxis:{title:'PC2'}, zaxis:{title:'PC3'} }, legend: { orientation: 'h', y: 0.05 } };");
-            w.println("  if(id==='pc12') { layout.xaxis={title:'PC1'}; layout.yaxis={title:'PC2'}; }");
-            w.println("  if(id==='pc23') { layout.xaxis={title:'PC2'}; layout.yaxis={title:'PC3'}; }");
+            w.println("  if(id==='pc3d') layout = { margin: {t:0,b:0,l:0,r:0}, scene: { xaxis:{title:mode==='dapc'?'LD1':'PC1'}, yaxis:{title:mode==='dapc'?'LD2':'PC2'}, zaxis:{title:'PC3'} }, legend: { orientation: 'h', y: 0.05 } };");
+            w.println("  layout.xaxis = {title: mode==='dapc' ? 'Linear Discriminant 1 (LD1)' : 'Principal Component 1 (PC1)'};");
+            w.println("  layout.yaxis = {title: mode==='dapc' ? 'Linear Discriminant 2 (LD2)' : 'Principal Component 2 (PC2)'};");
             w.println("  Plotly.react(id, traces, layout, cfg);");
             w.println("}");
 
