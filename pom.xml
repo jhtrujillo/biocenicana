@@ -29,6 +29,12 @@
             <artifactId>picocli</artifactId>
             <version>4.7.4</version>
         </dependency>
+        <!-- EJML for PCA and matrix operations -->
+        <dependency>
+            <groupId>org.ejml</groupId>
+            <artifactId>ejml-all</artifactId>
+            <version>0.43.1</version>
+        </dependency>
     </dependencies>
 
     <build>

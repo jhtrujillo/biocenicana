@@ -21,7 +21,8 @@ import org.cenicana.bio.cli.VcfStatsCommand;
 		VcfStatsCommand.class,
 		VcfFilterCommand.class,
 		LinkageDisequilibriumCommand.class,
-		GwasPolyExportCommand.class
+		GwasPolyExportCommand.class,
+		PopStructureCommand.class
 })
 public class VcfToolkit {
 
