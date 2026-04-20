@@ -244,22 +244,24 @@ public class HtmlDashboardGenerator {
 			w.println("Plotly.newPlot('c-types',[{labels:['Transitions (Ts)','Transversions (Tv)','InDels'],values:[" + stats.numTransitions + "," + stats.numTransversions + "," + stats.numIndels + "],type:'pie',hole:.4,marker:{colors:['#6366f1','#f59e0b','#8b5cf6']}}],");
 			w.println("{annotations:[{font:{size:14},showarrow:false,text:'Variants',x:.5,y:.5}]},cfg);");
 
-			// ── Chart 8: Chromosome density
-			w.println("Plotly.newPlot('c-chrom',[{x:" + chromNames + ",y:" + chromCounts + ",type:'bar',marker:{color:'#0ea5e9'}}],");
-			w.println("{xaxis:{title:'Chromosome / Scaffold'},yaxis:{title:'Number of Variants'}},cfg);");
-
 			// ── Chart 8b: Genomic Distribution (Density along chromosomes)
 			w.println("(()=>{");
 			w.println("var dC=" + densityChroms + ", dP=" + densityPos + ", dY=" + densityCounts + ";");
 			w.println("var traces = [];");
-			w.println("var uC = [...new Set(dC)];");
-			w.println("uC.forEach(c => {");
-			w.println("  var cx = [], cy = [];");
+			w.println("var uC = dC.filter(function(v,i,a){return a.indexOf(v)===i;});");
+			w.println("var buttons = [{method:'restyle',label:'All Chromosomes',args:['visible',true]}];");
+			w.println("for(var j=0; j<uC.length; j++) {");
+			w.println("  var c = uC[j], cx = [], cy = [];");
 			w.println("  for(var i=0; i<dC.length; i++) { if(dC[i]===c) { cx.push(dP[i]); cy.push(dY[i]); } }");
-			w.println("  traces.push({x:cx, y:cy, name:c, type:'scatter', fill:'tozeroy'});");
-			w.println("});");
+			w.println("  traces.push({x:cx, y:cy, name:c, type:'scatter', fill:'tozeroy', visible:true});");
+			w.println("  (function(idx){");
+			w.println("    var vis = uC.map(function(_,i){return i===idx;});");
+			w.println("    buttons.push({method:'restyle',label:uC[idx],args:['visible',vis]});");
+			w.println("  })(j);");
+			w.println("}");
 			w.println("Plotly.newPlot('c-dist', traces, {");
-			w.println("  xaxis:{title:'Position (bp)'}, yaxis:{title:'SNPs per 1Mb'}, showlegend:true, margin:{t:30}");
+			w.println("  xaxis:{title:'Position (bp)'}, yaxis:{title:'SNPs per 1Mb'}, showlegend:true, margin:{t:80},");
+			w.println("  updatemenus:[{buttons:buttons,direction:'down',showactive:true,x:0.05,xanchor:'left',y:1.15,yanchor:'top'}]");
 			w.println("}, cfg);})();");
 
 			// ── Chart 9: Site missingness histogram
