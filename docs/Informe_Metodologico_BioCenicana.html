@@ -3,105 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Informe Metodológico - BioCenicana</title>
+    <title>Manual Integral BioCenicana - Suite Genómica</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #1a202c; max-width: 1000px; margin: 0 auto; padding: 40px; background-color: #f8fafc; }
-        .page { background-color: #ffffff; padding: 50px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h1 { color: #1e293b; border-bottom: 3px solid #6366f1; padding-bottom: 10px; font-size: 2.8em; text-align: center; margin-bottom: 10px; }
-        h2 { color: #334155; margin-top: 40px; border-left: 6px solid #6366f1; padding-left: 20px; font-size: 1.8em; }
-        h3 { color: #475569; margin-top: 30px; font-size: 1.4em; }
-        .equation { background: #f1f5f9; padding: 25px; border-radius: 10px; margin: 25px 0; overflow-x: auto; text-align: center; border: 1px solid #e2e8f0; }
-        .example-box { background: #eff6ff; border-left: 6px solid #3b82f6; padding: 20px; border-radius: 0 10px 10px 0; margin: 25px 0; font-size: 0.95em; color: #1e3a8a; }
-        .example-box strong { color: #1d4ed8; display: block; margin-bottom: 8px; font-size: 1.1em; }
-        .footer { margin-top: 60px; text-align: center; font-style: italic; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 30px; }
-        .abstract { font-style: italic; background: #f8fafc; padding: 25px; border: 1px solid #e2e8f0; margin-bottom: 40px; border-radius: 10px; line-height: 1.8; }
-        .tag { display: inline-block; background: #6366f1; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #1e293b; max-width: 1100px; margin: 0 auto; padding: 40px; background-color: #f1f5f9; }
+        .page { background-color: #ffffff; padding: 60px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        h1 { color: #1e293b; border-bottom: 4px solid #6366f1; padding-bottom: 15px; font-size: 3em; text-align: center; margin-bottom: 10px; letter-spacing: -1px; }
+        h2 { color: #0f172a; margin-top: 50px; border-left: 8px solid #6366f1; padding-left: 20px; font-size: 2em; background: #f8fafc; padding-top: 10px; padding-bottom: 10px; }
+        h3 { color: #334155; margin-top: 35px; font-size: 1.5em; color: #6366f1; }
+        .equation { background: #f8fafc; padding: 30px; border-radius: 12px; margin: 25px 0; overflow-x: auto; text-align: center; border: 1px solid #e2e8f0; font-size: 1.1em; }
+        .example-box { background: #f0fdf4; border-left: 6px solid #22c55e; padding: 25px; border-radius: 0 12px 12px 0; margin: 25px 0; font-size: 1em; color: #166534; box-shadow: 2px 2px 5px rgba(0,0,0,0.02); }
+        .example-box strong { color: #15803d; display: block; margin-bottom: 10px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; }
+        .footer { margin-top: 80px; text-align: center; font-style: italic; color: #94a3b8; border-top: 2px solid #f1f5f9; padding-top: 40px; }
+        .abstract { font-size: 1.1em; background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; margin-bottom: 50px; border-radius: 15px; color: #475569; border-top: 5px solid #6366f1; }
+        .module-badge { display: inline-block; background: #6366f1; color: white; padding: 5px 15px; border-radius: 8px; font-size: 0.9em; font-weight: bold; margin-bottom: 15px; }
+        .math-title { font-weight: bold; color: #1e293b; margin-top: 15px; display: block; }
     </style>
 </head>
 <body>
 
     <div class="page">
-        <div class="tag">Documentación Técnica v1.2</div>
-        <h1>BioCenicana: Manual de Referencia</h1>
-        <p style="text-align: center; color: #64748b; font-size: 1.2em;">Ciencia de Datos Genómicos Explicada para Todos</p>
+        <h1>Manual Integral de BioCenicana</h1>
+        <p style="text-align: center; color: #64748b; font-size: 1.3em;">Arquitectura Matemática y Guía de Interpretación Genómica</p>
 
         <div class="abstract">
-            <strong>¿Qué es BioCenicana?</strong> Es una caja de herramientas inteligente que lee el ADN de las plantas (especialmente caña de azúcar) y nos ayuda a entender sus orígenes, sus familias y qué tan parecidas son entre sí. Este manual explica la matemática detrás del software y da ejemplos simples para entender cada paso.
+            <strong>Visión General:</strong> BioCenicana es una suite modular diseñada para el análisis genómico de poliploides. Desde la limpieza de datos crudos hasta la inferencia de parentesco y estructura poblacional, cada módulo ha sido optimizado para manejar el gran volumen de datos de secuenciación masiva (NGS) de Cenicaña.
         </div>
 
-        <h2>1. Inferencia de Dosis Alélica</h2>
-        <p>En plantas como la caña de azúcar, cada gen puede tener muchas copias (ploidía). No basta con saber si un rasgo está "presente", necesitamos saber "cuántas copias" tiene.</p>
+        <!-- MODULO 1 -->
+        <div class="module-badge">Módulo: Calidad y Filtros (VcfFilter)</div>
+        <h2>1. Control de Calidad Genómico</h2>
+        <p>Antes de analizar, debemos asegurar que solo los mejores marcadores pasen. Filtramos por Frecuencia Alélica Minoritaria (MAF) y por "Missing Data" (datos faltantes).</p>
 
+        <span class="math-title">Filtro de Datos Faltantes:</span>
         <div class="equation">
-            \[ \mathcal{L}(k | a, n) = \binom{n}{a} \left(\frac{k}{P}\right)^{a} \left(1 - \frac{k}{P}\right)^{n-a} \]
+            \[ \text{Missingness}_j = \frac{1}{n} \sum_{i=1}^n \mathbb{I}(g_{ij} = \text{no call}) \leq \text{threshold} \]
         </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente?</strong>
-            Imagina que tienes una bolsa con 10 pelotas (Ploidía 10). Metes la mano y sacas 10 pelotas al azar: 3 son rojas y 7 son azules. La "Dosis" nos dice cuántas pelotas rojas había originalmente en la bolsa. En este caso, el software calcula que lo más probable es que la planta tenga una dosis de 3 para ese rasgo.
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El Portero del Club)</strong>
+            Imagina que vas a organizar una fiesta muy exclusiva (tu análisis). El VcfFilter es el portero. Si un invitado (un SNP) llega con el pasaporte incompleto (muchos datos faltantes) o no es lo suficientemente "interesante" (baja frecuencia alélica), el portero no lo deja entrar. Así garantizamos que los invitados que entran son de alta calidad.
         </div>
 
-        <h2>2. Normalización de Patterson</h2>
-        <p>Los datos genéticos crudos son ruidosos. Algunos genes cambian mucho y otros poco. La normalización pone a todos los genes en la misma escala para compararlos justamente.</p>
+        <!-- MODULO 2 -->
+        <div class="module-badge">Módulo: Estructura Poblacional (PCA & GMM)</div>
+        <h2>2. Estructura y Origen Genético</h2>
+        <p>Identificamos grupos naturales y ancestría mezclada mediante reducción de dimensionalidad.</p>
 
+        <span class="math-title">Probabilidad de Pertenencia (GMM):</span>
         <div class="equation">
-            \[ Z_{ij} = \frac{G_{ij} - \mu_j}{\sqrt{P \cdot p_j(1 - p_j)}} \]
-        </div>
-
-        <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente?</strong>
-            Imagina que comparas el peso de un elefante con el de una hormiga. Si usas kilos, la hormiga parece no existir. La normalización es como pasar todo a una "escala de importancia": nos permite comparar qué tan "grande" es una hormiga respecto a otras hormigas, y un elefante respecto a otros elefantes, en el mismo gráfico.
-        </div>
-
-        <h2>3. Análisis de Componentes Principales (PCA)</h2>
-        <p>El PCA reduce miles de datos genéticos a solo 2 o 3 puntos en un mapa para ver agrupaciones.</p>
-
-        <div class="equation">
-            \[ Z = U \Sigma V^T \]
-        </div>
-
-        <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El truco de la sombra)</strong>
-            Imagina que tienes una estatua compleja en 3D. El PCA es como poner una linterna y buscar el mejor ángulo para que la <strong>sombra</strong> de la estatua nos diga exactamente qué es. Si vemos una sombra con forma de planta, hemos capturado la esencia del objeto 3D en una pared 2D. El PCA encuentra ese "mejor ángulo" para tus datos.
-        </div>
-
-        <h2>4. Ancestría y Mezcla (GMM)</h2>
-        <p>Este algoritmo nos dice qué porcentaje de cada "raza" o "población original" tiene una planta.</p>
-
-        <div class="equation">
-            \[ p(\mathbf{x} | \theta) = \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x} | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \]
+            \[ \gamma_{ik} = \frac{\pi_k \mathcal{N}(x_i | \mu_k, \Sigma_k)}{\sum_{j=1}^K \pi_j \mathcal{N}(x_i | \mu_j, \Sigma_j)} \]
         </div>
 
         <div class="example-box">
             <strong>💡 ¿Cómo entenderlo fácilmente? (El Cóctel Genético)</strong>
-            Piensa en un cóctel. No es solo "jugo" o "agua". Es 70% jugo de naranja, 20% piña y 10% granadina. Una planta puede ser 80% de una variedad de Colombia y 20% de una variedad de Brasil. Este cálculo nos da la "receta" exacta de cada individuo.
+            No todas las plantas son de "raza pura". Una planta de caña puede ser como un cóctel: 60% de origen tropical, 30% de altura y 10% de origen silvestre. Este cálculo nos da la "receta" exacta de los antepasados de cada individuo.
         </div>
 
-        <h2>5. Parentesco Genómico (Kinship)</h2>
-        <p>Mide qué tan "parientes" son dos plantas basándose en su ADN real, no solo en sus papeles de pedigrí.</p>
+        <!-- MODULO 3 -->
+        <div class="module-badge">Módulo: Parentesco (Kinship - VanRaden)</div>
+        <h2>3. Parentesco y Matriz de Relación</h2>
+        <p>Calculamos qué tan parientes son dos individuos comparando sus genomas completos, esencial para la selección genómica.</p>
 
+        <span class="math-title">Estimador de Parentesco Genómico:</span>
         <div class="equation">
-            \[ \mathbf{K} = \frac{(G - \mathbf{M})(G - \mathbf{M})^T}{\sum 2 p_j (1 - p_j)} \]
+            \[ \mathbf{K} = \frac{\mathbf{Z} \mathbf{Z}^T}{2 \sum p_j(1-p_j)} \]
         </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El termómetro de hermandad)</strong>
-            Es como una red social. Si compartes muchos amigos con alguien, están conectados. Aquí, si dos plantas comparten muchos "pedazos de ADN", el termómetro sube. Un valor de 0.5 significa que son como hermanos; un valor de 0 significa que no se conocen de nada.
+            <strong>💡 ¿Cómo entenderlo fácilmente? (La Red Social de Genes)</strong>
+            Es como ver qué tantos "amigos en común" (genes compartidos) tienen dos personas en una red social. Si comparten muchísimos, el sistema deduce que son familia cercana. Un valor alto nos dice que esas dos plantas son casi "hermanas".
         </div>
 
-        <h2>6. DAPC (Análisis Discriminante)</h2>
-        <p>Es un filtro que exagera las diferencias entre grupos para poder separarlos mejor.</p>
+        <!-- MODULO 4 -->
+        <div class="module-badge">Módulo: Ligamiento (LD Decay)</div>
+        <h2>4. Desequilibrio de Ligamiento (LD)</h2>
+        <p>Mide qué tan rápido se "desconectan" los genes a medida que se alejan en el cromosoma. Crucial para saber cuántos marcadores necesitamos para mapear un rasgo.</p>
+
+        <span class="math-title">Coeficiente de Correlación Genética (\(r^2\)):</span>
+        <div class="equation">
+            \[ r^2 = \frac{(P_{AB} - P_A P_B)^2}{P_A(1-P_A)P_B(1-P_B)} \]
+        </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (Gafas de contraste)</strong>
-            Imagina que tienes pelotas de color rojo oscuro y rojo claro mezcladas. A simple vista es difícil separarlas. El DAPC es como ponerte unas gafas mágicas que hacen que las rojas oscuras brillen como el sol y las claras se vean negras. Ahora es facilísimo ver que son dos grupos distintos.
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El Teléfono Roto)</strong>
+            Si dos genes están pegados, siempre viajan juntos de padres a hijos. A medida que se alejan, es como el juego del "teléfono roto": el mensaje se va perdiendo. El LD nos dice a qué distancia los genes ya no se hablan y actúan de forma independiente.
+        </div>
+
+        <!-- MODULO 5 -->
+        <div class="module-badge">Módulo: Estadísticas (VcfStats)</div>
+        <h2>5. Análisis de Variantes y Diversidad</h2>
+        <p>Calculamos métricas como la Heterocigosidad y el contenido de información polimórfica (PIC).</p>
+
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El Check-up Médico)</strong>
+            Es como un examen de sangre general para tu base de datos. Nos dice si la población es variada (saludable) o si hay mucha endogamia. Nos da los "signos vitales" de tu colección de germoplasma.
+        </div>
+
+        <!-- MODULO 6 -->
+        <div class="module-badge">Módulo: Interoperabilidad (Exporters)</div>
+        <h2>6. Traductores y Exportación</h2>
+        <p>BioCenicana habla con otros programas como GWASpoly, JoinMap y GAPIT.</p>
+
+        <div class="example-box">
+            <strong>💡 ¿Cómo entenderlo fácilmente? (El Traductor Universal)</strong>
+            Cada programa de genética tiene su propio idioma. BioCenicana es como un traductor políglota que toma tus datos y los escribe perfectamente para que otros softwares "entiendan" y puedan hacer sus propios análisis.
         </div>
 
         <div class="footer">
-            Manual de Referencia BioCenicana - Versión para Investigadores y Estudiantes<br>
-            Cenicaña, Colombia © 2026
+            Manual Integral BioCenicana - Versión Final 1.5<br>
+            Cenicaña, Colombia | Departamento de Biotecnología y Biometría © 2026
         </div>
     </div>
 
