@@ -627,15 +627,25 @@ public class PopulationStructureAnalyzer {
 
     public void exportPca(PcaResult result, String outputPath) throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
-            pw.print("Sample,KMeans_Cluster,DBSCAN_Cluster");
+            // Header
+            pw.print("Sample,KMeans_Cluster,DBSCAN_Cluster,GMM_Cluster");
             for (int j = 0; j < result.pcMatrix[0].length; j++) pw.print(",PC" + (j + 1));
+            for (int j = 0; j < result.dapcMatrix[0].length; j++) pw.print(",LD" + (j + 1));
+            for (int j = 0; j < result.ancestryProportions[0].length; j++) pw.print(",Ancestry_Q" + (j + 1));
             pw.println();
+
+            // Data
             for (int i = 0; i < result.sampleNames.length; i++) {
                 String dbscanStr = result.dbscanAssignments[i] == -1 ? "Noise" : String.valueOf(result.dbscanAssignments[i] + 1);
-                pw.print(result.sampleNames[i] + "," + (result.clusterAssignments[i] + 1) + "," + dbscanStr);
-                for (int j = 0; j < result.pcMatrix[0].length; j++) {
-                    pw.printf(Locale.US, ",%.6f", result.pcMatrix[i][j]);
-                }
+                pw.print(result.sampleNames[i] + "," + (result.clusterAssignments[i] + 1) + "," + dbscanStr + "," + (result.gmmAssignments[i] + 1));
+                
+                // PCA
+                for (int j = 0; j < result.pcMatrix[0].length; j++) pw.printf(Locale.US, ",%.6f", result.pcMatrix[i][j]);
+                // DAPC
+                for (int j = 0; j < result.dapcMatrix[0].length; j++) pw.printf(Locale.US, ",%.6f", result.dapcMatrix[i][j]);
+                // Ancestry
+                for (int j = 0; j < result.ancestryProportions[0].length; j++) pw.printf(Locale.US, ",%.6f", result.ancestryProportions[i][j]);
+                
                 pw.println();
             }
         }
