@@ -25,6 +25,7 @@ public class PopulationStructureAnalyzer {
         public double fstGlobal; // Average Fst between clusters
         public double[][] distanceMatrix; // Pairwise genetic distance
         public int[] dbscanAssignments; // -1 for noise, 0+ for clusters
+        public List<double[]> treeSegments; // [x0, y0, x1, y1] for dendrogram
     }
 
     /**
@@ -228,11 +229,112 @@ public class PopulationStructureAnalyzer {
             }
         }
 
-        // Perform DBSCAN to find noise/outliers (eps=20, minPts=5 as heuristic)
-        System.out.println("[PCA] Running DBSCAN for outlier detection...");
-        result.dbscanAssignments = runDBSCAN(result.distanceMatrix, 20.0, 5);
+        // Perform DBSCAN to find noise/outliers
+        // Dynamic EPS estimation: use the 10th percentile of distances as a heuristic
+        double eps = estimateEps(result.distanceMatrix);
+        System.out.println("[PCA] Running DBSCAN (eps=" + String.format("%.2f", eps) + ", minPts=3)...");
+        result.dbscanAssignments = runDBSCAN(result.distanceMatrix, eps, 3);
+
+        // Compute Hierarchical Tree (UPGMA)
+        System.out.println("[PCA] Computing Hierarchical Tree (UPGMA)...");
+        result.treeSegments = computeUPGMA(result.distanceMatrix);
 
         return result;
+    }
+
+    private List<double[]> computeUPGMA(double[][] dists) {
+        int n = dists.length;
+        List<double[]> segments = new ArrayList<>();
+        
+        // Node representation
+        class Node {
+            int id;
+            double x; // Leaf position (0 to n-1)
+            double height;
+            int size;
+            Node left, right;
+            Node(int id, double x) { this.id = id; this.x = x; this.size = 1; this.height = 0; }
+        }
+
+        List<Node> activeNodes = new ArrayList<>();
+        for (int i = 0; i < n; i++) activeNodes.add(new Node(i, i));
+
+        double[][] currentDists = new double[n][n];
+        for (int i = 0; i < n; i++) System.arraycopy(dists[i], 0, currentDists[i], 0, n);
+
+        while (activeNodes.size() > 1) {
+            // Find min dist
+            int bestI = 0, bestJ = 1;
+            double minDist = Double.MAX_VALUE;
+            for (int i = 0; i < activeNodes.size(); i++) {
+                for (int j = i + 1; j < activeNodes.size(); j++) {
+                    if (currentDists[i][j] < minDist) {
+                        minDist = currentDists[i][j];
+                        bestI = i; bestJ = j;
+                    }
+                }
+            }
+
+            Node n1 = activeNodes.get(bestI);
+            Node n2 = activeNodes.get(bestJ);
+            double mergeHeight = minDist / 2.0;
+
+            // New node in the middle
+            Node newNode = new Node(-1, (n1.x + n2.x) / 2.0);
+            newNode.height = mergeHeight;
+            newNode.size = n1.size + n2.size;
+            newNode.left = n1;
+            newNode.right = n2;
+
+            // Add segments for Plotly [x0, y0, x1, y1]
+            // Horizontal bar
+            segments.add(new double[]{n1.x, mergeHeight, n2.x, mergeHeight});
+            // Vertical bars to children
+            segments.add(new double[]{n1.x, n1.height, n1.x, mergeHeight});
+            segments.add(new double[]{n2.x, n2.height, n2.x, mergeHeight});
+
+            // Update distance matrix (UPGMA: average distance)
+            double[] newNodeDists = new double[activeNodes.size()];
+            for (int k = 0; k < activeNodes.size(); k++) {
+                if (k == bestI || k == bestJ) continue;
+                // UPGMA formula: d(k, i+j) = (d(k,i)*size(i) + d(k,j)*size(j)) / (size(i)+size(j))
+                newNodeDists[k] = (currentDists[bestI][k] * n1.size + currentDists[bestJ][k] * n2.size) / (double)(n1.size + n2.size);
+            }
+
+            // Remove n1, n2 and add newNode
+            // We'll replace bestI with newNode and remove bestJ
+            activeNodes.set(bestI, newNode);
+            activeNodes.remove(bestJ);
+
+            // Update currentDists matrix
+            double[][] nextDists = new double[activeNodes.size()][activeNodes.size()];
+            for (int i = 0, oldI = 0; i < nextDists.length; i++, oldI++) {
+                if (oldI == bestJ) oldI++; // Skip removed index
+                for (int j = 0, oldJ = 0; j < nextDists.length; j++, oldJ++) {
+                    if (oldJ == bestJ) oldJ++; // Skip removed index
+                    
+                    if (i == bestI) nextDists[i][j] = newNodeDists[oldJ];
+                    else if (j == bestI) nextDists[i][j] = newNodeDists[oldI];
+                    else nextDists[i][j] = currentDists[oldI][oldJ];
+                }
+            }
+            currentDists = nextDists;
+        }
+
+        return segments;
+    }
+
+    private double estimateEps(double[][] dists) {
+        List<Double> allDists = new ArrayList<>();
+        for (int i = 0; i < dists.length; i++) {
+            for (int j = i + 1; j < dists.length; j++) {
+                allDists.add(dists[i][j]);
+            }
+        }
+        Collections.sort(allDists);
+        // Use the 5th percentile distance as epsilon for a tight but inclusive clustering
+        int index = (int) (allDists.size() * 0.05);
+        return allDists.get(index);
     }
 
     private int[] runDBSCAN(double[][] dists, double eps, int minPts) {
