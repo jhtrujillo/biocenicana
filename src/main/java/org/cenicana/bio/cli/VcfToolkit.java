@@ -20,7 +20,8 @@ import org.cenicana.bio.cli.VcfStatsCommand;
 		GeneticDistanceCommand.class,
 		VcfStatsCommand.class,
 		VcfFilterCommand.class,
-		LinkageDisequilibriumCommand.class
+		LinkageDisequilibriumCommand.class,
+		GwasPolyExportCommand.class
 })
 public class VcfToolkit {
 
