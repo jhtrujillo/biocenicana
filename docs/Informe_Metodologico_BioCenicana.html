@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Metodológico - BioCenicana</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Times New Roman', serif; line-height: 1.6; color: #1a202c; max-width: 900px; margin: 0 auto; padding: 40px; background-color: #ffffff; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; font-size: 2.5em; text-align: center; }
+        h2 { color: #34495e; margin-top: 30px; border-left: 5px solid #3498db; padding-left: 15px; }
+        h3 { color: #2980b9; margin-top: 25px; }
+        .equation { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; overflow-x: auto; text-align: center; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
+        .footer { margin-top: 50px; text-align: center; font-style: italic; color: #7f8c8d; border-top: 1px solid #eee; padding-top: 20px; }
+        .abstract { font-style: italic; background: #fdfdfd; padding: 20px; border: 1px solid #eee; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+    <h1>BioCenicana: Manual de Referencia Científica</h1>
+    <p style="text-align: center; font-weight: bold;">Suite Avanzada para el Análisis de Estructura Poblacional y Kinship en Poliploides</p>
+
+    <div class="abstract">
+        <strong>Resumen Técnico:</strong> Este documento detalla los fundamentos matemáticos y estadísticos de la suite BioCenicana. Se abordan los procesos de normalización de Patterson, la reducción de dimensionalidad mediante SVD, el modelado de ancestría probabilística vía GMM-EM y la construcción de matrices de relación genómica (GRM) para organismos de ploidía compleja.
+    </div>
+
+    <h2>1. Inferencia de Dosis Alélica</h2>
+    <p>En el contexto de la genómica de poliploides, la dosis alélica no es una observación directa, sino una inferencia basada en la profundidad de lecturas. BioCenicana utiliza un estimador de Máxima Verosimilitud (MLE). Bajo el supuesto de una distribución binomial para las lecturas del alelo alternativo \( a \) dada una profundidad total \( n \) y una ploidía \( P \):</p>
+
+    <div class="equation">
+        \[ \mathcal{L}(k | a, n) = \binom{n}{a} \left(\frac{k}{P}\right)^{a} \left(1 - \frac{k}{P}\right)^{n-a} \]
+    </div>
+
+    <p>La dosis óptima se define como el valor \( k \in \{0, 1, \dots, P\} \) que maximiza esta verosimilitud.</p>
+
+    <h2>2. Normalización y Estandarización Genómica</h2>
+    <p>Para corregir el sesgo introducido por las frecuencias alélicas dispares, implementamos la transformación de <strong>Patterson et al. (2006)</strong>. Sea \( G_{ij} \) la dosis del individuo \( i \) en el marcador \( j \), la matriz estandarizada \( Z \) se construye como:</p>
+
+    <div class="equation">
+        \[ Z_{ij} = \frac{G_{ij} - \mu_j}{\sqrt{P \cdot p_j(1 - p_j)}} \]
+    </div>
+
+    <p>Donde \( \mu_j \) es el promedio de dosis y \( p_j \) es la frecuencia del alelo minoritario (MAF). Esta normalización es crucial para que el PCA refleje la estructura genética real y no el ruido de los marcadores altamente variables.</p>
+
+    <h2>3. Descomposición Espectral (PCA)</h2>
+    <p>El análisis de componentes principales se realiza mediante la Descomposición en Valores Singulares (SVD) de la matriz \( Z \):</p>
+
+    <div class="equation">
+        \[ Z = U \Sigma V^T \]
+    </div>
+
+    <p>Los autovalores \( \lambda_i \), que representan la varianza capturada por cada componente principal, se derivan de los valores singulares \( \sigma_i \) en la diagonal de \( \Sigma \):</p>
+    
+    <div class="equation">
+        \[ \lambda_i = \frac{\sigma_i^2}{m - 1} \]
+    </div>
+
+    <h2>4. Modelos de Mezcla Gaussiana (GMM) y Ancestría</h2>
+    <p>La estimación de ancestría compartida se modela como una mezcla de densidades multivariadas. La densidad de probabilidad para una muestra \( \mathbf{x} \) se expresa como:</p>
+
+    <div class="equation">
+        \[ p(\mathbf{x} | \theta) = \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x} | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \]
+    </div>
+
+    <p>Donde \( \pi_k \) son las proporciones de mezcla (equivalentes a los coeficientes de Admixture). El algoritmo <strong>Expectation-Maximization (EM)</strong> optimiza recursivamente la log-verosimilitud:</p>
+
+    <div class="equation">
+        \[ \ln p(\mathbf{X} | \theta) = \sum_{i=1}^n \ln \left\{ \sum_{k=1}^K \pi_k \mathcal{N}(\mathbf{x}_i | \boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k) \right\} \]
+    </div>
+
+    <h2>5. Matriz de Kinship de VanRaden</h2>
+    <p>La relación genómica de identidad por descendencia (IBD) se estima mediante el método robusto de VanRaden (2008), que escala la matriz de covarianza genómica por la heterocigosidad esperada:</p>
+
+    <div class="equation">
+        \[ \mathbf{K} = \frac{(G - \mathbf{1}\mathbf{p}^T)(G - \mathbf{1}\mathbf{p}^T)^T}{\sum_{j=1}^m 2 p_j (1 - p_j)} \]
+    </div>
+
+    <p>Este estimador permite que los elementos de la diagonal representen directamente el coeficiente de endogamia de cada individuo.</p>
+
+    <div class="footer">
+        BioCenicana Technical Documentation - División de Biometría y Bioinformática<br>
+        © 2026 Cenicaña, Colombia.
+    </div>
+
+</body>
+</html>
