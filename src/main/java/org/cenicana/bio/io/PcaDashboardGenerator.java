@@ -28,19 +28,37 @@ public class PcaDashboardGenerator {
             w.println("</style></head><body>");
 
             w.println("<div class='container'>");
-            w.println("<div class='header'><h1>BioCenicana | PCA Population Structure</h1><div class='stat'>Samples: " + result.sampleNames.length + "</div></div>");
+            w.println("<div class='header'>");
+            w.println("  <h1>BioCenicana | PCA Population Structure</h1>");
+            w.println("  <div style='display:flex; align-items:center; gap:20px;'>");
+            w.println("    <div class='stat'>Color by: ");
+            w.println("      <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");
+            w.println("        <option value='kmeans'>K-Means (Optimal K)</option>");
+            w.println("        <option value='dbscan'>DBSCAN (Density/Outliers)</option>");
+            w.println("      </select>");
+            w.println("    </div>");
+            w.println("    <div class='stat'>Samples: " + result.sampleNames.length + " | <b>Global Fst: " + String.format("%.4f", result.fstGlobal) + "</b></div>");
+            w.println("  </div>");
+            w.println("</div>");
 
             w.println("<div class='grid'>");
             
             // ── Chart 1: PC1 vs PC2
-            w.println("<div class='card full'><h3>Principal Component Analysis (PC1 vs PC2)</h3><div id='pc12'></div></div>");
+            w.println("<div class='card full'><h3>Principal Component Analysis</h3><div id='pc12'></div></div>");
             
             // ── Chart 2: Scree Plot
             w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree'></div></div>");
+
+            // ── Chart 4: Elbow Plot
+            w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow'></div></div>");
+
+            // ── Chart 5: Distance Heatmap
+            w.println("<div class='card full'><h3>Genetic Distance Matrix (Heatmap)</h3><div id='heatmap'></div></div>");
             
             // ── Chart 3: PC2 vs PC3 (if available)
             if (result.pcMatrix[0].length >= 3) {
-                w.println("<div class='card'><h3>Principal Component Analysis (PC2 vs PC3)</h3><div id='pc23'></div></div>");
+                w.println("<div class='card full'><h3>Principal Component Analysis (3D View: PC1, PC2, PC3)</h3><div id='pc3d' style='height: 600px;'></div></div>");
+                w.println("<div class='card full'><h3>Principal Component Analysis (PC2 vs PC3)</h3><div id='pc23'></div></div>");
             }
             
             w.println("</div>"); // end grid
@@ -48,28 +66,46 @@ public class PcaDashboardGenerator {
 
             w.println("<script>");
             w.println("const cfg = { responsive: true, displaylogo: false };");
+            w.println("const colors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316','#84cc16','#64748b'];");
             
             // Data Prep
             StringBuilder labels = new StringBuilder("[");
             StringBuilder pc1 = new StringBuilder("[");
             StringBuilder pc2 = new StringBuilder("[");
             StringBuilder pc3 = new StringBuilder("[");
+            StringBuilder clusters = new StringBuilder("[");
             for (int i = 0; i < result.sampleNames.length; i++) {
-                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); }
+                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); clusters.append(","); }
                 labels.append("'").append(result.sampleNames[i]).append("'");
                 pc1.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][0]));
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
+                clusters.append(result.clusterAssignments[i]);
                 if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2]));
             }
-            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]");
+            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); clusters.append("]");
 
-            // Plot PC1 vs PC2
-            w.println("Plotly.newPlot('pc12', [{");
-            w.println("  x: " + pc1 + ", y: " + pc2 + ", text: " + labels + ", mode: 'markers',");
-            w.println("  marker: { size: 10, color: '#6366f1', opacity: 0.7, line: { width: 1, color: 'white' } }");
-            w.println("}], { xaxis: { title: 'PC1 (" + String.format("%.2f", result.explainedVariance[0]*100) + "%)' },");
-            w.println("   yaxis: { title: 'PC2 (" + String.format("%.2f", result.explainedVariance[1]*100) + "%)' },");
-            w.println("   margin: { t: 10 } }, cfg);");
+            // Distance Matrix Prep
+            StringBuilder distData = new StringBuilder("[");
+            for (int i = 0; i < result.sampleNames.length; i++) {
+                if (i > 0) distData.append(",");
+                distData.append("[");
+                for (int j = 0; j < result.sampleNames.length; j++) {
+                    if (j > 0) distData.append(",");
+                    distData.append(String.format(Locale.US, "%.4f", result.distanceMatrix[i][j]));
+                }
+                distData.append("]");
+            }
+            distData.append("]");
+            
+            // Plot Heatmap
+            w.println("Plotly.newPlot('heatmap', [{z: " + distData + ", x: labels, y: labels, type: 'heatmap', colorscale: 'Viridis'}], {");
+            w.println("  xaxis: { title: 'Sample / Variety', type: 'category', tickangle: -90 },");
+            w.println("  yaxis: { title: 'Sample / Variety', type: 'category' },");
+            w.println("  margin: { t: 30, l: 150, b: 150 }");
+            w.println("}, cfg);");
+
+            // Initial Renders
+            w.println("updateColoring();");
 
             // Plot Scree
             StringBuilder ev = new StringBuilder("[");
@@ -85,15 +121,19 @@ public class PcaDashboardGenerator {
             w.println("  x: " + evLabels + ", y: " + ev + ", type: 'bar', marker: { color: '#0ea5e9' }");
             w.println("}], { xaxis: { title: 'Principal Component' }, yaxis: { title: '% Explained Variance' }, margin: { t: 10 } }, cfg);");
 
-            // Plot PC2 vs PC3
-            if (result.pcMatrix[0].length >= 3) {
-                w.println("Plotly.newPlot('pc23', [{");
-                w.println("  x: " + pc2 + ", y: " + pc3 + ", text: " + labels + ", mode: 'markers',");
-                w.println("  marker: { size: 10, color: '#f59e0b', opacity: 0.7, line: { width: 1, color: 'white' } }");
-                w.println("}], { xaxis: { title: 'PC2 (" + String.format("%.2f", result.explainedVariance[1]*100) + "%)' },");
-                w.println("   yaxis: { title: 'PC3 (" + String.format("%.2f", result.explainedVariance[2]*100) + "%)' },");
-                w.println("   margin: { t: 10 } }, cfg);");
+            // Plot Elbow
+            StringBuilder wcssVal = new StringBuilder("[");
+            StringBuilder wcssK = new StringBuilder("[");
+            for (int k = 1; k <= 10; k++) {
+                if (k > 1) { wcssVal.append(","); wcssK.append(","); }
+                wcssVal.append(result.wcss[k-1]);
+                wcssK.append(k);
             }
+            wcssVal.append("]"); wcssK.append("]");
+            w.println("Plotly.newPlot('elbow', [{x:" + wcssK + ", y:" + wcssVal + ", type:'scatter', mode:'lines+markers', line:{color:'#f43f5e'}}],");
+            w.println("{xaxis:{title:'Number of Clusters (K)'}, yaxis:{title:'WCSS (Inertia)'}, margin:{t:10},");
+            w.println(" annotations:[{x:" + result.optimalK + ", y:" + result.wcss[result.optimalK-1] + ", text:'Optimal K', showarrow:true, arrowhead:2, ax:0, ay:-40}]");
+            w.println("}, cfg);");
 
             w.println("</script></body></html>");
         }

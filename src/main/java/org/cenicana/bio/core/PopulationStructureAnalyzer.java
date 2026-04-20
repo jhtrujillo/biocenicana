@@ -19,6 +19,12 @@ public class PopulationStructureAnalyzer {
         public double[][] pcMatrix; // [numSamples][numPCs]
         public double[] explainedVariance;
         public double[] eigenvalues;
+        public int[] clusterAssignments; // Cluster ID for each sample
+        public double[] wcss; // Within-cluster sum of squares for K=1..10
+        public int optimalK;
+        public double fstGlobal; // Average Fst between clusters
+        public double[][] distanceMatrix; // Pairwise genetic distance
+        public int[] dbscanAssignments; // -1 for noise, 0+ for clusters
     }
 
     /**
@@ -175,16 +181,191 @@ public class PopulationStructureAnalyzer {
             }
         }
 
+        // Perform K-Means clustering to find populations
+        System.out.println("[PCA] Estimating optimal number of populations (K)...");
+        result.wcss = new double[10];
+        for (int k = 1; k <= 10; k++) {
+            result.wcss[k-1] = runKMeans(result.pcMatrix, k, 50, null);
+        }
+        
+        // Find "elbow" (simple version: find K where reduction slows down)
+        result.optimalK = 1;
+        for (int k = 1; k < 9; k++) {
+            double drop = (result.wcss[k-1] - result.wcss[k]) / result.wcss[0];
+            if (drop > 0.1) result.optimalK = k + 1; // Significant drop
+        }
+        
+        System.out.println("[PCA] Optimal K estimated: " + result.optimalK);
+        result.clusterAssignments = new int[numSamples];
+        runKMeans(result.pcMatrix, result.optimalK, 100, result.clusterAssignments);
+
+        // Compute Global Fst between clusters
+        if (result.optimalK > 1) {
+            double sumFst = 0;
+            int countFst = 0;
+            for (double[] dosages : dosageMatrix) {
+                double fst = calculateFst(dosages, result.clusterAssignments, result.optimalK, ploidy);
+                if (!Double.isNaN(fst)) {
+                    sumFst += fst;
+                    countFst++;
+                }
+            }
+            result.fstGlobal = countFst > 0 ? sumFst / countFst : 0;
+            System.out.println("[PCA] Global Fst between clusters: " + String.format("%.4f", result.fstGlobal));
+        }
+
+        // Compute Distance Matrix (Euclidean on PCs)
+        result.distanceMatrix = new double[numSamples][numSamples];
+        for (int i = 0; i < numSamples; i++) {
+            for (int j = i + 1; j < numSamples; j++) {
+                double dist = 0;
+                for (int l = 0; l < actualPCs; l++) {
+                    dist += Math.pow(result.pcMatrix[i][l] - result.pcMatrix[j][l], 2);
+                }
+                dist = Math.sqrt(dist);
+                result.distanceMatrix[i][j] = dist;
+                result.distanceMatrix[j][i] = dist;
+            }
+        }
+
+        // Perform DBSCAN to find noise/outliers (eps=20, minPts=5 as heuristic)
+        System.out.println("[PCA] Running DBSCAN for outlier detection...");
+        result.dbscanAssignments = runDBSCAN(result.distanceMatrix, 20.0, 5);
+
         return result;
+    }
+
+    private int[] runDBSCAN(double[][] dists, double eps, int minPts) {
+        int n = dists.length;
+        int[] assignments = new int[n];
+        Arrays.fill(assignments, -2); // -2: unvisited
+        int clusterId = 0;
+
+        for (int i = 0; i < n; i++) {
+            if (assignments[i] != -2) continue;
+
+            List<Integer> neighbors = getNeighbors(dists, i, eps);
+            if (neighbors.size() < minPts) {
+                assignments[i] = -1; // Noise
+            } else {
+                assignments[i] = clusterId;
+                expandCluster(dists, assignments, neighbors, clusterId, eps, minPts);
+                clusterId++;
+            }
+        }
+        return assignments;
+    }
+
+    private void expandCluster(double[][] dists, int[] assignments, List<Integer> neighbors, int clusterId, double eps, int minPts) {
+        for (int i = 0; i < neighbors.size(); i++) {
+            int p = neighbors.get(i);
+            if (assignments[p] == -1) assignments[p] = clusterId;
+            if (assignments[p] != -2) continue;
+
+            assignments[p] = clusterId;
+            List<Integer> nextNeighbors = getNeighbors(dists, p, eps);
+            if (nextNeighbors.size() >= minPts) {
+                for (int next : nextNeighbors) {
+                    if (!neighbors.contains(next)) neighbors.add(next);
+                }
+            }
+        }
+    }
+
+    private List<Integer> getNeighbors(double[][] dists, int i, double eps) {
+        List<Integer> neighbors = new ArrayList<>();
+        for (int j = 0; j < dists.length; j++) {
+            if (dists[i][j] <= eps) neighbors.add(j);
+        }
+        return neighbors;
+    }
+
+    private double calculateFst(double[] dosages, int[] assignments, int k, int ploidy) {
+        double[] p = new double[k];
+        int[] n = new int[k];
+        double totalSum = 0;
+        int totalN = 0;
+
+        for (int i = 0; i < dosages.length; i++) {
+            if (Double.isNaN(dosages[i])) continue;
+            p[assignments[i]] += dosages[i];
+            n[assignments[i]]++;
+            totalSum += dosages[i];
+            totalN++;
+        }
+
+        if (totalN == 0) return Double.NaN;
+        
+        double pTotal = totalSum / (totalN * ploidy);
+        double ht = 2 * pTotal * (1.0 - pTotal);
+        if (ht < 0.0001) return 0;
+
+        double hs = 0;
+        for (int i = 0; i < k; i++) {
+            if (n[i] > 0) {
+                double pi = p[i] / (n[i] * ploidy);
+                double hi = 2 * pi * (1.0 - pi);
+                hs += ((double) n[i] / totalN) * hi;
+            }
+        }
+
+        return (ht - hs) / ht;
+    }
+
+    private double runKMeans(double[][] data, int k, int maxIter, int[] assignments) {
+        int n = data.length;
+        int d = data[0].length;
+        double[][] centroids = new double[k][d];
+        int[] localAssignments = new int[n];
+        
+        // Init centroids (random samples)
+        Random rnd = new Random(42);
+        for (int i = 0; i < k; i++) {
+            System.arraycopy(data[rnd.nextInt(n)], 0, centroids[i], 0, d);
+        }
+
+        double totalDist = 0;
+        for (int iter = 0; iter < maxIter; iter++) {
+            totalDist = 0;
+            // E-step: Assign
+            for (int i = 0; i < n; i++) {
+                double minDist = Double.MAX_VALUE;
+                int bestK = 0;
+                for (int c = 0; c < k; c++) {
+                    double dist = 0;
+                    for (int l = 0; l < d; l++) dist += Math.pow(data[i][l] - centroids[c][l], 2);
+                    if (dist < minDist) { minDist = dist; bestK = c; }
+                }
+                localAssignments[i] = bestK;
+                totalDist += minDist;
+            }
+            // M-step: Update centroids
+            double[][] nextCentroids = new double[k][d];
+            int[] counts = new int[k];
+            for (int i = 0; i < n; i++) {
+                int c = localAssignments[i];
+                counts[c]++;
+                for (int l = 0; l < d; l++) nextCentroids[c][l] += data[i][l];
+            }
+            for (int c = 0; c < k; c++) {
+                if (counts[c] > 0) {
+                    for (int l = 0; l < d; l++) centroids[c][l] = nextCentroids[c][l] / counts[c];
+                }
+            }
+        }
+        
+        if (assignments != null) System.arraycopy(localAssignments, 0, assignments, 0, n);
+        return totalDist;
     }
 
     public void exportPca(PcaResult result, String outputPath) throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
-            pw.print("Sample");
+            pw.print("Sample,KMeans_Cluster,DBSCAN_Cluster");
             for (int j = 0; j < result.pcMatrix[0].length; j++) pw.print(",PC" + (j + 1));
             pw.println();
             for (int i = 0; i < result.sampleNames.length; i++) {
-                pw.print(result.sampleNames[i]);
+                String dbscanStr = result.dbscanAssignments[i] == -1 ? "Noise" : String.valueOf(result.dbscanAssignments[i] + 1);
+                pw.print(result.sampleNames[i] + "," + (result.clusterAssignments[i] + 1) + "," + dbscanStr);
                 for (int j = 0; j < result.pcMatrix[0].length; j++) {
                     pw.printf(Locale.US, ",%.6f", result.pcMatrix[i][j]);
                 }
