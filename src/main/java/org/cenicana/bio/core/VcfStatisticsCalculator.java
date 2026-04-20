@@ -190,8 +190,10 @@ public class VcfStatisticsCalculator {
 
 				String[] fmt  = cols[8].split(":");
 				int depthIdx  = -1;
+				int gtIdx     = -1;
 				for (int i = 0; i < fmt.length; i++) {
-					if (fmt[i].equals("BSDP") || fmt[i].equals("DP")) { depthIdx = i; break; }
+					if (fmt[i].equals("GT")) gtIdx = i;
+					if (fmt[i].equals("BSDP") || fmt[i].equals("DP") || fmt[i].equals("AD")) { depthIdx = i; break; }
 				}
 
 				// PASS 1: Parse alleles & counts
@@ -204,10 +206,32 @@ public class VcfStatisticsCalculator {
 				for (int i = 0; i < numSamples; i++) {
 					parsedGenotypes[i] = null;
 					String gData = cols[9 + i];
-					String gt    = gData.split(":")[0];
+					String[] gParts = gData.split(":");
+					String gt = (gtIdx != -1 && gParts.length > gtIdx) ? gParts[gtIdx] : ".";
 
 					if (gt.equals(".") || gt.startsWith("./.") || gt.startsWith("./")) {
-						siteMissing++;
+						// Fallback to AD/BSDP for polyploid allele counting if GT is missing
+						if (depthIdx != -1 && gParts.length > depthIdx && !gParts[depthIdx].equals(".")) {
+							try {
+								String[] ad = gParts[depthIdx].split(",");
+								if (ad.length >= 2) {
+									double rCount = Double.parseDouble(ad[0]);
+									double aCount = Double.parseDouble(ad[1]);
+									if (rCount + aCount >= 5) {
+										siteAlleleCounts[0] += (int)rCount;
+										siteAlleleCounts[1] += (int)aCount;
+										totalGenotypedAlleles += (int)(rCount + aCount);
+										sampleGenotypedCount[i]++;
+									} else {
+										siteMissing++;
+									}
+								} else {
+									siteMissing++;
+								}
+							} catch (NumberFormatException e) { siteMissing++; }
+						} else {
+							siteMissing++;
+						}
 					} else {
 						String[] alleles = gt.split("[/|]");
 						int[] numericAlleles = new int[alleles.length];
