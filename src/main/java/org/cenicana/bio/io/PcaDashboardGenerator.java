@@ -2,6 +2,7 @@ package org.cenicana.bio.io;
 
 import org.cenicana.bio.core.PopulationStructureAnalyzer.PcaResult;
 import java.io.*;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -35,6 +36,7 @@ public class PcaDashboardGenerator {
             w.println("      <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");
             w.println("        <option value='kmeans'>K-Means (Optimal K)</option>");
             w.println("        <option value='dbscan'>DBSCAN (Density/Outliers)</option>");
+            w.println("        <option value='gmm'>Gaussian Mixture Models (GMM)</option>");
             w.println("      </select>");
             w.println("    </div>");
             w.println("    <div class='stat'>Samples: " + result.sampleNames.length + " | <b>Global Fst: " + String.format("%.4f", result.fstGlobal) + "</b></div>");
@@ -45,6 +47,7 @@ public class PcaDashboardGenerator {
             w.println("<div class='card full'><h3>Principal Component Analysis</h3><div id='pc12' style='height: 500px;'></div></div>");
             w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree' style='height: 400px;'></div></div>");
             w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow' style='height: 400px;'></div></div>");
+            w.println("<div class='card full'><h3>Kinship Analysis (Dendrogram)</h3><div id='dendrogram' style='height: 600px;'></div></div>");
             w.println("<div class='card full'><h3>Genetic Distance Matrix (Heatmap)</h3><div id='heatmap' style='height: 600px;'></div></div>");
             
             if (result.pcMatrix[0].length >= 3) {
@@ -55,7 +58,6 @@ public class PcaDashboardGenerator {
 
             w.println("<script>");
             w.println("const cfg = { responsive: true, displaylogo: false };");
-            // Paleta de Alto Contraste (Kelly's Colors / Vibrant)
             w.println("const colors = ['#E6194B', '#3CB44B', '#FFE119', '#4363D8', '#F58231', '#911EB4', '#46F0F0', '#F032E6', '#BCf60C', '#FABEBE'];");
             
             // Data Prep
@@ -65,17 +67,19 @@ public class PcaDashboardGenerator {
             StringBuilder pc3 = new StringBuilder("[");
             StringBuilder kmeans = new StringBuilder("[");
             StringBuilder dbscan = new StringBuilder("[");
+            StringBuilder gmm = new StringBuilder("[");
             for (int i = 0; i < result.sampleNames.length; i++) {
-                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); kmeans.append(","); dbscan.append(","); }
+                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); }
                 labels.append("'").append(result.sampleNames[i]).append("'");
                 pc1.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][0]));
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
                 kmeans.append(result.clusterAssignments[i]);
                 dbscan.append(result.dbscanAssignments[i]);
+                gmm.append(result.gmmAssignments[i]);
                 if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2]));
                 else pc3.append("0");
             }
-            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); kmeans.append("]"); dbscan.append("]");
+            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); kmeans.append("]"); dbscan.append("]"); gmm.append("]");
 
             w.println("const data_labels = " + labels + ";");
             w.println("const data_pc1 = " + pc1 + ";");
@@ -83,10 +87,14 @@ public class PcaDashboardGenerator {
             w.println("const data_pc3 = " + pc3 + ";");
             w.println("const data_kmeans = " + kmeans + ";");
             w.println("const data_dbscan = " + dbscan + ";");
+            w.println("const data_gmm = " + gmm + ";");
             
             w.println("function updateColoring() {");
             w.println("  const mode = document.getElementById('colorMode').value;");
-            w.println("  const assignments = mode === 'kmeans' ? data_kmeans : data_dbscan;");
+            w.println("  let assignments;");
+            w.println("  if(mode === 'kmeans') assignments = data_kmeans;");
+            w.println("  else if(mode === 'dbscan') assignments = data_dbscan;");
+            w.println("  else assignments = data_gmm;");
             w.println("  renderPlot('pc12', data_pc1, data_pc2, null, assignments, mode);");
             if (result.pcMatrix[0].length >= 3) {
                 w.println("  renderPlot('pc23', data_pc2, data_pc3, null, assignments, mode);");
@@ -101,7 +109,7 @@ public class PcaDashboardGenerator {
             w.println("    for(var i=0; i<assignments.length; i++) {");
             w.println("      if(assignments[i] === k) { cx.push(xArr[i]); cy.push(yArr[i]); if(zArr) cz.push(zArr[i]); ct.push(data_labels[i]); }");
             w.println("    }");
-            w.println("    var name = k === -1 ? 'Outliers (Noise)' : (mode==='kmeans' ? 'Pop '+(k+1) : 'Cluster '+(k+1));");
+            w.println("    var name = k === -1 ? 'Outliers (Noise)' : (mode==='kmeans' ? 'Pop '+(k+1) : (mode==='gmm' ? 'GMM Group '+(k+1) : 'Cluster '+(k+1)));");
             w.println("    var color = k === -1 ? '#94a3b8' : colors[Math.abs(k)%10];");
             w.println("    var size = k === -1 ? (zArr?6:8) : (zArr?8:12);");
             w.println("    return { x:cx, y:cy, z:zArr?cz:null, text:ct, name:name, type:zArr?'scatter3d':'scatter', mode:'markers', marker:{size:size, color:color, opacity:k===-1?0.6:0.95, line:{width:k===-1?0.5:1.5, color:k===-1?'#64748b':'#ffffff'}}};");
@@ -127,7 +135,7 @@ public class PcaDashboardGenerator {
             distData.append("]");
             w.println("Plotly.newPlot('heatmap', [{z: " + distData + ", x: data_labels, y: data_labels, type: 'heatmap', colorscale: 'Viridis'}], {xaxis:{type:'category'}, yaxis:{type:'category'}, margin:{t:30, l:150, b:150}}, cfg);");
 
-            // Plot Dendrogram
+            // Dendrogram
             StringBuilder treeData = new StringBuilder("[");
             for (int i = 0; i < result.treeSegments.size(); i++) {
                 double[] s = result.treeSegments.get(i);
@@ -135,9 +143,7 @@ public class PcaDashboardGenerator {
                 treeData.append(String.format(Locale.US, "{x:[%.2f,%.2f,null], y:[%.4f,%.4f,null]}", s[0], s[2], s[1], s[3]));
             }
             treeData.append("]");
-
             w.println("const treeTraces = " + treeData + ".map(s => ({x:s.x, y:s.y, type:'scatter', mode:'lines', line:{color:'#475569', width:1}, showlegend:false, hoverinfo:'none'}));");
-            // Add leaves
             w.println("treeTraces.push({x:data_labels.map((_,i)=>i), y:data_labels.map(_=>0), mode:'markers', marker:{size:4, color:'#6366f1'}, text:data_labels, hoverinfo:'text', name:'Samples'});");
             w.println("Plotly.newPlot('dendrogram', treeTraces, { xaxis:{title:'Samples (Indices)', showticklabels:false}, yaxis:{title:'Genetic Distance (Height)'}, margin:{t:10} }, cfg);");
 

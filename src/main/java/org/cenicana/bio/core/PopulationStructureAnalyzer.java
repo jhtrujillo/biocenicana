@@ -26,6 +26,7 @@ public class PopulationStructureAnalyzer {
         public double[][] distanceMatrix; // Pairwise genetic distance
         public int[] dbscanAssignments; // -1 for noise, 0+ for clusters
         public List<double[]> treeSegments; // [x0, y0, x1, y1] for dendrogram
+        public int[] gmmAssignments; // GMM cluster labels
     }
 
     /**
@@ -239,7 +240,81 @@ public class PopulationStructureAnalyzer {
         System.out.println("[PCA] Computing Hierarchical Tree (UPGMA)...");
         result.treeSegments = computeUPGMA(result.distanceMatrix);
 
+        // Run GMM
+        System.out.println("[PCA] Running GMM Clustering (K=" + kOpt + ")...");
+        result.gmmAssignments = runGMM(result.pcMatrix, kOpt);
+
         return result;
+    }
+
+    private int[] runGMM(double[][] data, int k) {
+        int n = data.length;
+        int d = Math.min(data[0].length, 3); // Use top 3 PCs for clustering
+        
+        // Initialize with K-Means (simple version: use existing cluster centers or random)
+        double[][] means = new double[k][d];
+        double[] weights = new double[k];
+        double[][] variances = new double[k][d]; // Diagonal covariance for stability
+        
+        // Init means by picking random points
+        Random rnd = new Random(42);
+        for (int i = 0; i < k; i++) {
+            means[i] = data[rnd.nextInt(n)].clone();
+            weights[i] = 1.0 / k;
+            for (int j = 0; j < d; j++) variances[i][j] = 1.0;
+        }
+
+        double[][] resp = new double[n][k];
+        for (int iter = 0; iter < 50; iter++) {
+            // E-Step
+            for (int i = 0; i < n; i++) {
+                double sum = 0;
+                for (int j = 0; j < k; j++) {
+                    double prob = weights[j];
+                    for (int dim = 0; dim < d; dim++) {
+                        double diff = data[i][dim] - means[j][dim];
+                        prob *= Math.exp(-0.5 * diff * diff / (variances[j][dim] + 1e-6)) / (Math.sqrt(2 * Math.PI * variances[j][dim]) + 1e-6);
+                    }
+                    resp[i][j] = prob;
+                    sum += prob;
+                }
+                if (sum > 0) {
+                    for (int j = 0; j < k; j++) resp[i][j] /= sum;
+                }
+            }
+
+            // M-Step
+            for (int j = 0; j < k; j++) {
+                double nK = 0;
+                for (int i = 0; i < n; i++) nK += resp[i][j];
+                
+                if (nK > 1e-4) {
+                    weights[j] = nK / n;
+                    for (int dim = 0; dim < d; dim++) {
+                        double m = 0;
+                        for (int i = 0; i < n; i++) m += resp[i][j] * data[i][dim];
+                        means[j][dim] = m / nK;
+                        
+                        double v = 0;
+                        for (int i = 0; i < n; i++) {
+                            double diff = data[i][dim] - means[j][dim];
+                            v += resp[i][j] * diff * diff;
+                        }
+                        variances[j][dim] = Math.max(v / nK, 1e-4);
+                    }
+                }
+            }
+        }
+
+        int[] assignments = new int[n];
+        for (int i = 0; i < n; i++) {
+            int best = 0;
+            for (int j = 1; j < k; j++) {
+                if (resp[i][j] > resp[i][best]) best = j;
+            }
+            assignments[i] = best;
+        }
+        return assignments;
     }
 
     private List<double[]> computeUPGMA(double[][] dists) {
