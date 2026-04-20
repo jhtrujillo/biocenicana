@@ -29,6 +29,7 @@ public class PopulationStructureAnalyzer {
         public int[] gmmAssignments; // GMM cluster labels
         public double[][] dapcMatrix; // Linear Discriminants (LDs)
         public double[][] ancestryProportions; // [numSamples][k] probabilities
+        public double[][] kinshipMatrix; // Genomic Relationship Matrix (VanRaden)
     }
 
     /**
@@ -250,7 +251,53 @@ public class PopulationStructureAnalyzer {
         System.out.println("[PCA] Running DAPC (Discriminant Analysis on PCs)...");
         result.dapcMatrix = runDAPC(result.pcMatrix, result.clusterAssignments, result.optimalK);
 
+        // Compute Kinship Matrix (VanRaden)
+        System.out.println("[PCA] Computing Genomic Relationship Matrix (Kinship - VanRaden)...");
+        result.kinshipMatrix = computeKinshipVanRaden(dosageMatrix, ploidy);
+
         return result;
+    }
+
+    private double[][] computeKinshipVanRaden(List<double[]> dosageMatrix, int ploidy) {
+        int m = dosageMatrix.size();
+        int n = dosageMatrix.get(0).length;
+        double[][] kinship = new double[n][n];
+        
+        // 1. Calculate frequencies and scale factor
+        double scale = 0;
+        double[] p = new double[m];
+        for (int j = 0; j < m; j++) {
+            double[] dosages = dosageMatrix.get(j);
+            double sum = 0;
+            int count = 0;
+            for (double d : dosages) {
+                if (!Double.isNaN(d)) {
+                    sum += d;
+                    count++;
+                }
+            }
+            p[j] = sum / (count * ploidy);
+            scale += ploidy * p[j] * (1.0 - p[j]);
+        }
+
+        // 2. Compute Z * Z' where Z is centered genotypes
+        // Z_ji = dosage_ji - ploidy * p_j
+        // Kinship_i1,i2 = sum_j (Z_ji1 * Z_ji2) / scale
+        for (int i1 = 0; i1 < n; i1++) {
+            for (int i2 = i1; i2 < n; i2++) {
+                double sumZ = 0;
+                for (int j = 0; j < m; j++) {
+                    double z1 = dosageMatrix.get(j)[i1] - (ploidy * p[j]);
+                    double z2 = dosageMatrix.get(j)[i2] - (ploidy * p[j]);
+                    sumZ += z1 * z2;
+                }
+                double val = sumZ / scale;
+                kinship[i1][i2] = val;
+                kinship[i2][i1] = val;
+            }
+        }
+        
+        return kinship;
     }
 
     private double[][] runDAPC(double[][] pcs, int[] groups, int k) {
@@ -650,5 +697,24 @@ public class PopulationStructureAnalyzer {
             }
         }
         System.out.println("[PCA] Results exported to: " + outputPath);
+    }
+
+    public void exportKinship(PcaResult result, String outputPath) throws IOException {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
+            // Header: Sample names
+            pw.print("Sample");
+            for (String name : result.sampleNames) pw.print("," + name);
+            pw.println();
+
+            // Rows
+            for (int i = 0; i < result.sampleNames.length; i++) {
+                pw.print(result.sampleNames[i]);
+                for (int j = 0; j < result.sampleNames.length; j++) {
+                    pw.printf(Locale.US, ",%.6f", result.kinshipMatrix[i][j]);
+                }
+                pw.println();
+            }
+        }
+        System.out.println("[PCA] Kinship matrix exported to: " + outputPath);
     }
 }

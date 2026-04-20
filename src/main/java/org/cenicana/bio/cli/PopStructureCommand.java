@@ -49,6 +49,7 @@ public class PopStructureCommand implements Callable<Integer> {
         PopulationStructureAnalyzer.PcaResult result = analyzer.computePCA(vcfFile, ploidy, numPCs, minMaf, maxMissing);
         
         analyzer.exportPca(result, outputBase + ".pca.csv");
+        analyzer.exportKinship(result, outputBase + ".kinship.csv");
         
         String htmlPath = outputBase + ".pca.html";
         org.cenicana.bio.io.PcaDashboardGenerator.generateReport(result, htmlPath);

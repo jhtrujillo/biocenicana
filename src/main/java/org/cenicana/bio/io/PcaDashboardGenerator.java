@@ -47,6 +47,7 @@ public class PcaDashboardGenerator {
             w.println("<div class='grid'>");
             w.println("<div class='card full'><h3>Ancestry Analysis (Admixture Proportions)</h3><div id='ancestry' style='height: 400px;'></div></div>");
             w.println("<div class='card full'><h3>Cluster Visualization (PCA / DAPC)</h3><div id='pc12' style='height: 500px;'></div></div>");
+            w.println("<div class='card full'><h3>Genomic Relationship Matrix (Kinship - VanRaden)</h3><div id='kinship' style='height: 600px;'></div></div>");
             w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree' style='height: 400px;'></div></div>");
             w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow' style='height: 400px;'></div></div>");
             w.println("<div class='card full'><h3>Kinship Analysis (Dendrogram)</h3><div id='dendrogram' style='height: 600px;'></div></div>");
@@ -147,7 +148,7 @@ public class PcaDashboardGenerator {
             w.println("  Plotly.react(id, traces, layout, cfg);");
             w.println("}");
 
-            // Heatmap
+            // Heatmap Genetic Distance
             StringBuilder distData = new StringBuilder("[");
             for (int i = 0; i < result.sampleNames.length; i++) {
                 if (i > 0) distData.append(",");
@@ -159,7 +160,21 @@ public class PcaDashboardGenerator {
                 distData.append("]");
             }
             distData.append("]");
-            w.println("Plotly.newPlot('heatmap', [{z: " + distData + ", x: data_labels, y: data_labels, type: 'heatmap', colorscale: 'Viridis'}], {xaxis:{type:'category'}, yaxis:{type:'category'}, margin:{t:30, l:150, b:150}}, cfg);");
+            w.println("Plotly.newPlot('heatmap', [{z: " + distData + ", x: data_labels, y: data_labels, type: 'heatmap', colorscale: 'Viridis'}], {xaxis:{type:'category'}, yaxis:{type:'category'}, margin:{t:30, l:150, b:150}, title:'Pairwise Genetic Distance (Euclidean)'}, cfg);");
+
+            // Heatmap Kinship
+            StringBuilder kinData = new StringBuilder("[");
+            for (int i = 0; i < result.sampleNames.length; i++) {
+                if (i > 0) kinData.append(",");
+                kinData.append("[");
+                for (int j = 0; j < result.sampleNames.length; j++) {
+                    if (j > 0) kinData.append(",");
+                    kinData.append(String.format(Locale.US, "%.4f", result.kinshipMatrix[i][j]));
+                }
+                kinData.append("]");
+            }
+            kinData.append("]");
+            w.println("Plotly.newPlot('kinship', [{z: " + kinData + ", x: data_labels, y: data_labels, type: 'heatmap', colorscale: 'Hot'}], {xaxis:{type:'category'}, yaxis:{type:'category'}, margin:{t:30, l:150, b:150}, title:'Genomic Relationship Matrix (VanRaden Kinship)'}, cfg);");
 
             // Dendrogram
             StringBuilder treeData = new StringBuilder("[");
