@@ -241,8 +241,8 @@ public class PopulationStructureAnalyzer {
         result.treeSegments = computeUPGMA(result.distanceMatrix);
 
         // Run GMM
-        System.out.println("[PCA] Running GMM Clustering (K=" + kOpt + ")...");
-        result.gmmAssignments = runGMM(result.pcMatrix, kOpt);
+        System.out.println("[PCA] Running GMM Clustering (K=" + result.optimalK + ")...");
+        result.gmmAssignments = runGMM(result.pcMatrix, result.optimalK);
 
         return result;
     }
