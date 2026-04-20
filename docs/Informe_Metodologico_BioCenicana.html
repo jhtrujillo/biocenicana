@@ -3,117 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Integral BioCenicana - Suite Genómica</title>
+    <title>Manual de Usuario y Referencia - BioCenicana</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #1e293b; max-width: 1100px; margin: 0 auto; padding: 40px; background-color: #f1f5f9; }
         .page { background-color: #ffffff; padding: 60px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-        h1 { color: #1e293b; border-bottom: 4px solid #6366f1; padding-bottom: 15px; font-size: 3em; text-align: center; margin-bottom: 10px; letter-spacing: -1px; }
+        h1 { color: #1e293b; border-bottom: 4px solid #6366f1; padding-bottom: 15px; font-size: 3em; text-align: center; margin-bottom: 10px; }
         h2 { color: #0f172a; margin-top: 50px; border-left: 8px solid #6366f1; padding-left: 20px; font-size: 2em; background: #f8fafc; padding-top: 10px; padding-bottom: 10px; }
-        h3 { color: #334155; margin-top: 35px; font-size: 1.5em; color: #6366f1; }
+        h3 { color: #6366f1; margin-top: 35px; font-size: 1.5em; }
         .equation { background: #f8fafc; padding: 30px; border-radius: 12px; margin: 25px 0; overflow-x: auto; text-align: center; border: 1px solid #e2e8f0; font-size: 1.1em; }
-        .example-box { background: #f0fdf4; border-left: 6px solid #22c55e; padding: 25px; border-radius: 0 12px 12px 0; margin: 25px 0; font-size: 1em; color: #166534; box-shadow: 2px 2px 5px rgba(0,0,0,0.02); }
-        .example-box strong { color: #15803d; display: block; margin-bottom: 10px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; }
+        .example-box { background: #f0fdf4; border-left: 6px solid #22c55e; padding: 25px; border-radius: 0 12px 12px 0; margin: 25px 0; font-size: 1em; color: #166534; }
+        .example-box strong { color: #15803d; display: block; margin-bottom: 10px; text-transform: uppercase; }
+        .cli-box { background: #1e293b; color: #f8fafc; padding: 25px; border-radius: 10px; font-family: 'Fira Code', monospace; margin: 20px 0; font-size: 0.9em; position: relative; }
+        .cli-box::before { content: "Terminal Command"; position: absolute; top: 0; right: 20px; background: #6366f1; font-size: 0.7em; padding: 2px 10px; border-radius: 0 0 5px 5px; }
+        .step-list { list-style: none; padding: 0; }
+        .step-list li { margin-bottom: 15px; padding-left: 30px; position: relative; }
+        .step-list li::before { content: "✔️"; position: absolute; left: 0; color: #6366f1; }
         .footer { margin-top: 80px; text-align: center; font-style: italic; color: #94a3b8; border-top: 2px solid #f1f5f9; padding-top: 40px; }
-        .abstract { font-size: 1.1em; background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; margin-bottom: 50px; border-radius: 15px; color: #475569; border-top: 5px solid #6366f1; }
-        .module-badge { display: inline-block; background: #6366f1; color: white; padding: 5px 15px; border-radius: 8px; font-size: 0.9em; font-weight: bold; margin-bottom: 15px; }
-        .math-title { font-weight: bold; color: #1e293b; margin-top: 15px; display: block; }
     </style>
 </head>
 <body>
 
     <div class="page">
-        <h1>Manual Integral de BioCenicana</h1>
-        <p style="text-align: center; color: #64748b; font-size: 1.3em;">Arquitectura Matemática y Guía de Interpretación Genómica</p>
+        <h1>BioCenicana: Manual de Usuario</h1>
+        <p style="text-align: center; color: #64748b; font-size: 1.3em;">Guía Metodológica y de Ejecución de la Suite</p>
 
-        <div class="abstract">
-            <strong>Visión General:</strong> BioCenicana es una suite modular diseñada para el análisis genómico de poliploides. Desde la limpieza de datos crudos hasta la inferencia de parentesco y estructura poblacional, cada módulo ha sido optimizado para manejar el gran volumen de datos de secuenciación masiva (NGS) de Cenicaña.
-        </div>
+        <!-- INTRO -->
+        <h2>Bienvenido a la Suite BioCenicana</h2>
+        <p>Este manual te enseñará a usar las herramientas para analizar el ADN de tus plantas. Cada sección incluye la teoría científica y los pasos exactos para ejecutar el programa.</p>
 
-        <!-- MODULO 1 -->
-        <div class="module-badge">Módulo: Calidad y Filtros (VcfFilter)</div>
-        <h2>1. Control de Calidad Genómico</h2>
-        <p>Antes de analizar, debemos asegurar que solo los mejores marcadores pasen. Filtramos por Frecuencia Alélica Minoritaria (MAF) y por "Missing Data" (datos faltantes).</p>
-
-        <span class="math-title">Filtro de Datos Faltantes:</span>
-        <div class="equation">
-            \[ \text{Missingness}_j = \frac{1}{n} \sum_{i=1}^n \mathbb{I}(g_{ij} = \text{no call}) \leq \text{threshold} \]
-        </div>
-
-        <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El Portero del Club)</strong>
-            Imagina que vas a organizar una fiesta muy exclusiva (tu análisis). El VcfFilter es el portero. Si un invitado (un SNP) llega con el pasaporte incompleto (muchos datos faltantes) o no es lo suficientemente "interesante" (baja frecuencia alélica), el portero no lo deja entrar. Así garantizamos que los invitados que entran son de alta calidad.
-        </div>
-
-        <!-- MODULO 2 -->
-        <div class="module-badge">Módulo: Estructura Poblacional (PCA & GMM)</div>
-        <h2>2. Estructura y Origen Genético</h2>
-        <p>Identificamos grupos naturales y ancestría mezclada mediante reducción de dimensionalidad.</p>
-
-        <span class="math-title">Probabilidad de Pertenencia (GMM):</span>
-        <div class="equation">
-            \[ \gamma_{ik} = \frac{\pi_k \mathcal{N}(x_i | \mu_k, \Sigma_k)}{\sum_{j=1}^K \pi_j \mathcal{N}(x_i | \mu_j, \Sigma_j)} \]
+        <!-- FILTRADO -->
+        <h2>1. Filtrado de Calidad (vcf-filter)</h2>
+        <p><strong>¿Para qué sirve?</strong> Para limpiar tu archivo VCF. Quita los marcadores que tienen muchos datos faltantes o que no varían lo suficiente.</p>
+        
+        <div class="cli-box">
+            java -jar biocenicana.jar vcf-filter \<br>
+            &nbsp;&nbsp;-v mis_datos.vcf \<br>
+            &nbsp;&nbsp;-o datos_limpios.vcf \<br>
+            &nbsp;&nbsp;--min-maf 0.05 --max-missing 0.2
         </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El Cóctel Genético)</strong>
-            No todas las plantas son de "raza pura". Una planta de caña puede ser como un cóctel: 60% de origen tropical, 30% de altura y 10% de origen silvestre. Este cálculo nos da la "receta" exacta de los antepasados de cada individuo.
+            <strong>🚀 ¿Qué pasa paso a paso?</strong>
+            <ul class="step-list">
+                <li>El programa abre tu VCF y lee cada SNP.</li>
+                <li>Calcula cuántos datos faltan. Si falta más del 20% (--max-missing 0.2), lo elimina.</li>
+                <li>Calcula si el rasgo es común. Si aparece en menos del 5% (--min-maf 0.05), lo elimina por ser muy raro.</li>
+                <li>Crea un nuevo archivo limpio llamado <code>datos_limpios.vcf</code>.</li>
+            </ul>
         </div>
 
-        <!-- MODULO 3 -->
-        <div class="module-badge">Módulo: Parentesco (Kinship - VanRaden)</div>
-        <h2>3. Parentesco y Matriz de Relación</h2>
-        <p>Calculamos qué tan parientes son dos individuos comparando sus genomas completos, esencial para la selección genómica.</p>
+        <!-- ESTRUCTURA -->
+        <h2>2. Estructura Poblacional (pop-structure)</h2>
+        <p><strong>¿Para qué sirve?</strong> Para agrupar las plantas por familias y ver si hay mezclas genéticas. Genera el dashboard interactivo.</p>
 
-        <span class="math-title">Estimador de Parentesco Genómico:</span>
-        <div class="equation">
-            \[ \mathbf{K} = \frac{\mathbf{Z} \mathbf{Z}^T}{2 \sum p_j(1-p_j)} \]
-        </div>
-
-        <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (La Red Social de Genes)</strong>
-            Es como ver qué tantos "amigos en común" (genes compartidos) tienen dos personas en una red social. Si comparten muchísimos, el sistema deduce que son familia cercana. Un valor alto nos dice que esas dos plantas son casi "hermanas".
-        </div>
-
-        <!-- MODULO 4 -->
-        <div class="module-badge">Módulo: Ligamiento (LD Decay)</div>
-        <h2>4. Desequilibrio de Ligamiento (LD)</h2>
-        <p>Mide qué tan rápido se "desconectan" los genes a medida que se alejan en el cromosoma. Crucial para saber cuántos marcadores necesitamos para mapear un rasgo.</p>
-
-        <span class="math-title">Coeficiente de Correlación Genética (\(r^2\)):</span>
-        <div class="equation">
-            \[ r^2 = \frac{(P_{AB} - P_A P_B)^2}{P_A(1-P_A)P_B(1-P_B)} \]
+        <div class="cli-box">
+            java -jar biocenicana.jar pop-structure \<br>
+            &nbsp;&nbsp;-v datos_limpios.vcf \<br>
+            &nbsp;&nbsp;-p 10 -o mi_analisis
         </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El Teléfono Roto)</strong>
-            Si dos genes están pegados, siempre viajan juntos de padres a hijos. A medida que se alejan, es como el juego del "teléfono roto": el mensaje se va perdiendo. El LD nos dice a qué distancia los genes ya no se hablan y actúan de forma independiente.
+            <strong>🚀 ¿Qué pasa paso a paso?</strong>
+            <ul class="step-list">
+                <li><strong>Cálculo de Dosis:</strong> Estima cuántas copias de cada gen tiene la planta (Ploidía 10).</li>
+                <li><strong>PCA:</strong> Crea un mapa de puntos donde las plantas parecidas están juntas.</li>
+                <li><strong>GMM:</strong> Calcula qué porcentaje de cada "raza" tiene cada planta (Gráfico de barras).</li>
+                <li><strong>Kinship:</strong> Genera la matriz de parentesco de VanRaden.</li>
+                <li><strong>Reporte:</strong> Crea <code>mi_analisis.pca.html</code> para que lo abras en tu navegador.</li>
+            </ul>
         </div>
 
-        <!-- MODULO 5 -->
-        <div class="module-badge">Módulo: Estadísticas (VcfStats)</div>
-        <h2>5. Análisis de Variantes y Diversidad</h2>
-        <p>Calculamos métricas como la Heterocigosidad y el contenido de información polimórfica (PIC).</p>
+        <!-- LIGAMIENTO -->
+        <h2>3. Desequilibrio de Ligamiento (ld-decay)</h2>
+        <p><strong>¿Para qué sirve?</strong> Para saber qué tan rápido se pierde la relación entre genes a medida que se alejan en el cromosoma.</p>
 
-        <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El Check-up Médico)</strong>
-            Es como un examen de sangre general para tu base de datos. Nos dice si la población es variada (saludable) o si hay mucha endogamia. Nos da los "signos vitales" de tu colección de germoplasma.
+        <div class="cli-box">
+            java -jar biocenicana.jar ld-decay \<br>
+            &nbsp;&nbsp;-v datos_limpios.vcf \<br>
+            &nbsp;&nbsp;-o mi_ld_decay --max-dist 100000
         </div>
 
-        <!-- MODULO 6 -->
-        <div class="module-badge">Módulo: Interoperabilidad (Exporters)</div>
-        <h2>6. Traductores y Exportación</h2>
-        <p>BioCenicana habla con otros programas como GWASpoly, JoinMap y GAPIT.</p>
+        <div class="example-box">
+            <strong>🚀 ¿Qué pasa paso a paso?</strong>
+            <ul class="step-list">
+                <li>Toma pares de genes y mide qué tan "conectados" están (r²).</li>
+                <li>Repite esto para miles de pares a diferentes distancias.</li>
+                <li>Calcula el promedio de conexión y genera un gráfico que muestra cómo cae esa conexión al alejarse.</li>
+                <li>Te entrega <code>mi_ld_decay.html</code> con la curva de decaimiento.</li>
+            </ul>
+        </div>
+
+        <!-- ESTADISTICAS -->
+        <h2>4. Estadísticas del VCF (vcf-stats)</h2>
+        <p><strong>¿Para qué sirve?</strong> Para obtener un resumen general de la salud y diversidad de tu base de datos.</p>
+
+        <div class="cli-box">
+            java -jar biocenicana.jar vcf-stats -v mis_datos.vcf -o reporte_stats.tsv
+        </div>
 
         <div class="example-box">
-            <strong>💡 ¿Cómo entenderlo fácilmente? (El Traductor Universal)</strong>
-            Cada programa de genética tiene su propio idioma. BioCenicana es como un traductor políglota que toma tus datos y los escribe perfectamente para que otros softwares "entiendan" y puedan hacer sus propios análisis.
+            <strong>🚀 ¿Qué pasa paso a paso?</strong>
+            <ul class="step-list">
+                <li>Cuenta cuántos SNPs hay en total.</li>
+                <li>Calcula la Heterocigosidad (qué tan diversa es la planta internamente).</li>
+                <li>Calcula el PIC (qué tan informativo es cada marcador).</li>
+                <li>Genera una tabla <code>reporte_stats.tsv</code> lista para abrir en Excel.</li>
+            </ul>
         </div>
 
         <div class="footer">
-            Manual Integral BioCenicana - Versión Final 1.5<br>
-            Cenicaña, Colombia | Departamento de Biotecnología y Biometría © 2026
+            Manual de Usuario BioCenicana - Cenicaña © 2026<br>
+            Desarrollado para la excelencia en fitomejoramiento.
         </div>
     </div>
 
