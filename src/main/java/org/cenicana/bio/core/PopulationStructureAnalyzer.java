@@ -28,6 +28,7 @@ public class PopulationStructureAnalyzer {
         public List<double[]> treeSegments; // [x0, y0, x1, y1] for dendrogram
         public int[] gmmAssignments; // GMM cluster labels
         public double[][] dapcMatrix; // Linear Discriminants (LDs)
+        public double[][] ancestryProportions; // [numSamples][k] probabilities
     }
 
     /**
@@ -243,7 +244,7 @@ public class PopulationStructureAnalyzer {
 
         // Run GMM
         System.out.println("[PCA] Running GMM Clustering (K=" + result.optimalK + ")...");
-        result.gmmAssignments = runGMM(result.pcMatrix, result.optimalK);
+        result.gmmAssignments = runGMM(result.pcMatrix, result.optimalK, result);
 
         // Run DAPC
         System.out.println("[PCA] Running DAPC (Discriminant Analysis on PCs)...");
@@ -336,16 +337,14 @@ public class PopulationStructureAnalyzer {
         return eigenvectors;
     }
 
-    private int[] runGMM(double[][] data, int k) {
+    private int[] runGMM(double[][] data, int k, PcaResult result) {
         int n = data.length;
-        int d = Math.min(data[0].length, 3); // Use top 3 PCs for clustering
+        int d = Math.min(data[0].length, 3);
         
-        // Initialize with K-Means (simple version: use existing cluster centers or random)
         double[][] means = new double[k][d];
         double[] weights = new double[k];
-        double[][] variances = new double[k][d]; // Diagonal covariance for stability
+        double[][] variances = new double[k][d];
         
-        // Init means by picking random points
         Random rnd = new Random(42);
         for (int i = 0; i < k; i++) {
             means[i] = data[rnd.nextInt(n)].clone();
@@ -395,6 +394,8 @@ public class PopulationStructureAnalyzer {
             }
         }
 
+        result.ancestryProportions = resp; // Save for barplot
+        
         int[] assignments = new int[n];
         for (int i = 0; i < n; i++) {
             int best = 0;

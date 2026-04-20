@@ -45,6 +45,7 @@ public class PcaDashboardGenerator {
             w.println("</div>");
 
             w.println("<div class='grid'>");
+            w.println("<div class='card full'><h3>Ancestry Analysis (Admixture Proportions)</h3><div id='ancestry' style='height: 400px;'></div></div>");
             w.println("<div class='card full'><h3>Cluster Visualization (PCA / DAPC)</h3><div id='pc12' style='height: 500px;'></div></div>");
             w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree' style='height: 400px;'></div></div>");
             w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow' style='height: 400px;'></div></div>");
@@ -65,9 +66,10 @@ public class PcaDashboardGenerator {
             StringBuilder pc1 = new StringBuilder("["); StringBuilder pc2 = new StringBuilder("["); StringBuilder pc3 = new StringBuilder("[");
             StringBuilder ld1 = new StringBuilder("["); StringBuilder ld2 = new StringBuilder("[");
             StringBuilder kmeans = new StringBuilder("["); StringBuilder dbscan = new StringBuilder("["); StringBuilder gmm = new StringBuilder("[");
+            StringBuilder ancestry = new StringBuilder("[");
             
             for (int i = 0; i < result.sampleNames.length; i++) {
-                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); ld1.append(","); ld2.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); }
+                if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); ld1.append(","); ld2.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); ancestry.append(","); }
                 labels.append("'").append(result.sampleNames[i]).append("'");
                 pc1.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][0]));
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
@@ -79,8 +81,15 @@ public class PcaDashboardGenerator {
                 kmeans.append(result.clusterAssignments[i]);
                 dbscan.append(result.dbscanAssignments[i]);
                 gmm.append(result.gmmAssignments[i]);
+                
+                ancestry.append("[");
+                for (int k = 0; k < result.ancestryProportions[i].length; k++) {
+                    if (k > 0) ancestry.append(",");
+                    ancestry.append(String.format(Locale.US, "%.6f", result.ancestryProportions[i][k]));
+                }
+                ancestry.append("]");
             }
-            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); ld1.append("]"); ld2.append("]"); kmeans.append("]"); dbscan.append("]"); gmm.append("]");
+            labels.append("]"); pc1.append("]"); pc2.append("]"); pc3.append("]"); ld1.append("]"); ld2.append("]"); kmeans.append("]"); dbscan.append("]"); gmm.append("]"); ancestry.append("]");
 
             w.println("const data_labels = " + labels + ";");
             w.println("const data_pc1 = " + pc1 + ";");
@@ -91,14 +100,30 @@ public class PcaDashboardGenerator {
             w.println("const data_kmeans = " + kmeans + ";");
             w.println("const data_dbscan = " + dbscan + ";");
             w.println("const data_gmm = " + gmm + ";");
+            w.println("const data_ancestry = " + ancestry + ";");
             
+            // Plot Ancestry Barplot
+            w.println("function renderAncestry() {");
+            w.println("  const K = data_ancestry[0].length;");
+            w.println("  const sortedIndices = data_ancestry.map((a,i)=>[a,i]).sort((a,b)=>{");
+            w.println("    const maxA = Math.max(...a[0]); const maxB = Math.max(...b[0]);");
+            w.println("    const idxA = a[0].indexOf(maxA); const idxB = b[0].indexOf(maxB);");
+            w.println("    if(idxA !== idxB) return idxA - idxB; return maxB - maxA;");
+            w.println("  }).map(x=>x[1]);");
+            w.println("  const traces = [];");
+            w.println("  for(let k=0; k<K; k++) {");
+            w.println("    traces.push({ x: sortedIndices.map(idx => data_labels[idx]), y: sortedIndices.map(idx => data_ancestry[idx][k]), type:'bar', name:'Ancestry '+(k+1), marker:{color:colors[k%10]} });");
+            w.println("  }");
+            w.println("  Plotly.newPlot('ancestry', traces, { barmode:'stack', showlegend:false, xaxis:{showticklabels:false}, yaxis:{range:[0,1], title:'Proportion'}, margin:{t:10, b:20} }, cfg);");
+            w.println("}");
+
             w.println("function updateColoring() {");
             w.println("  const mode = document.getElementById('colorMode').value;");
             w.println("  let xArr = data_pc1, yArr = data_pc2, zArr = data_pc3, assignments;");
             w.println("  if(mode === 'kmeans') assignments = data_kmeans;");
             w.println("  else if(mode === 'dbscan') assignments = data_dbscan;");
             w.println("  else if(mode === 'gmm') assignments = data_gmm;");
-            w.println("  else { xArr = data_ld1; yArr = data_ld2; zArr = null; assignments = data_kmeans; }"); // DAPC uses LDs and K-Means groups
+            w.println("  else { xArr = data_ld1; yArr = data_ld2; zArr = null; assignments = data_kmeans; }");
             
             w.println("  renderPlot('pc12', xArr, yArr, null, assignments, mode);");
             w.println("  if(document.getElementById('pc3d')) renderPlot('pc3d', xArr, yArr, zArr, assignments, mode);");
@@ -149,6 +174,7 @@ public class PcaDashboardGenerator {
             w.println("Plotly.newPlot('dendrogram', treeTraces, { xaxis:{title:'Samples (Indices)', showticklabels:false}, yaxis:{title:'Genetic Distance (Height)'}, margin:{t:10} }, cfg);");
 
             w.println("updateColoring();");
+            w.println("renderAncestry();");
 
             // Scree
             StringBuilder ev = new StringBuilder("["); StringBuilder evL = new StringBuilder("[");
