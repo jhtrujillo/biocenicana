@@ -19,7 +19,8 @@ import picocli.CommandLine.Command;
              LinkageDisequilibriumCommand.class,
              GwasPolyExportCommand.class,
              PopStructureCommand.class,
-             JoinMapCommand.class
+             JoinMapCommand.class,
+             SnpExplorerCommand.class
          })
 public class VcfToolkit {
 

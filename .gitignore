@@ -62,3 +62,6 @@ Thumbs.db
 # vcf-stats output folders (generated at runtime)
 test/
 example_vcfs/large_synthetic.vcf
+*.tsv
+*.html
+!src/**/*.html

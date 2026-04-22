@@ -98,6 +98,12 @@ public class AlleleDosageCalculator {
 	public void computeAlleleDosage(String vcfFile, int ploidy, String impute,
 			boolean storeInMemory, String callerType, int minDepth, int knnK, 
 			boolean adaptiveRounding) throws IOException {
+		computeAlleleDosage(vcfFile, ploidy, impute, storeInMemory, callerType, minDepth, knnK, adaptiveRounding, false);
+	}
+
+	public void computeAlleleDosage(String vcfFile, int ploidy, String impute,
+			boolean storeInMemory, String callerType, int minDepth, int knnK, 
+			boolean adaptiveRounding, boolean rawFrequencies) throws IOException {
 
 		// ── 1. Read sample names from VCF header ───────────────────────────────
 		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
@@ -156,7 +162,7 @@ public class AlleleDosageCalculator {
 			boolean[] isMissing   = new boolean[numGenotypes];
 			
 			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding);
+							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, rawFrequencies);
 
 			// ── Phase 3: Adaptive Rounding via Clustering (Optional) ───────────
 			// If adaptive rounding is enabled, parsedDosages currently holds the purely raw frequencies.
@@ -372,7 +378,7 @@ public class AlleleDosageCalculator {
 			
 			int len = Math.min(columns.length - 9, numGenotypes);
 			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding);
+							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, false);
 			
 			if (adaptiveRounding) {
 				assignDosagesViaClustering(parsedDosages, isMissing, ploidyLevels);
@@ -452,7 +458,8 @@ public class AlleleDosageCalculator {
 	 */
 	private void extractRawDosages(String[] columns, int len, String callerType, 
 			int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
-			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, boolean adaptiveRounding) {
+			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
+			boolean adaptiveRounding, boolean rawFrequencies) {
 		
 		for (int i = 0; i < len; i++) {
 			String   genotypeStr = columns[9 + i];
@@ -542,7 +549,9 @@ public class AlleleDosageCalculator {
 			if (foundCounts && (countRef + countAlt) > 0) {
 				float rawDosage = countRef / (countRef + countAlt);
 				
-				if (adaptiveRounding) {
+				if (rawFrequencies) {
+					parsedDosages[i] = Float.valueOf(df.format(rawDosage));
+				} else if (adaptiveRounding) {
 					// Phase 3: Defer rounding. Keep raw frequency.
 					parsedDosages[i] = rawDosage;
 				} else {

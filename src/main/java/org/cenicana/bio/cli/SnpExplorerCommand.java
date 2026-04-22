@@ -1,0 +1,39 @@
+package org.cenicana.bio.cli;
+
+import org.cenicana.bio.core.SnpClusterAnalyzer;
+import org.cenicana.bio.core.SnpClusterAnalyzer.SnpResult;
+import org.cenicana.bio.io.SnpExplorerDashboard;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
+import java.util.List;
+import java.util.concurrent.Callable;
+
+@Command(name = "snp-explorer", 
+         mixinStandardHelpOptions = true, 
+         description = "Generates an interactive HTML dashboard to explore dosage groupings for each SNP.")
+public class SnpExplorerCommand implements Callable<Integer> {
+
+    @Option(names = { "-m", "--matrix" }, required = true, description = "Path to the dosage matrix TSV (raw frequencies recommended).")
+    private String matrixFile;
+
+    @Option(names = { "-p", "--ploidy" }, required = true, description = "Ploidy level of the population.")
+    private int ploidy;
+
+    @Option(names = { "-o", "--output" }, defaultValue = "snp_explorer.html", description = "Output HTML file path.")
+    private String outputFile;
+
+    @Override
+    public Integer call() throws Exception {
+        System.out.println("[SNP-Explorer] Reading matrix: " + matrixFile);
+        SnpClusterAnalyzer analyzer = new SnpClusterAnalyzer();
+        List<SnpResult> results = analyzer.analyzeMatrix(matrixFile, ploidy);
+        
+        System.out.println("[SNP-Explorer] Processed " + results.size() + " SNPs.");
+        System.out.println("[SNP-Explorer] Generating dashboard: " + outputFile);
+        
+        SnpExplorerDashboard.generate(results, ploidy, outputFile);
+        
+        System.out.println("\n✅  SNP Explorer dashboard ready: " + outputFile);
+        return 0;
+    }
+}
