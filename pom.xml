@@ -15,14 +15,6 @@
     </properties>
 
     <dependencies>
-        <!-- NGSEP Core - local system dependency -->
-        <dependency>
-            <groupId>ngsep</groupId>
-            <artifactId>NGSEPcore</artifactId>
-            <version>5.1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/NGSEPcore_5.1.0.jar</systemPath>
-        </dependency>
         <!-- picocli for CLI parsing -->
         <dependency>
             <groupId>info.picocli</groupId>
