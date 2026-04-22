@@ -132,7 +132,7 @@ public class AlleleDosageCalculator {
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 
 		String lastFormat = "";
-		int adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
+		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
 
 		for (String[] columns : blockIterator) {
 
@@ -147,6 +147,7 @@ public class AlleleDosageCalculator {
 				String[] tokens = format.split(":");
 				for (int i = 0; i < tokens.length; i++) {
 					switch (tokens[i]) {
+						case "GT":   gtIdx   = i; break;
 						case "AD":   adIdx   = i; break;
 						case "ADP":  adpIdx  = i; break;
 						case "RO":   roIdx   = i; break;
@@ -161,7 +162,7 @@ public class AlleleDosageCalculator {
 			float[] parsedDosages = new float[numGenotypes];
 			boolean[] isMissing   = new boolean[numGenotypes];
 			
-			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+			extractRawDosages(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
 							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, rawFrequencies);
 
 			// ── Phase 3: Adaptive Rounding via Clustering (Optional) ───────────
@@ -354,19 +355,21 @@ public class AlleleDosageCalculator {
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 		
 		String lastFormat = "";
-		int adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
-		
+		int len = 0;
+		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
 		float[] parsedDosages = new float[numGenotypes];
 		boolean[] isMissing   = new boolean[numGenotypes];
-		
+
 		for (String[] columns : blockIterator) {
-			String format = columns.length > 8 ? columns[8] : "";
-			if (!format.equals(lastFormat)) {
-				lastFormat = format;
-				adIdx = -1; roIdx = -1; aoIdx = -1; adpIdx = -1; bsdpIdx = -1;
-				String[] tokens = format.split(":");
-				for (int i = 0; i < tokens.length; i++) {
-					switch (tokens[i]) {
+			String formatStr = columns.length > 8 ? columns[8] : "";
+			if (!formatStr.equals(lastFormat)) {
+				lastFormat = formatStr;
+				String[] format = formatStr.split(":");
+				gtIdx = -1; adIdx = -1; adpIdx = -1; roIdx = -1; aoIdx = -1; bsdpIdx = -1;
+				
+				for (int i = 0; i < format.length; i++) {
+					switch (format[i]) {
+						case "GT":   gtIdx   = i; break;
 						case "AD":   adIdx   = i; break;
 						case "ADP":  adpIdx  = i; break;
 						case "RO":   roIdx   = i; break;
@@ -376,8 +379,8 @@ public class AlleleDosageCalculator {
 				}
 			}
 			
-			int len = Math.min(columns.length - 9, numGenotypes);
-			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+			len = Math.min(columns.length - 9, numGenotypes);
+			extractRawDosages(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
 							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, false);
 			
 			if (adaptiveRounding) {
@@ -457,7 +460,7 @@ public class AlleleDosageCalculator {
 	 * algorithm can process them later. Otherwise, it rounds them immediately.
 	 */
 	private void extractRawDosages(String[] columns, int len, String callerType, 
-			int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
+			int gtIdx, int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
 			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
 			boolean adaptiveRounding, boolean rawFrequencies) {
 		
@@ -533,7 +536,16 @@ public class AlleleDosageCalculator {
 								foundCounts  = true;
 							}
 						}
-						break;
+				}
+
+				// Fallback to GT if counts not found
+				if (!foundCounts && gtIdx != -1 && gtTokens.length > gtIdx && !gtTokens[gtIdx].startsWith(".")) {
+					String[] alleles = gtTokens[gtIdx].split("[/|]");
+					for (String a : alleles) {
+						if (a.equals("0")) countRef++;
+						else if (!a.equals(".")) countAlt++;
+					}
+					foundCounts = true;
 				}
 			} catch (NumberFormatException e) {
 				// Malformed data → stays missing
@@ -547,7 +559,7 @@ public class AlleleDosageCalculator {
 			isMissing[i] = true;
 
 			if (foundCounts && (countRef + countAlt) > 0) {
-				float rawDosage = countRef / (countRef + countAlt);
+				float rawDosage = countAlt / (countRef + countAlt);
 				
 				if (rawFrequencies) {
 					parsedDosages[i] = Float.valueOf(df.format(rawDosage));

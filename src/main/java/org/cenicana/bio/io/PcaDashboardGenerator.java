@@ -76,8 +76,15 @@ public class PcaDashboardGenerator {
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
                 if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2])); else pc3.append("0");
                 
-                ld1.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][0]));
-                if (result.dapcMatrix[i].length > 1) ld2.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][1])); else ld2.append("0");
+                if (result.dapcMatrix[i].length > 0)
+                    ld1.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][0]));
+                else 
+                    ld1.append("0");
+                
+                if (result.dapcMatrix[i].length > 1) 
+                    ld2.append(String.format(Locale.US, "%.6f", result.dapcMatrix[i][1])); 
+                else 
+                    ld2.append("0");
                 
                 kmeans.append(result.clusterAssignments[i]);
                 dbscan.append(result.dbscanAssignments[i]);
