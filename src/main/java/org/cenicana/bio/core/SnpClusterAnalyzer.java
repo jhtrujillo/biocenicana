@@ -21,11 +21,23 @@ public class SnpClusterAnalyzer {
         public float[] centroids;
         public int[] clusterCounts;
         public int[] histogramBins;
+        public float[] allDosages; // New: Full population dosages
         public float minVal, maxVal;
+    }
+
+    public static class SampleCoord {
+        public String name;
+        public double x, y;
     }
 
     private int numBins = 25;
     private int maxClusters = 11; // Standard for ploidy 10
+    private String[] sampleNames; // To keep track of sample order
+    private List<SampleCoord> pcaCoords;
+
+    public void setPcaCoords(List<SampleCoord> coords) {
+        this.pcaCoords = coords;
+    }
 
     public List<SnpResult> analyzeMatrix(String matrixFile, int ploidy) throws IOException {
         List<SnpResult> results = new ArrayList<>();
@@ -34,6 +46,10 @@ public class SnpClusterAnalyzer {
         try (BufferedReader br = new BufferedReader(new FileReader(matrixFile))) {
             String header = br.readLine();
             if (header == null) return results;
+            String[] headerCols = header.split("\t");
+            if (headerCols.length > 2) {
+                this.sampleNames = Arrays.copyOfRange(headerCols, 2, headerCols.length);
+            }
 
             String line;
             while ((line = br.readLine()) != null) {
@@ -46,12 +62,14 @@ public class SnpClusterAnalyzer {
                 res.id = res.chr + "_" + res.pos;
 
                 float[] dosages = new float[cols.length - 2];
+                res.allDosages = new float[cols.length - 2]; // Store all for PCA
                 int count = 0;
                 res.minVal = 1.0f;
                 res.maxVal = 0.0f;
 
                 for (int i = 2; i < cols.length; i++) {
                     float val = Float.parseFloat(cols[i]);
+                    res.allDosages[i-2] = val; // Even if -1
                     if (val >= 0) {
                         dosages[count++] = val;
                         if (val < res.minVal) res.minVal = val;
@@ -151,5 +169,36 @@ public class SnpClusterAnalyzer {
             res.centroids[i] = finalCentroids.get(i);
             res.clusterCounts[i] = finalCounts.get(i);
         }
+    }
+
+    public List<SampleCoord> loadPcaCsv(String pcaCsv) throws IOException {
+        List<SampleCoord> coords = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(pcaCsv))) {
+            String header = br.readLine();
+            if (header == null) return coords;
+            String[] hCols = header.split(",");
+            int pc1Idx = -1, pc2Idx = -1;
+            for(int i=0; i<hCols.length; i++) {
+                if(hCols[i].equals("PC1")) pc1Idx = i;
+                if(hCols[i].equals("PC2")) pc2Idx = i;
+            }
+            if(pc1Idx == -1 || pc2Idx == -1) return coords;
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] cols = line.split(",");
+                if(cols.length <= Math.max(pc1Idx, pc2Idx)) continue;
+                SampleCoord sc = new SampleCoord();
+                sc.name = cols[0];
+                sc.x = Double.parseDouble(cols[pc1Idx]);
+                sc.y = Double.parseDouble(cols[pc2Idx]);
+                coords.add(sc);
+            }
+        }
+        return coords;
+    }
+
+    public String[] getSampleNames() {
+        return sampleNames;
     }
 }

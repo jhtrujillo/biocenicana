@@ -19,6 +19,9 @@ public class SnpExplorerCommand implements Callable<Integer> {
     @Option(names = { "-p", "--ploidy" }, required = true, description = "Ploidy level of the population.")
     private int ploidy;
 
+    @Option(names = { "--pca" }, description = "Optionally, path to the PCA results CSV (from pop-structure) to show dosages on PCA plot.")
+    private String pcaFile;
+
     @Option(names = { "-o", "--output" }, defaultValue = "snp_explorer.html", description = "Output HTML file path.")
     private String outputFile;
 
@@ -26,12 +29,19 @@ public class SnpExplorerCommand implements Callable<Integer> {
     public Integer call() throws Exception {
         System.out.println("[SNP-Explorer] Reading matrix: " + matrixFile);
         SnpClusterAnalyzer analyzer = new SnpClusterAnalyzer();
+        
+        List<SnpClusterAnalyzer.SampleCoord> coords = null;
+        if (pcaFile != null) {
+            System.out.println("[SNP-Explorer] Loading PCA coordinates: " + pcaFile);
+            coords = analyzer.loadPcaCsv(pcaFile);
+        }
+
         List<SnpResult> results = analyzer.analyzeMatrix(matrixFile, ploidy);
         
         System.out.println("[SNP-Explorer] Processed " + results.size() + " SNPs.");
         System.out.println("[SNP-Explorer] Generating dashboard: " + outputFile);
         
-        SnpExplorerDashboard.generate(results, ploidy, outputFile);
+        SnpExplorerDashboard.generate(results, coords, ploidy, outputFile);
         
         System.out.println("\n✅  SNP Explorer dashboard ready: " + outputFile);
         return 0;

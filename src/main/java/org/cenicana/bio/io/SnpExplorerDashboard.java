@@ -1,5 +1,6 @@
 package org.cenicana.bio.io;
 
+import org.cenicana.bio.core.SnpClusterAnalyzer.SampleCoord;
 import org.cenicana.bio.core.SnpClusterAnalyzer.SnpResult;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -8,7 +9,7 @@ import java.util.List;
 
 public class SnpExplorerDashboard {
 
-    public static void generate(List<SnpResult> results, int ploidy, String outputPath) throws IOException {
+    public static void generate(List<SnpResult> results, List<SampleCoord> pcaCoords, int ploidy, String outputPath) throws IOException {
         try (PrintWriter w = new PrintWriter(new FileWriter(outputPath))) {
             w.println("<!DOCTYPE html><html lang='en'><head>");
             w.println("<meta charset='UTF-8'><title>BioCenicana - SNP Group Explorer</title>");
@@ -28,9 +29,10 @@ public class SnpExplorerDashboard {
             w.println(".snp-id{font-weight:700;color:#1e293b;font-size:.9rem}");
             w.println(".snp-meta{font-size:.75rem;color:#64748b;margin-top:.2rem}");
             w.println(".main{flex:1;padding:2rem;display:flex;flex-direction:column;gap:1.5rem;overflow-y:auto}");
-            w.println(".chart-card{background:white;padding:2rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);min-height:500px}");
+            w.println(".chart-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:1.5rem}");
+            w.println(".chart-card{background:white;padding:1.5rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);min-height:450px}");
             w.println(".info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}");
-            w.println(".info-card{background:white;padding:1.5rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}");
+            w.println(".info-card{background:white;padding:1.2rem;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1)}");
             w.println(".info-label{font-size:.7rem;text-transform:uppercase;color:#64748b;font-weight:700}");
             w.println(".info-value{font-size:1.4rem;font-weight:800;color:#3b82f6}");
             w.println("</style></head><body>");
@@ -56,7 +58,10 @@ public class SnpExplorerDashboard {
             w.println("<div class='info-card'><div class='info-label'>Detected Groups</div><div class='info-value' id='v-groups'>-</div></div>");
             w.println("<div class='info-card'><div class='info-label'>Theoretical Ploidy</div><div class='info-value'>" + ploidy + "</div></div>");
             w.println("</div>");
-            w.println("<div class='chart-card' id='chart'></div>");
+            w.println("<div class='chart-container'>");
+            w.println("<div class='chart-card' id='chart-hist'></div>");
+            w.println("<div class='chart-card' id='chart-pca'></div>");
+            w.println("</div>");
             w.println("</div>");
 
             // Data & JS
@@ -64,10 +69,26 @@ public class SnpExplorerDashboard {
             w.println("const snps = [");
             for (int i = 0; i < results.size(); i++) {
                 SnpResult r = results.get(i);
-                w.print("{id:'" + r.id + "',bins:" + arrayToString(r.histogramBins) + ",centroids:" + arrayToString(r.centroids) + ",counts:" + arrayToString(r.clusterCounts) + "}");
+                w.print("{id:'" + r.id + "',bins:" + arrayToString(r.histogramBins) + ",centroids:" + arrayToString(r.centroids) + ",allDosages:" + arrayToString(r.allDosages) + "}");
                 if (i < results.size() - 1) w.println(",");
             }
             w.println("];");
+
+            if (pcaCoords != null && !pcaCoords.isEmpty()) {
+                w.println("const pca = {");
+                w.print("  x: [");
+                for (int i = 0; i < pcaCoords.size(); i++) w.print(pcaCoords.get(i).x + (i == pcaCoords.size() - 1 ? "" : ","));
+                w.println("],");
+                w.print("  y: [");
+                for (int i = 0; i < pcaCoords.size(); i++) w.print(pcaCoords.get(i).y + (i == pcaCoords.size() - 1 ? "" : ","));
+                w.println("],");
+                w.print("  names: [");
+                for (int i = 0; i < pcaCoords.size(); i++) w.print("'" + pcaCoords.get(i).name + "'" + (i == pcaCoords.size() - 1 ? "" : ","));
+                w.println("]");
+                w.println("};");
+            } else {
+                w.println("const pca = null;");
+            }
 
             w.println("const ploidy = " + ploidy + ";");
             w.println("var activeIdx = 0;");
@@ -87,21 +108,30 @@ public class SnpExplorerDashboard {
             
             w.println("  const traceHist = { x: binLabels, y: snp.bins, type: 'bar', marker: {color: 'rgba(59, 130, 246, 0.6)'}, name: 'Dosage Dist' };");
             
-            // Theo lines
             w.println("  const shapes = [];");
             w.println("  for(let i=0; i<=ploidy; i++) {");
             w.println("    let x = i/ploidy;");
             w.println("    shapes.push({type: 'line', x0: x, y0: 0, x1: x, y1: 1, xref: 'x', yref: 'paper', line: {color: 'red', width: 1, dash: 'dot'}});");
             w.println("  }");
-            // Empirical centroids
             w.println("  const empTraces = [];");
             w.println("  snp.centroids.forEach((c, i) => {");
-            w.println("    empTraces.push({ x: [c], y: [Math.max(...snp.bins) * 1.05], mode: 'markers+text', text: ['Group ' + (i+1)], textposition: 'top', marker: {size: 12, color: '#1e293b', symbol: 'diamond'}, name: 'Centroid ' + (i+1) });");
+            w.println("    empTraces.push({ x: [c], y: [Math.max(...snp.bins) * 1.05], mode: 'markers+text', text: ['Group ' + (i+1)], textposition: 'top', marker: {size: 10, color: '#1e293b', symbol: 'diamond'} });");
             w.println("    shapes.push({type: 'line', x0: c, y0: 0, x1: c, y1: 1, xref: 'x', yref: 'paper', line: {color: '#1e293b', width: 2}});");
             w.println("  });");
 
-            w.println("  const layout = { title: 'Dosage Distribution and Centroids - ' + snp.id, xaxis: {title: 'Dosage Frequency (0.0 - 1.0)', range: [-0.05, 1.05]}, yaxis: {title: 'Individual Count'}, shapes: shapes, showlegend: false, margin: {t: 50} };");
-            w.println("  Plotly.react('chart', [traceHist, ...empTraces], layout, {responsive:true});");
+            w.println("  const layoutHist = { title: 'Dosage Distribution - ' + snp.id, xaxis: {title: 'Dosage Frequency (0-1)', range: [-0.05, 1.05]}, yaxis: {title: 'Count'}, shapes: shapes, showlegend: false, margin: {t: 50} };");
+            w.println("  Plotly.react('chart-hist', [traceHist, ...empTraces], layoutHist, {responsive:true});");
+
+            w.println("  if(pca) {");
+            // Map dosages to PCA coordinate order
+            // Note: In a real scenario, we'd match by sample name. 
+            // For now, we assume the dosage matrix and PCA CSV follow the same sample order from the VCF.
+            w.println("    const tracePca = { x: pca.x, y: pca.y, text: pca.names, mode: 'markers', marker: { size: 10, color: snp.allDosages, colorscale: 'Viridis', showscale: true, line: {width: 1, color: 'white'} }, type: 'scatter' };");
+            w.println("    const layoutPca = { title: 'Population PCA Colored by ' + snp.id, xaxis: {title: 'PC1'}, yaxis: {title: 'PC2'}, margin: {t: 50} };");
+            w.println("    Plotly.react('chart-pca', [tracePca], layoutPca, {responsive:true});");
+            w.println("  } else {");
+            w.println("    document.getElementById('chart-pca').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#64748b\">No PCA coordinates provided (use --pca)</div>';");
+            w.println("  }");
             w.println("}");
 
             w.println("function filterList() {");
