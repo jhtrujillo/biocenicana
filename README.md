@@ -60,11 +60,15 @@ java -jar target/biocenicana-1.0.jar genetic-distance -v filtered.vcf -p 10 > ma
 ---
 
 ## Step 6: Interactive SNP Quality Audit (`snp-explorer`)
-Link individual SNP behavior to the population structure calculated in Step 4.
+Audit individual SNP quality using **AD-Plots** (Reference vs Alternative depth scatter plots). By providing the VCF directly, the tool visualizes genotype clusters with high precision.
 ```bash
-java -jar target/biocenicana-1.0.jar snp-explorer --matrix dosages_raw.tsv --pca my_population.pca.csv -p 10 -o audit.html
+java -jar target/biocenicana-1.0.jar snp-explorer --vcf filtered.vcf --pca my_population.pca.csv --include list_of_snps.txt -p 10 -o audit.html
 ```
-*   **Visual Check**: Open `audit.html` to see how dosages cluster for every SNP and how they map geographically on the PCA plot.
+*   **Visual Check**: Open `audit.html`. This interactive dashboard allows you to:
+    *   **Filter**: Use `--include` to focus only on specific SNPs of interest (one ID per line).
+    *   **Histogram**: See the global distribution of allele frequencies.
+    *   **AD-Plot**: See the Ref vs Alt depth scatter plot (Genotype clustering).
+    *   **PCA View**: Map dosages onto the population structure from Step 4.
 
 ---
 

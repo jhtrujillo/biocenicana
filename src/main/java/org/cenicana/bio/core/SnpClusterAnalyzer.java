@@ -35,9 +35,10 @@ public class SnpClusterAnalyzer {
     private int maxClusters = 11; // Standard for ploidy 10
     private String[] sampleNames; 
 
-    public List<SnpResult> analyzeVcf(String vcfFile, int ploidy) {
+    public List<SnpResult> analyzeVcf(String vcfFile, int ploidy, java.util.Set<String> includeSnps) {
         AlleleDosageCalculator dosageCalc = new AlleleDosageCalculator();
         dosageCalc.maxSnps = 1000; 
+        dosageCalc.subsetSnps = includeSnps;
         
         List<AlleleDosageCalculator.DosageResult> vcfResults = dosageCalc.calculate(vcfFile, ploidy);
         
@@ -63,7 +64,7 @@ public class SnpClusterAnalyzer {
         return snpResults;
     }
 
-    public List<SnpResult> analyzeMatrix(String matrixFile, int ploidy) throws IOException {
+    public List<SnpResult> analyzeMatrix(String matrixFile, int ploidy, java.util.Set<String> includeSnps) throws IOException {
         List<SnpResult> results = new ArrayList<>();
         this.maxClusters = ploidy + 1;
 
@@ -84,6 +85,8 @@ public class SnpClusterAnalyzer {
                 res.chr = cols[0];
                 res.pos = Integer.parseInt(cols[1]);
                 res.id = res.chr + "_" + res.pos;
+
+                if (includeSnps != null && !includeSnps.contains(res.id)) continue;
 
                 float[] dosages = new float[cols.length - 2];
                 res.allDosages = new double[cols.length - 2];

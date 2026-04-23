@@ -43,6 +43,7 @@ public class AlleleDosageCalculator {
 	private int numSNPs = 0;
 	private int numGenotypes = 0;
 	public int maxSnps = Integer.MAX_VALUE;
+	public java.util.Set<String> subsetSnps = null;
 
 	public static class DosageResult {
 		public String snpId;
@@ -124,9 +125,12 @@ public class AlleleDosageCalculator {
 
 			int count = 0;
 			for (String[] columns : blockIterator) {
-				if (count >= maxSnps) break;
 				String chr = columns[0];
 				String pos = columns[1];
+				String snpId = chr + "_" + pos;
+
+				if (subsetSnps != null && !subsetSnps.contains(snpId)) continue;
+				if (count >= maxSnps) break;
 				String format = columns.length > 8 ? columns[8] : "";
 
 				if (!format.equals(lastFormat)) {
