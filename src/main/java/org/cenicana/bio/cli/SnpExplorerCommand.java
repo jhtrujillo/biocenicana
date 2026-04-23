@@ -25,6 +25,9 @@ public class SnpExplorerCommand implements Callable<Integer> {
     @Option(names = { "--pca" }, description = "Optionally, path to the PCA results CSV (from pop-structure).")
     private String pcaFile;
 
+    @Option(names = { "--include" }, description = "Path to a text file with SNP IDs to include (one per line).")
+    private String includeFile;
+
     @Option(names = { "-o", "--output" }, defaultValue = "snp_explorer.html", description = "Output HTML file path.")
     private String outputFile;
 
@@ -35,15 +38,22 @@ public class SnpExplorerCommand implements Callable<Integer> {
             return 1;
         }
 
+        java.util.Set<String> includeSnps = null;
+        if (includeFile != null) {
+            System.out.println("[SNP-Explorer] Loading inclusive SNP list: " + includeFile);
+            includeSnps = new java.util.HashSet<>(java.nio.file.Files.readAllLines(java.nio.file.Paths.get(includeFile)));
+            System.out.println("[SNP-Explorer] Filtering for " + includeSnps.size() + " target SNPs.");
+        }
+
         SnpClusterAnalyzer analyzer = new SnpClusterAnalyzer();
         List<SnpClusterAnalyzer.SnpResult> results;
 
         if (vcfFile != null) {
             System.out.println("[SNP-Explorer] Reading VCF (extracting dosages + AD): " + vcfFile);
-            results = analyzer.analyzeVcf(vcfFile, ploidy);
+            results = analyzer.analyzeVcf(vcfFile, ploidy, includeSnps);
         } else {
             System.out.println("[SNP-Explorer] Reading matrix: " + matrixFile);
-            results = analyzer.analyzeMatrix(matrixFile, ploidy);
+            results = analyzer.analyzeMatrix(matrixFile, ploidy, includeSnps);
         }
         
         List<SnpClusterAnalyzer.SampleCoord> coords = null;
