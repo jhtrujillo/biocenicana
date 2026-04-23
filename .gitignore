@@ -19,8 +19,12 @@
 *.tar.gz
 *.rar
 
-# Permitir JARs en la carpeta lib local
-!lib/*.jar
+# Permitir JARs en la carpeta lib local (Deshabilitado por peso)
+# !lib/*.jar
+lib/
+
+# Benchmarks y datos pesados
+benchmarks/
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
@@ -63,5 +67,7 @@ Thumbs.db
 test/
 example_vcfs/large_synthetic.vcf
 *.tsv
+*.csv
 *.html
 !src/**/*.html
+/example_vcfs/large_synthetic_filtered.vcf
