@@ -35,7 +35,7 @@ The toolkit provides "Elite" grade analysis for population structure, kinship, l
 
 3. **Executable JAR**:
    The resulting artifact will be located in:
-   `target/biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar`
+   `target/biocenicana-1.0.jar`
 
 ---
 
@@ -46,7 +46,7 @@ Generates a comprehensive statistical profile of a VCF file.
 
 **Execution Command:**
 ```bash
-java -jar biocenicana.jar vcf-stats -v input.vcf -o output_dir --ploidy 10
+java -jar biocenicana-1.0.jar vcf-stats -v input.vcf -o output_dir --ploidy 10
 ```
 
 **Key Parameters:**

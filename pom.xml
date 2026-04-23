@@ -30,6 +30,7 @@
     </dependencies>
 
     <build>
+        <finalName>biocenicana-1.0</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -43,6 +44,7 @@
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
+                    <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>
                             <mainClass>org.cenicana.bio.cli.VcfToolkit</mainClass>
