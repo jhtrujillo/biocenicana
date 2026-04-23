@@ -42,6 +42,14 @@ public class AlleleDosageCalculator {
 
 	private int numSNPs = 0;
 	private int numGenotypes = 0;
+	public int maxSnps = Integer.MAX_VALUE;
+
+	public static class DosageResult {
+		public String snpId;
+		public double[] dosages;
+		public int[] refDepths;
+		public int[] altDepths;
+	}
 	
 	// Formatter to round decimal representations to a single decimal point.
 	private final DecimalFormat df = new DecimalFormat("#.0");
@@ -99,6 +107,63 @@ public class AlleleDosageCalculator {
 			boolean storeInMemory, String callerType, int minDepth, int knnK, 
 			boolean adaptiveRounding) throws IOException {
 		computeAlleleDosage(vcfFile, ploidy, impute, storeInMemory, callerType, minDepth, knnK, adaptiveRounding, false);
+	}
+
+	public List<DosageResult> calculate(String vcfFile, int ploidy) {
+		List<DosageResult> results = new ArrayList<>();
+		try {
+			String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
+			numGenotypes = sampleIds.length;
+			int n = Math.max(ploidy, 2);
+			float[] ploidyLevels = new float[n + 1];
+			for (int y = 0; y <= n; y++) ploidyLevels[y] = (1.0f / n) * y;
+
+			Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
+			String lastFormat = "";
+			int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
+
+			int count = 0;
+			for (String[] columns : blockIterator) {
+				if (count >= maxSnps) break;
+				String chr = columns[0];
+				String pos = columns[1];
+				String format = columns.length > 8 ? columns[8] : "";
+
+				if (!format.equals(lastFormat)) {
+					lastFormat = format;
+					String[] tokens = format.split(":");
+					gtIdx = -1; adIdx = -1; roIdx = -1; aoIdx = -1; adpIdx = -1; bsdpIdx = -1;
+					for (int i = 0; i < tokens.length; i++) {
+						switch (tokens[i]) {
+							case "GT":   gtIdx   = i; break;
+							case "AD":   adIdx   = i; break;
+							case "ADP":  adpIdx  = i; break;
+							case "RO":   roIdx   = i; break;
+							case "AO":   aoIdx   = i; break;
+							case "BSDP": bsdpIdx = i; break;
+						}
+					}
+				}
+
+				DosageResult dr = new DosageResult();
+				dr.snpId = chr + "_" + pos;
+				dr.dosages = new double[numGenotypes];
+				dr.refDepths = new int[numGenotypes];
+				dr.altDepths = new int[numGenotypes];
+				boolean[] isMissing = new boolean[numGenotypes];
+				float[] tmpDosages = new float[numGenotypes];
+
+				extractRawDosagesExtended(columns, numGenotypes, "auto", gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths);
+
+				for (int i=0; i<numGenotypes; i++) dr.dosages[i] = tmpDosages[i];
+				results.add(dr);
+				count++;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return results;
 	}
 
 	public void computeAlleleDosage(String vcfFile, int ploidy, String impute,
@@ -463,6 +528,14 @@ public class AlleleDosageCalculator {
 			int gtIdx, int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
 			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
 			boolean adaptiveRounding, boolean rawFrequencies) {
+		extractRawDosagesExtended(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, minDepth, 
+								  ploidyLevels, parsedDosages, isMissing, adaptiveRounding, rawFrequencies, null, null);
+	}
+
+	private void extractRawDosagesExtended(String[] columns, int len, String callerType, 
+			int gtIdx, int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
+			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
+			boolean adaptiveRounding, boolean rawFrequencies, int[] refDepths, int[] altDepths) {
 		
 		for (int i = 0; i < len; i++) {
 			String   genotypeStr = columns[9 + i];
@@ -537,6 +610,9 @@ public class AlleleDosageCalculator {
 							}
 						}
 				}
+				// Capture depths if arrays provided
+				if (refDepths != null) refDepths[i] = (int)countRef;
+				if (altDepths != null) altDepths[i] = (int)countAlt;
 
 				// Fallback to GT if counts not found
 				if (!foundCounts && gtIdx != -1 && gtTokens.length > gtIdx && !gtTokens[gtIdx].startsWith(".")) {

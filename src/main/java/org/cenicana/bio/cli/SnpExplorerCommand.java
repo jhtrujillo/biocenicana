@@ -13,13 +13,16 @@ import java.util.concurrent.Callable;
          description = "Generates an interactive HTML dashboard to explore dosage groupings for each SNP.")
 public class SnpExplorerCommand implements Callable<Integer> {
 
-    @Option(names = { "-m", "--matrix" }, required = true, description = "Path to the dosage matrix TSV (raw frequencies recommended).")
+    @Option(names = { "-v", "--vcf" }, description = "Path to the input VCF file (required for AD-Plots).")
+    private String vcfFile;
+
+    @Option(names = { "-m", "--matrix" }, description = "Path to the dosage matrix TSV (optional if VCF is provided).")
     private String matrixFile;
 
     @Option(names = { "-p", "--ploidy" }, required = true, description = "Ploidy level of the population.")
     private int ploidy;
 
-    @Option(names = { "--pca" }, description = "Optionally, path to the PCA results CSV (from pop-structure) to show dosages on PCA plot.")
+    @Option(names = { "--pca" }, description = "Optionally, path to the PCA results CSV (from pop-structure).")
     private String pcaFile;
 
     @Option(names = { "-o", "--output" }, defaultValue = "snp_explorer.html", description = "Output HTML file path.")
@@ -27,16 +30,27 @@ public class SnpExplorerCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("[SNP-Explorer] Reading matrix: " + matrixFile);
+        if (vcfFile == null && matrixFile == null) {
+            System.err.println("Error: You must provide either --vcf or --matrix.");
+            return 1;
+        }
+
         SnpClusterAnalyzer analyzer = new SnpClusterAnalyzer();
+        List<SnpClusterAnalyzer.SnpResult> results;
+
+        if (vcfFile != null) {
+            System.out.println("[SNP-Explorer] Reading VCF (extracting dosages + AD): " + vcfFile);
+            results = analyzer.analyzeVcf(vcfFile, ploidy);
+        } else {
+            System.out.println("[SNP-Explorer] Reading matrix: " + matrixFile);
+            results = analyzer.analyzeMatrix(matrixFile, ploidy);
+        }
         
         List<SnpClusterAnalyzer.SampleCoord> coords = null;
         if (pcaFile != null) {
             System.out.println("[SNP-Explorer] Loading PCA coordinates: " + pcaFile);
             coords = analyzer.loadPcaCsv(pcaFile);
         }
-
-        List<SnpResult> results = analyzer.analyzeMatrix(matrixFile, ploidy);
         
         System.out.println("[SNP-Explorer] Processed " + results.size() + " SNPs.");
         System.out.println("[SNP-Explorer] Generating dashboard: " + outputFile);

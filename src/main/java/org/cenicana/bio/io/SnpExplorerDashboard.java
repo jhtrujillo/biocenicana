@@ -69,7 +69,10 @@ public class SnpExplorerDashboard {
             w.println("const snps = [");
             for (int i = 0; i < results.size(); i++) {
                 SnpResult r = results.get(i);
-                w.print("{id:'" + r.id + "',bins:" + arrayToString(r.histogramBins) + ",centroids:" + arrayToString(r.centroids) + ",allDosages:" + arrayToString(r.allDosages) + "}");
+                w.print("{id:'" + r.id + "',bins:" + arrayToString(r.histogramBins) + ",centroids:" + arrayToString(r.centroids) + 
+                         ",allDosages:" + arrayToStringDouble(r.allDosages) + 
+                         ",refDepths:" + arrayToString(r.refDepths) + 
+                         ",altDepths:" + arrayToString(r.altDepths) + "}");
                 if (i < results.size() - 1) w.println(",");
             }
             w.println("];");
@@ -104,33 +107,30 @@ public class SnpExplorerDashboard {
             w.println("  const snp = snps[activeIdx];");
             w.println("  document.getElementById('v-id').innerText = snp.id;");
             w.println("  document.getElementById('v-groups').innerText = snp.centroids.length;");
-            w.println("  const binLabels = []; for(let i=0; i<25; i++) binLabels.push((i/24).toFixed(2));");
             
+            w.println("  const binLabels = []; for(let i=0; i<50; i++) binLabels.push((i/49).toFixed(2));");
             w.println("  const traceHist = { x: binLabels, y: snp.bins, type: 'bar', marker: {color: 'rgba(59, 130, 246, 0.6)'}, name: 'Dosage Dist' };");
             
             w.println("  const shapes = [];");
             w.println("  for(let i=0; i<=ploidy; i++) {");
             w.println("    let x = i/ploidy;");
-            w.println("    shapes.push({type: 'line', x0: x, y0: 0, x1: x, y1: 1, xref: 'x', yref: 'paper', line: {color: 'red', width: 1, dash: 'dot'}});");
+            w.println("    shapes.push({type: 'line', x0: x, y0: 0, x1: x, y1: 1, xref: 'x', yref: 'paper', line: {color: 'rgba(239, 68, 68, 0.3)', width: 1, dash: 'dot'}});");
             w.println("  }");
-            w.println("  const empTraces = [];");
-            w.println("  snp.centroids.forEach((c, i) => {");
-            w.println("    empTraces.push({ x: [c], y: [Math.max(...snp.bins) * 1.05], mode: 'markers+text', text: ['Group ' + (i+1)], textposition: 'top', marker: {size: 10, color: '#1e293b', symbol: 'diamond'} });");
-            w.println("    shapes.push({type: 'line', x0: c, y0: 0, x1: c, y1: 1, xref: 'x', yref: 'paper', line: {color: '#1e293b', width: 2}});");
-            w.println("  });");
 
-            w.println("  const layoutHist = { title: 'Dosage Distribution - ' + snp.id, xaxis: {title: 'Dosage Frequency (0-1)', range: [-0.05, 1.05]}, yaxis: {title: 'Count'}, shapes: shapes, showlegend: false, margin: {t: 50} };");
-            w.println("  Plotly.react('chart-hist', [traceHist, ...empTraces], layoutHist, {responsive:true});");
+            w.println("  const layoutHist = { title: 'Dosage Distribution - ' + snp.id, xaxis: {title: 'Allele Frequency (0-1)', range: [-0.05, 1.05]}, yaxis: {title: 'Count'}, shapes: shapes, showlegend: false };");
+            w.println("  Plotly.react('chart-hist', [traceHist], layoutHist, {responsive:true});");
 
-            w.println("  if(pca) {");
-            // Map dosages to PCA coordinate order
-            // Note: In a real scenario, we'd match by sample name. 
-            // For now, we assume the dosage matrix and PCA CSV follow the same sample order from the VCF.
+            w.println("  if(snp.refDepths && snp.refDepths.length > 0) {");
+            w.println("    const traceAD = { x: snp.refDepths, y: snp.altDepths, mode: 'markers', marker: { size: 8, color: snp.allDosages, colorscale: 'Viridis', showscale: true, line: {width: 0.5, color: '#fff'} }, type: 'scatter', text: snp.allDosages.map(d => 'Freq: ' + d.toFixed(3)) };");
+            w.println("    const maxD = Math.max(...snp.refDepths, ...snp.altDepths) * 1.1;");
+            w.println("    const layoutAD = { title: 'Allele Depth (AD) Plot: Ref vs Alt', xaxis: {title: 'Ref Allele Depth', range: [0, maxD]}, yaxis: {title: 'Alt Allele Depth', range: [0, maxD]}, margin: {t: 50} };");
+            w.println("    Plotly.react('chart-pca', [traceAD], layoutAD, {responsive:true});");
+            w.println("  } else if(pca) {");
             w.println("    const tracePca = { x: pca.x, y: pca.y, text: pca.names, mode: 'markers', marker: { size: 10, color: snp.allDosages, colorscale: 'Viridis', showscale: true, line: {width: 1, color: 'white'} }, type: 'scatter' };");
             w.println("    const layoutPca = { title: 'Population PCA Colored by ' + snp.id, xaxis: {title: 'PC1'}, yaxis: {title: 'PC2'}, margin: {t: 50} };");
             w.println("    Plotly.react('chart-pca', [tracePca], layoutPca, {responsive:true});");
             w.println("  } else {");
-            w.println("    document.getElementById('chart-pca').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#64748b\">No PCA coordinates provided (use --pca)</div>';");
+            w.println("    document.getElementById('chart-pca').innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100%;color:#64748b\">No depth data or PCA coordinates provided</div>';");
             w.println("  }");
             w.println("}");
 
@@ -157,8 +157,20 @@ public class SnpExplorerDashboard {
 
     private static String arrayToString(float[] arr) {
         StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < arr.length; i++) {
-            sb.append(String.format("%.4f", arr[i])).append(i == arr.length - 1 ? "" : ",");
+        if (arr != null) {
+            for (int i = 0; i < arr.length; i++) {
+                sb.append(String.format("%.4f", arr[i])).append(i == arr.length - 1 ? "" : ",");
+            }
+        }
+        return sb.append("]").toString();
+    }
+
+    private static String arrayToStringDouble(double[] arr) {
+        StringBuilder sb = new StringBuilder("[");
+        if (arr != null) {
+            for (int i = 0; i < arr.length; i++) {
+                sb.append(String.format("%.4f", arr[i])).append(i == arr.length - 1 ? "" : ",");
+            }
         }
         return sb.append("]").toString();
     }
