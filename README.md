@@ -1,112 +1,93 @@
-# BioCenicana: Bioinformatics Toolkit for Polyploid Genomics
+# BioCenicana: Sequential Analysis Pipeline for Polyploid Genomics
 
-BioCenicana is a high-performance Java toolkit designed for the analysis of complex polyploid genomes, specifically optimized for **Saccharum spp. (Sugarcane)**. The toolkit focuses on memory efficiency through streaming data processing, allowing the analysis of massive VCF files that would otherwise exceed standard RAM limits.
+BioCenicana is a high-performance Java toolkit optimized for **Saccharum spp. (Sugarcane)** and other complex polyploids. It uses a line-by-line streaming engine to process massive VCF files with minimal memory footprint.
+
+This manual follows the logical order of a standard bioinformatics pipeline.
 
 ---
 
-## 🚀 Quick Start Tutorial: SNP Quality Audit
-
-This tutorial walks you through the "Elite" workflow: filtering your data, calculating population structure, and auditing individual SNPs using the interactive dashboard.
-
-### Step 1: Quality Filtering
-Select the most informative markers to reduce noise.
+## Step 1: Compilation and Setup
+Before starting, ensure you have Java 11+ and Maven installed.
 ```bash
-java -jar target/biocenicana-1.0.jar vcf-filter -v raw_data.vcf -o filtered.vcf --min-maf 0.05 --top-n 5000
+mvn clean package -DskipTests
+# The executable JAR will be generated as: target/biocenicana-1.0.jar
 ```
 
-### Step 2: Population Structure (PCA)
-Calculate the global structure backgrounds.
-```bash
-java -jar target/biocenicana-1.0.jar pop-structure -v filtered.vcf -p 10 -o my_pop
-```
+---
 
-### Step 3: Extract Continuous Dosages
-Export raw allele frequencies for cluster auditing.
+## Step 2: Initial Dataset Diagnostics (`vcf-stats`)
+Always start by understanding the raw state of your VCF.
+```bash
+java -jar target/biocenicana-1.0.jar vcf-stats -v raw_data.vcf -o initial_stats -p 10
+```
+*   **Result**: Creates an interactive dashboard (`initial_stats.html`) showing allele frequencies, depth distributions, and missingness.
+*   **Use this to**: Decide your filtering thresholds (MAF and missingness).
+
+---
+
+## Step 3: Quality Control & Filtering (`vcf-filter`)
+Clean your dataset to keep only high-quality, informative markers.
+```bash
+java -jar target/biocenicana-1.0.jar vcf-filter -v raw_data.vcf -o filtered.vcf --min-maf 0.05 --max-missing 0.2 --top-n 5000
+```
+*   **Result**: A new VCF (`filtered.vcf`) containing the top 5000 most heterozygous and complete SNPs.
+
+---
+
+## Step 4: Population Structure & Kinship (`pop-structure`)
+Map the genetic space of your samples and calculate relationships.
+```bash
+java -jar target/biocenicana-1.0.jar pop-structure -v filtered.vcf -p 10 -o my_population
+```
+*   **Result**: Creates `my_population.pca.csv` (coordinates/clusters) and `my_population.kinship.csv` (VanRaden relationship matrix).
+*   **Visualization**: Open `my_population.pca.html` to explore the population in 3D/2D and see ancestry barplots.
+
+---
+
+## Step 5: Dosage & Distance Matrix Extraction (`allele-dosage` & `genetic-distance`)
+Export the finalized data for external statistical software.
+
+**A. Allele Dosages (for GWAS/Mapping):**
 ```bash
 java -jar target/biocenicana-1.0.jar allele-dosage -v filtered.vcf -p 10 --raw > dosages_raw.tsv
 ```
 
-### Step 4: Integrated SNP Exploration
-Launch the dashboard to audit specific SNPs.
+**B. Genetic Distance (for Phylogeny/Diversity):**
 ```bash
-java -jar target/biocenicana-1.0.jar snp-explorer --matrix dosages_raw.tsv --pca my_pop.pca.csv -p 10 -o audit.html
+java -jar target/biocenicana-1.0.jar genetic-distance -v filtered.vcf -p 10 > matrix_distance.tsv
 ```
 
 ---
 
-## 🛠 Subcommand Reference (Full List)
-
-### 1. vcf-stats
-Generates an interactive HTML dashboard and a TSV summary.
+## Step 6: Interactive SNP Quality Audit (`snp-explorer`)
+Link individual SNP behavior to the population structure calculated in Step 4.
 ```bash
-java -jar target/biocenicana-1.0.jar vcf-stats -v input.vcf -o stats_out -p 10
+java -jar target/biocenicana-1.0.jar snp-explorer --matrix dosages_raw.tsv --pca my_population.pca.csv -p 10 -o audit.html
 ```
-*   **Outputs**: `stats_out/stats_out.html` (visuals) and `stats_out/stats_out.tsv` (data).
-*   **Metrics**: Ts/Tv ratio, MAF distribution, Depth per sample, Missingness.
-
-### 2. vcf-filter
-Advanced variant selection and cleaning.
-```bash
-java -jar target/biocenicana-1.0.jar vcf-filter -v in.vcf -o out.vcf --min-maf 0.05 --max-missing 0.2
-```
-*   `--top-n`: Heuristic selection of the $N$ SNPs with the highest heterozygosity.
-
-### 3. allele-dosage
-Computes polyploid dosage matrices (0 to Ploidy).
-```bash
-java -jar target/biocenicana-1.0.jar allele-dosage -v input.vcf -p 10 > matrix.tsv
-```
-*   `--raw`: Exports values as 0.0-1.0 frequencies (useful for clustering).
-
-### 4. pop-structure
-Population structure, kinship, and ancestry.
-```bash
-java -jar target/biocenicana-1.0.jar pop-structure -v input.vcf -p 10 -o output
-```
-*   **Results**: PCA coordinates (CSV), Kinship matrix (CSV), and Interactive Dashboard (HTML).
-
-### 5. snp-explorer
-Visual audit of SNP quality linked to PCA.
-```bash
-java -jar target/biocenicana-1.0.jar snp-explorer --matrix dosages.tsv --pca pca.csv -p 10 -o explorer.html
-```
-
-### 6. ld (Linkage Disequilibrium)
-Pairwise $r^2$ calculation and decay visualization.
-```bash
-java -jar target/biocenicana-1.0.jar ld -v input.vcf -o ld_results --max-dist 200000
-```
-
-### 7. genetic-distance
-Calculates pairwise genetic distance between all samples.
-```bash
-java -jar target/biocenicana-1.0.jar genetic-distance -v input.vcf -p 10 > dist_matrix.tsv
-```
-
-### 8. gwaspoly-export
-Converts VCF data to the format required by the GWASpoly R package.
-```bash
-java -jar target/biocenicana-1.0.jar gwaspoly-export -v input.vcf -p 10 -o gwas_ready.csv
-```
-
-### 9. joinmap
-Converts VCF data to JoinMap CP format for linkage mapping.
-```bash
-java -jar target/biocenicana-1.0.jar joinmap --input input.loc --output output.loc --fix
-```
+*   **Visual Check**: Open `audit.html` to see how dosages cluster for every SNP and how they map geographically on the PCA plot.
 
 ---
 
-## 📦 Installation & Compilation
-
-### Requirements
-*   **Java JRE**: 11 or higher.
-*   **Maven**: For building from source.
-
-### Building
+## Step 7: Linkage Disequilibrium Analysis (`ld`)
+Study the recombination rates and LD decay.
 ```bash
-mvn clean package -DskipTests
-# The executable JAR will be: target/biocenicana-1.0.jar
+java -jar target/biocenicana-1.0.jar ld -v filtered.vcf -o ld_report --max-dist 200000
+```
+*   **Output**: An LD decay dashboard showing $r^2$ reduction over physical distance.
+
+---
+
+## Step 8: Exporting to Specialized Formats (`gwaspoly` & `joinmap`)
+Finalize your analysis by connecting with other specialized tools.
+
+**A. Export for R/GWASpoly:**
+```bash
+java -jar target/biocenicana-1.0.jar gwaspoly-export -v filtered.vcf -p 10 -o gwas_ready.csv
+```
+
+**B. Convert for JoinMap (Linkage Mapping):**
+```bash
+java -jar target/biocenicana-1.0.jar joinmap --input data.loc --output fixed.loc --fix
 ```
 
 ---
