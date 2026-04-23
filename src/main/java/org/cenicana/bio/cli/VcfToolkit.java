@@ -20,7 +20,8 @@ import picocli.CommandLine.Command;
              GwasPolyExportCommand.class,
              PopStructureCommand.class,
              JoinMapCommand.class,
-             SnpExplorerCommand.class
+             SnpExplorerCommand.class,
+             VcfMergeCommand.class
          })
 public class VcfToolkit {
 

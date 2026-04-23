@@ -97,3 +97,12 @@ java -jar target/biocenicana-1.0.jar joinmap --input data.loc --output fixed.loc
 ---
 
 *This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*
+
+---
+
+## Step 9: Consolidating Batches (`vcf-merge`)
+If you have data from different sequencing batches or chromosomes, use this to join them into a single master VCF. It automatically handles the union of samples and fills gaps with missing data.
+```bash
+java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.vcf -o consolidated.vcf
+```
+*   **Intelligence**: Automatically detects samples in each file and creates a unified cross-table.
