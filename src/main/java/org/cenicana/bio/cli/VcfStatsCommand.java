@@ -28,7 +28,10 @@ public class VcfStatsCommand implements Callable<Integer> {
 			+ "E.g. '-o test' creates test/test.html and test/test.tsv.")
 	private String baseName;
 
-	@Option(names = { "-p", "--populations" }, required = false,
+	@Option(names = { "-p", "--ploidy" }, description = "Ploidy level of the population (optional for stats).")
+	private Integer ploidy;
+
+	@Option(names = { "--popmap" }, required = false,
 		description = "Optional: tab-delimited file with sample populations. "
 			+ "Two columns: SAMPLE_ID and POPULATION_ID. "
 			+ "When provided, pairwise Fst is calculated between populations.")

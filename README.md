@@ -46,13 +46,14 @@ Generates a comprehensive statistical profile of a VCF file.
 
 **Execution Command:**
 ```bash
-java -jar biocenicana-1.0.jar vcf-stats -v input.vcf -o output_dir --ploidy 10
+java -jar biocenicana-1.0.jar vcf-stats -v input.vcf -o output_dir -p 10
 ```
 
 **Key Parameters:**
 *   `-v, --vcf`: Path to the input VCF file.
 *   `-o, --output`: Base name for the output folder and results.
-*   `--ploidy`: Ploidy level of the samples (default: 10).
+*   `-p, --ploidy`: Ploidy level of the samples (optional for stats).
+*   `--popmap`: Optional file with sample population assignments for Fst.
 
 **Detailed Results:**
 *   **Console Summary**: Total counts of SNPs and individuals.
