@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BioCenicana | Advanced Synteny Explorer</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b;margin:0;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+    .navbar{padding:.75rem 2rem;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;z-index:100;}
+    .navbar h1{margin:0;font-size:16px;font-weight:600;}
+    .nav-actions{display:flex;gap:8px;align-items:center;}
+    .main-container{display:flex;flex:1;overflow:hidden;}
+    .viz-area{flex:1;padding:30px;overflow:auto;display:flex;flex-direction:column;align-items:center;background:#f1f5f9;gap:15px;}
+    .sidebar{width:310px;background:#fff;border-left:1px solid #e2e8f0;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+    svg{background:#fff;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,.08);border-radius:8px;}
+    .genome-bar{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1px;cursor:pointer;transition:fill .15s;}
+    .genome-bar:hover{fill:#e0f2fe;}
+    .ribbon{fill-opacity:.4;transition:fill-opacity .2s,opacity .2s;cursor:pointer;}
+    .ribbon:hover{fill-opacity:.85;}
+    .chr-label{font-size:10px;font-weight:600;fill:#64748b;}
+    .genome-title{font-size:12px;font-weight:700;fill:#334155;}
+    .tooltip{position:fixed;padding:10px 12px;background:rgba(15,23,42,.95);color:#fff;border-radius:8px;pointer-events:none;opacity:0;font-size:11px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:220px;}
+    .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;margin-top:4px;}
+    .tag-inv{background:#ef4444;color:#fff;}
+    .tag-plus{background:#10b981;color:#fff;}
+    /* sidebar components */
+    .panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:11px;}
+    .panel h4{margin:0 0 8px;font-size:12px;color:#1e293b;}
+    .stat-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;}
+    .stat-label{color:#64748b;}
+    .stat-value{font-weight:600;color:#0f172a;}
+    .stat-target{background:#eff6ff;border-radius:4px;padding:3px 7px;margin-top:3px;font-size:10px;display:flex;justify-content:space-between;}
+    .sel-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;padding:8px;border-radius:6px;}
+    .sel-item{display:flex;align-items:center;gap:7px;font-size:11px;}
+    .btn{padding:6px 12px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-size:11px;font-family:inherit;transition:background .15s;}
+    .btn:hover{background:#f1f5f9;}
+    .btn-primary{background:#2563eb;color:#fff;border-color:#2563eb;}
+    .btn-primary:hover{background:#1d4ed8;}
+    .btn-sm{padding:4px 8px;font-size:10px;}
+    .search-input{width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-family:inherit;outline:none;}
+    .search-input:focus{border-color:#2563eb;}
+    .legend-item{display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;}
+    .legend-swatch{width:16px;height:16px;border-radius:3px;flex-shrink:0;}
+    /* global stats bar */
+    .global-stats{display:flex;gap:12px;width:100%;max-width:1160px;}
+    .gstat{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;flex:1;text-align:center;}
+    .gstat-val{font-size:20px;font-weight:700;color:#1e293b;}
+    .gstat-lbl{font-size:10px;color:#64748b;margin-top:2px;}
+  </style>
+</head>
+<body>
+<div class="navbar">
+  <h1>BioCenicana | <strong>Advanced Synteny Explorer</strong></h1>
+  <div class="nav-actions">
+    <button class="btn btn-sm" onclick="exportSVG()">&#11015; Export SVG</button>
+  </div>
+</div>
+<div class="main-container">
+  <div class="viz-area">
+    <div class="global-stats" id="global-stats"></div>
+    <div id="viz"></div>
+  </div>
+  <div class="sidebar">
+    <!-- Stats panel -->
+    <div id="stats-panel" class="panel">
+      <p style="color:#94a3b8;margin:0;font-size:11px;">&#9432; Click a chromosome bar to see statistics</p>
+    </div>
+    <!-- Gene search -->
+    <div class="panel">
+      <h4>&#128269; Gene Search</h4>
+      <input id="gene-search" class="search-input" placeholder="Gene ID (e.g. SORBI_3001G...)" oninput="searchGene(this.value)">
+      <div id="search-result" style="margin-top:6px;font-size:10px;color:#64748b;"></div>
+    </div>
+    <!-- Filters -->
+    <div class="panel">
+      <h4>&#127890; Block Filters</h4>
+      <label style="font-size:11px;font-weight:600;">Min Genes per Block: <span id="minGenesVal">5</span></label>
+      <input type="range" id="minGenes" min="2" max="100" value="5" style="width:100%" oninput="updateFilterLabel(this.value)">
+    </div>
+    <!-- Sequence selector -->
+    <div class="panel">
+      <h4>&#128197; Sequence Selector</h4>
+      <div style="display:flex;gap:5px;margin-bottom:8px;">
+        <button class="btn btn-sm" onclick="selectAll(true)">All</button>
+        <button class="btn btn-sm" onclick="selectAll(false)">None</button>
+      </div>
+      <div id="selector" class="sel-list"></div>
+    </div>
+    <button class="btn btn-primary" onclick="applySelection()" style="padding:10px;">&#128260; Apply &amp; Update</button>
+    <!-- Legend -->
+    <div class="panel">
+      <h4>&#127915; Color Legend</h4>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f97316;opacity:.7;"></div><span>Inverted block</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:linear-gradient(90deg,#6366f1,#06b6d4);opacity:.7;"></div><span>Collinear block (color = block ID)</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#fbbf24;border:2px solid #f59e0b;"></div><span>Gene search highlight</span></div>
+    </div>
+  </div>
+</div>
+<div id="tooltip" class="tooltip"></div>
+<script>
+const allData = /*DATA_JSON*/;
+const W=1000,H=500,M=80,BH=25;
+const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
+const invColor="#f97316";
+
+const sequences=[...new Set([...allData.map(d=>d.c1),...allData.map(d=>d.c2)])].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+
+function isChr(n){const l=n.toLowerCase();return l.includes("chr")||l.includes("chromosome")||l.startsWith("sh")||l.startsWith("ss")||(!l.includes("scaffold")&&!l.includes("contig")&&!l.includes("unplaced"));}
+
+const sel=d3.select("#selector");
+sequences.forEach(s=>{
+  const div=sel.append("div").attr("class","sel-item");
+  div.append("input").attr("type","checkbox").attr("id","chk_"+s).property("checked",isChr(s));
+  div.append("label").attr("for","chk_"+s).text(s.length>22?s.substring(0,19)+"...":s);
+});
+
+function updateFilterLabel(v){d3.select("#minGenesVal").text(v);}
+function selectAll(v){d3.selectAll(".sel-item input").property("checked",v);}
+function applySelection(){render();}
+
+// --- Global state ---
+let data=[];
+let activeC=null;
+
+// --- Global Stats ---
+function renderGlobalStats(){
+  const blocks=d3.group(data,d=>d.b);
+  const nBlocks=blocks.size;
+  const nGenes=data.length;
+  const nInv=[...blocks.values()].filter(g=>g[0].o==="minus").length;
+  const pctInv=nBlocks?Math.round(100*nInv/nBlocks):0;
+  const pctCov=nGenes;
+  d3.select("#global-stats").html(`
+    <div class="gstat"><div class="gstat-val">${nGenes.toLocaleString()}</div><div class="gstat-lbl">Syntenic Genes</div></div>
+    <div class="gstat"><div class="gstat-val">${nBlocks.toLocaleString()}</div><div class="gstat-lbl">Syntenic Blocks</div></div>
+    <div class="gstat"><div class="gstat-val" style="color:#10b981">${nBlocks-nInv}</div><div class="gstat-lbl">Collinear Blocks</div></div>
+    <div class="gstat"><div class="gstat-val" style="color:#ef4444">${nInv}</div><div class="gstat-lbl">Inverted Blocks (${pctInv}%)</div></div>
+  `);
+}
+
+// --- Chromosome Focus + Stats ---
+function focusChr(chr,gen){
+  if(activeC===chr){render();activeC=null;d3.select("#stats-panel").html('<p style="color:#94a3b8;margin:0;font-size:11px;">&#9432; Click a chromosome bar to see statistics</p>');return;}
+  activeC=chr;
+  d3.selectAll(".ribbon").each(function(){
+    const r=d3.select(this);
+    const match=(gen===1)?r.attr("data-c1")===chr:r.attr("data-c2")===chr;
+    r.style("opacity",match?.85:.05).style("fill",match?null:"#cbd5e1").style("stroke",match?null:"#cbd5e1");
+  });
+  const cb=d3.group(data.filter(d=>(gen===1?d.c1:d.c2)===chr),d=>d.b);
+  const tg=d3.sum([...cb.values()],g=>g.length);
+  const col=[...cb.values()].filter(g=>g[0].o!=="minus").length;
+  const inv=[...cb.values()].filter(g=>g[0].o==="minus").length;
+  const tk=gen===1?"c2":"c1";
+  const targets=d3.rollup(data.filter(d=>(gen===1?d.c1:d.c2)===chr),v=>v.length,d=>d[tk]);
+  const tRows=[...targets.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t,n])=>`<div class="stat-target"><span>${t}</span><strong>${n} genes</strong></div>`).join("");
+  
+  let funcs = {};
+  data.filter(d=>(gen===1?d.c1:d.c2)===chr).forEach(d => {
+      let f = gen===1?d.f1:d.f2;
+      if(f && f.length > 2 && f !== "hypothetical protein" && f !== "unknown protein") { funcs[f] = (funcs[f]||0)+1; }
+  });
+  const topFuncs = Object.entries(funcs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f,n])=>`<div class="stat-target" title="${f}"><span>${f.length>22?f.substring(0,19)+'...':f}</span><strong>${n}</strong></div>`).join("");
+
+  const gl=gen===1?"R570":"CC 01-1940";
+  d3.select("#stats-panel").html(`
+    <h4>&#128200; ${chr}</h4>
+    <div class="stat-row"><span class="stat-label">Genome</span><span class="stat-value">${gl}</span></div>
+    <div class="stat-row"><span class="stat-label">Syntenic genes</span><span class="stat-value">${tg}</span></div>
+    <div class="stat-row"><span class="stat-label">Syntenic blocks</span><span class="stat-value">${cb.size}</span></div>
+    <div class="stat-row"><span class="stat-label">Collinear</span><span class="stat-value" style="color:#10b981">${col}</span></div>
+    <div class="stat-row"><span class="stat-label">Inverted</span><span class="stat-value" style="color:#ef4444">${inv}</span></div>
+    <div style="margin-top:8px;font-weight:700;font-size:10px;color:#475569;margin-bottom:4px;">CONNECTED TO:</div>
+    ${tRows||"<span style='color:#94a3b8'>None</span>"}
+    <div style="margin-top:8px;font-weight:700;font-size:10px;color:#475569;margin-bottom:4px;">TOP FUNCTIONS:</div>
+    ${topFuncs||"<span style='color:#94a3b8'>None</span>"}
+    <button onclick="focusChr('${chr}',${gen})" style="margin-top:10px;width:100%;" class="btn btn-sm">&#10006; Clear</button>
+  `);
+}
+
+// --- Gene Search ---
+function searchGene(val){
+  d3.selectAll(".ribbon").style("opacity",.4).style("fill",null).style("stroke",null);
+  d3.select("#search-result").text("");
+  if(!val||val.length<3)return;
+  const q=val.toLowerCase();
+  const hits=new Set(data.filter(d=>
+      d.g1.toLowerCase().includes(q)||
+      d.g2.toLowerCase().includes(q)||
+      (d.f1 && d.f1.toLowerCase().includes(q))||
+      (d.f2 && d.f2.toLowerCase().includes(q))
+  ).map(d=>d.b));
+  if(!hits.size){d3.select("#search-result").text("No matches found.");return;}
+  d3.selectAll(".ribbon").each(function(){
+    const r=d3.select(this);
+    const match=hits.has(r.attr("data-b"));
+    r.style("opacity",match?.95:.05).style("fill",match?"#fbbf24":null).style("stroke",match?"#f59e0b":null);
+  });
+  d3.select("#search-result").text(`${hits.size} block(s) highlighted.`);
+}
+
+// --- SVG Export ---
+function exportSVG(){
+  const svgEl=document.querySelector("#viz svg");
+  if(!svgEl){alert("No chart to export.");return;}
+  const blob=new Blob([svgEl.outerHTML],{type:"image/svg+xml"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="synteny_plot.svg";a.click();
+}
+
+// --- Render ---
+function render(){
+  d3.select("#viz").selectAll("*").remove();
+  activeC=null;
+  const minG=+d3.select("#minGenes").property("value");
+  const sel2=sequences.filter(s=>d3.select("#chk_"+s).property("checked"));
+  const bg=d3.group(allData.filter(d=>sel2.includes(d.c1)&&sel2.includes(d.c2)),d=>d.b);
+  data=[];
+  bg.forEach(genes=>{if(genes.length>=minG)genes.forEach(g=>data.push(g));});
+  if(!data.length){d3.select("#viz").append("p").style("color","#94a3b8").text("No syntenic blocks match your filters.");renderGlobalStats();return;}
+
+  renderGlobalStats();
+
+  const c1M={};data.forEach(d=>{if(!c1M[d.c1]||d.e1>c1M[d.c1])c1M[d.c1]=d.e1;});
+  const s1=Object.keys(c1M).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  let o1=0;const offs1={};s1.forEach(c=>{offs1[c]=o1;o1+=c1M[c];});
+
+  const c2M={};data.forEach(d=>{if(!c2M[d.c2]||d.e2>c2M[d.c2])c2M[d.c2]=d.e2;});
+  const s2=Object.keys(c2M).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  let o2=0;const offs2={};s2.forEach(c=>{offs2[c]=o2;o2+=c2M[c];});
+
+  const x1=d3.scaleLinear().domain([0,o1]).range([0,W]);
+  const x2=d3.scaleLinear().domain([0,o2]).range([0,W]);
+  const svgRoot=d3.select("#viz").append("svg").attr("width",W+M*2).attr("height",H+M*2);
+  const svg=svgRoot.append("g").attr("transform",`translate(${M},${M})`);
+  const y1=100,y2=360;
+
+  // Genome labels
+  svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text("R570");
+  svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text("CC 01-1940");
+
+  // Coverage bars (density) for genome 1
+  s1.forEach(c=>{
+    const chrData=data.filter(d=>d.c1===c);
+    const xScale=d3.scaleLinear().domain([0,c1M[c]]).range([x1(offs1[c]),x1(offs1[c]+c1M[c])]);
+    const bins=d3.bin().domain([0,c1M[c]]).thresholds(20)(chrData.map(d=>(d.s1+d.e1)/2));
+    const maxBin=d3.max(bins,b=>b.length)||1;
+    bins.forEach(b=>{
+      const bh=Math.max(1,BH*(b.length/maxBin)*0.6);
+      svg.append("rect").attr("x",xScale(b.x0)).attr("y",y1+BH).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
+    });
+  });
+
+  // Chromosome bars genome 1
+  s1.forEach(c=>{
+    svg.append("rect").attr("class","genome-bar").attr("x",x1(offs1[c])).attr("y",y1).attr("width",x1(c1M[c])).attr("height",BH).attr("rx",4).on("click",()=>focusChr(c,1));
+    svg.append("text").attr("class","chr-label").attr("x",x1(offs1[c]+c1M[c]/2)).attr("y",y1-8).attr("text-anchor","middle").text(c);
+  });
+
+  // Coverage bars genome 2
+  s2.forEach(c=>{
+    const chrData=data.filter(d=>d.c2===c);
+    const xScale=d3.scaleLinear().domain([0,c2M[c]]).range([x2(offs2[c]),x2(offs2[c]+c2M[c])]);
+    const bins=d3.bin().domain([0,c2M[c]]).thresholds(20)(chrData.map(d=>(d.s2+d.e2)/2));
+    const maxBin=d3.max(bins,b=>b.length)||1;
+    bins.forEach(b=>{
+      const bh=Math.max(1,BH*(b.length/maxBin)*0.6);
+      svg.append("rect").attr("x",xScale(b.x0)).attr("y",y2-bh).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
+    });
+  });
+
+  // Chromosome bars genome 2
+  s2.forEach(c=>{
+    svg.append("rect").attr("class","genome-bar").attr("x",x2(offs2[c])).attr("y",y2).attr("width",x2(c2M[c])).attr("height",BH).attr("rx",4).on("click",()=>focusChr(c,2));
+    svg.append("text").attr("class","chr-label").attr("x",x2(offs2[c]+c2M[c]/2)).attr("y",y2+BH+14).attr("text-anchor","middle").text(c);
+  });
+
+  // Ribbons
+  const tip=d3.select("#tooltip");
+  d3.group(data,d=>d.b).forEach((genes,bId)=>{
+    const c1=genes[0].c1,c2=genes[0].c2,ori=genes[0].o;
+    const xS1=x1(offs1[c1]+d3.min(genes,d=>d.s1)),xE1=x1(offs1[c1]+d3.max(genes,d=>d.e1));
+    const xS2=x2(offs2[c2]+d3.min(genes,d=>d.s2)),xE2=x2(offs2[c2]+d3.max(genes,d=>d.e2));
+    const p=d3.path();
+    p.moveTo(xS1,y1+BH);p.lineTo(xE1,y1+BH);
+    p.bezierCurveTo(xE1,(y1+y2)/2,xE2,(y1+y2)/2,xE2,y2);
+    p.lineTo(xS2,y2);p.bezierCurveTo(xS2,(y1+y2)/2,xS1,(y1+y2)/2,xS1,y1+BH);
+    p.closePath();
+    const col=ori==="minus"?invColor:colorScale(bId);
+    svg.append("path").attr("d",p).attr("class","ribbon").attr("data-c1",c1).attr("data-c2",c2).attr("data-b",bId).attr("fill",col).attr("stroke",col)
+      .on("mouseover",(e)=>{
+        let h=`<strong>Block #${bId}</strong><br>Genes: ${genes.length}<br>${c1} &harr; ${c2}<br>`;
+        h+=ori==="minus"?`<span class="tag tag-inv">Inverted</span>`:`<span class="tag tag-plus">Collinear</span>`;
+        
+        let funcs = new Set();
+        genes.forEach(g => { 
+            if(g.f1 && g.f1.length>2 && g.f1!=="hypothetical protein") funcs.add(g.f1); 
+            if(g.f2 && g.f2.length>2 && g.f2!=="hypothetical protein") funcs.add(g.f2); 
+        });
+        let fArr = Array.from(funcs).slice(0, 3);
+        if(fArr.length > 0) {
+            h += `<div style="margin-top:5px;font-size:9px;color:#cbd5e1;"><strong>Functions:</strong><br>${fArr.map(f=>"- "+f).join("<br>")}</div>`;
+        }
+        
+        tip.style("opacity",1).html(h).style("left",(e.clientX+12)+"px").style("top",(e.clientY-10)+"px");
+      }).on("mouseout",()=>tip.style("opacity",0));
+  });
+}
+render();
+</script>
+</body>
+</html>

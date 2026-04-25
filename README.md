@@ -110,19 +110,26 @@ java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.v
 ---
 
 ## Step 10: Comparative Genomics (`comp-gen`)
-Integrate disparate genomic datasets to study synteny and conservation between genomes. This tool supports outputs from **McScanX** and **SynMap2 (CoGe)**.
+Integrate disparate genomic datasets to study synteny, structural variations, and functional conservation between genomes. This tool supports outputs from **McScanX** and **SynMap2 (CoGe)** and features an Advanced Synteny Explorer.
 
 ```bash
 java -jar target/biocenicana-1.0.jar comp-gen \
   --gff1 genome1.gff \
   --gff2 genome2.gff \
   --collinearity results.collinearity \
-  --cds1 genome1.cds.fa \
-  --cds2 genome2.cds.fa \
-  -o integrated_report.tsv
+  --annot1 annot1.tsv \
+  --annot2 annot2.gff3 \
+  -o integrated_report.tsv \
+  --viz synteny_explorer.html
 ```
-*   **Results**: Generates an integrated TSV report linking syntenic blocks, gene coordinates, and sequence lengths.
-*   **Input Support**: Automatically detects McScanX `.collinearity` files or SynMap2 tabular exports.
+
+### 🧬 Advanced Synteny Explorer Features
+By adding the `--viz` flag, the engine generates an interactive, high-performance HTML/D3.js dashboard:
+*   **Functional Annotation Integration (`--annot1`, `--annot2`)**: Supports loading biological functions from standard GFF3 or TSV files.
+*   **Intelligent Gene Search**: Search for specific Gene IDs or biological functions (e.g., "kinase", "disease resistance") to instantly highlight conserved blocks.
+*   **Dynamic Statistics & Top Functions**: Click on any chromosome to isolate its syntenic relationships and view the top 3 biological functions conserved in that region.
+*   **Structural Variation Highlighting**: Automatically detects block orientations, highlighting inverted blocks in vivid orange.
+*   **Publication Ready**: Export the current view to high-resolution SVG with a single click.
 
 ---
 

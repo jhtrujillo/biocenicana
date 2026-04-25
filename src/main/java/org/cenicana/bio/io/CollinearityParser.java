@@ -41,12 +41,20 @@ public class CollinearityParser {
                             if (p.startsWith("score=")) currentBlock.setScore(Double.parseDouble(p.split("=")[1]));
                             else if (p.startsWith("e_value=")) currentBlock.seteValue(Double.parseDouble(p.split("=")[1]));
                             else if (p.startsWith("N=")) currentBlock.setNumGenes(Integer.parseInt(p.split("=")[1]));
+                            else if (p.contains("plus")) currentBlock.setOrientation("plus");
+                            else if (p.contains("minus")) currentBlock.setOrientation("minus");
                         }
                         blocks.add(currentBlock);
                     } else if (line.contains(":") && !line.startsWith("#")) {
-                        String[] parts = line.split("\\s+");
-                        if (parts.length >= 4 && currentBlock != null) {
-                            currentBlock.addPair(new SyntenicPair(parts[1], parts[2], Double.parseDouble(parts[3])));
+                        String[] mainParts = line.split(":");
+                        if (mainParts.length >= 2) {
+                            String[] dataParts = mainParts[1].trim().split("\\s+");
+                            if (dataParts.length >= 3 && currentBlock != null) {
+                                String g1 = dataParts[0];
+                                String g2 = dataParts[1];
+                                double ev = parseDoubleSafe(dataParts[2]);
+                                currentBlock.addPair(new SyntenicPair(g1, g2, ev));
+                            }
                         }
                     }
                 } else {

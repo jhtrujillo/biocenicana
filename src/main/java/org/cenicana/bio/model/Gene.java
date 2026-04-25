@@ -33,6 +33,15 @@ public class Gene {
     public String getType() { return type; }
     public Map<String, String> getAttributes() { return attributes; }
 
+    /** Returns the first non-empty functional description found in the attributes. */
+    public String getDescription() {
+        for (String key : new String[]{"description", "Description", "Note", "note", "product", "function", "Dbxref", "Ontology_term"}) {
+            String val = attributes.get(key);
+            if (val != null && !val.isBlank()) return java.net.URLDecoder.decode(val, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return "";
+    }
+
     public void addAttribute(String key, String value) {
         this.attributes.put(key, value);
     }

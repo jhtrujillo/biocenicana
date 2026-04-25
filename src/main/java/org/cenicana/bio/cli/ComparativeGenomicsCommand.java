@@ -35,13 +35,22 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--prot2"}, description = "Protein FASTA file for Genome 2.")
     private String prot2;
 
-    @Option(names = {"-o", "--output"}, defaultValue = "comparative_report.tsv", description = "Output TSV file.")
+    @Option(names = {"-o", "--output"}, description = "Output TSV file path", defaultValue = "comp_gen_report.tsv")
     private String output;
+
+    @Option(names = {"--viz"}, description = "Output interactive HTML visualization path")
+    private String vizOutput;
+
+    @Option(names = {"--annot1"}, description = "Annotation file for Genome 1 (GFF3 or TSV: GeneID\\tDescription).")
+    private String annot1;
+
+    @Option(names = {"--annot2"}, description = "Annotation file for Genome 2 (GFF3 or TSV: GeneID\\tDescription).")
+    private String annot2;
 
     @Override
     public Integer call() throws Exception {
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2);
         return 0;
     }
 }

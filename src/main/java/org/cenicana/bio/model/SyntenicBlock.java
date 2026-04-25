@@ -11,6 +11,7 @@ public class SyntenicBlock {
     private int numGenes;
     private double score;
     private double eValue;
+    private String orientation = "plus";
     private List<SyntenicPair> pairs;
 
     public SyntenicBlock(String blockId) {
@@ -25,6 +26,8 @@ public class SyntenicBlock {
     public void setScore(double score) { this.score = score; }
     public double geteValue() { return eValue; }
     public void seteValue(double eValue) { this.eValue = eValue; }
+    public String getOrientation() { return orientation; }
+    public void setOrientation(String orientation) { this.orientation = orientation; }
     public List<SyntenicPair> getPairs() { return pairs; }
 
     public void addPair(SyntenicPair pair) {

@@ -26,23 +26,37 @@ public class GffParser {
                 if (line.startsWith("#") || line.trim().isEmpty()) continue;
 
                 String[] parts = line.split("\t");
-                if (parts.length < 9) continue;
+                if (parts.length < 4) continue;
 
                 String chromosome = parts[0];
-                String type = parts[2];
-                long start = Long.parseLong(parts[3]);
-                long end = Long.parseLong(parts[4]);
-                String strand = parts[6];
-                String attributesStr = parts[8];
+                String id;
+                long start;
+                long end;
+                String strand = ".";
+                String type = "gene";
 
-                Map<String, String> attributes = parseAttributes(attributesStr);
-                String id = attributes.getOrDefault("ID", attributes.getOrDefault("Name", "unknown_" + genes.size()));
-
-                Gene gene = new Gene(id, chromosome, start, end, strand, type);
-                for (Map.Entry<String, String> entry : attributes.entrySet()) {
-                    gene.addAttribute(entry.getKey(), entry.getValue());
+                if (parts.length >= 9) {
+                    // Standard GFF3
+                    type = parts[2];
+                    start = Long.parseLong(parts[3]);
+                    end = Long.parseLong(parts[4]);
+                    strand = parts[6];
+                    String attributesStr = parts[8];
+                    Map<String, String> attributes = parseAttributes(attributesStr);
+                    id = attributes.getOrDefault("ID", attributes.getOrDefault("Name", "unknown_" + genes.size()));
+                    
+                    Gene gene = new Gene(id, chromosome, start, end, strand, type);
+                    for (Map.Entry<String, String> entry : attributes.entrySet()) {
+                        gene.addAttribute(entry.getKey(), entry.getValue());
+                    }
+                    genes.add(gene);
+                } else if (parts.length >= 4) {
+                    // Simplified GFF (Chr \t ID \t Start \t End)
+                    id = parts[1];
+                    start = Long.parseLong(parts[2]);
+                    end = Long.parseLong(parts[3]);
+                    genes.add(new Gene(id, chromosome, start, end, strand, type));
                 }
-                genes.add(gene);
             }
         }
         return genes;
