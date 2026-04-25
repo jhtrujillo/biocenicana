@@ -47,7 +47,7 @@
                     <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>
-                            <mainClass>org.cenicana.bio.BioCenicanaApplication</mainClass>
+                            <mainClass>org.cenicana.bio.cli.VcfToolkit</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
