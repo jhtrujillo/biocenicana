@@ -42,6 +42,15 @@ public class AlleleDosageCalculator {
 
 	private int numSNPs = 0;
 	private int numGenotypes = 0;
+	public int maxSnps = Integer.MAX_VALUE;
+	public java.util.Set<String> subsetSnps = null;
+
+	public static class DosageResult {
+		public String snpId;
+		public double[] dosages;
+		public int[] refDepths;
+		public int[] altDepths;
+	}
 	
 	// Formatter to round decimal representations to a single decimal point.
 	private final DecimalFormat df = new DecimalFormat("#.0");
@@ -98,6 +107,72 @@ public class AlleleDosageCalculator {
 	public void computeAlleleDosage(String vcfFile, int ploidy, String impute,
 			boolean storeInMemory, String callerType, int minDepth, int knnK, 
 			boolean adaptiveRounding) throws IOException {
+		computeAlleleDosage(vcfFile, ploidy, impute, storeInMemory, callerType, minDepth, knnK, adaptiveRounding, false);
+	}
+
+	public List<DosageResult> calculate(String vcfFile, int ploidy) {
+		List<DosageResult> results = new ArrayList<>();
+		try {
+			String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
+			numGenotypes = sampleIds.length;
+			int n = Math.max(ploidy, 2);
+			float[] ploidyLevels = new float[n + 1];
+			for (int y = 0; y <= n; y++) ploidyLevels[y] = (1.0f / n) * y;
+
+			Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
+			String lastFormat = "";
+			int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
+
+			int count = 0;
+			for (String[] columns : blockIterator) {
+				String chr = columns[0];
+				String pos = columns[1];
+				String snpId = chr + "_" + pos;
+
+				if (subsetSnps != null && !subsetSnps.contains(snpId)) continue;
+				if (count >= maxSnps) break;
+				String format = columns.length > 8 ? columns[8] : "";
+
+				if (!format.equals(lastFormat)) {
+					lastFormat = format;
+					String[] tokens = format.split(":");
+					gtIdx = -1; adIdx = -1; roIdx = -1; aoIdx = -1; adpIdx = -1; bsdpIdx = -1;
+					for (int i = 0; i < tokens.length; i++) {
+						switch (tokens[i]) {
+							case "GT":   gtIdx   = i; break;
+							case "AD":   adIdx   = i; break;
+							case "ADP":  adpIdx  = i; break;
+							case "RO":   roIdx   = i; break;
+							case "AO":   aoIdx   = i; break;
+							case "BSDP": bsdpIdx = i; break;
+						}
+					}
+				}
+
+				DosageResult dr = new DosageResult();
+				dr.snpId = chr + "_" + pos;
+				dr.dosages = new double[numGenotypes];
+				dr.refDepths = new int[numGenotypes];
+				dr.altDepths = new int[numGenotypes];
+				boolean[] isMissing = new boolean[numGenotypes];
+				float[] tmpDosages = new float[numGenotypes];
+
+				extractRawDosagesExtended(columns, numGenotypes, "auto", gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths);
+
+				for (int i=0; i<numGenotypes; i++) dr.dosages[i] = tmpDosages[i];
+				results.add(dr);
+				count++;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return results;
+	}
+
+	public void computeAlleleDosage(String vcfFile, int ploidy, String impute,
+			boolean storeInMemory, String callerType, int minDepth, int knnK, 
+			boolean adaptiveRounding, boolean rawFrequencies) throws IOException {
 
 		// ── 1. Read sample names from VCF header ───────────────────────────────
 		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
@@ -126,7 +201,7 @@ public class AlleleDosageCalculator {
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 
 		String lastFormat = "";
-		int adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
+		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
 
 		for (String[] columns : blockIterator) {
 
@@ -141,6 +216,7 @@ public class AlleleDosageCalculator {
 				String[] tokens = format.split(":");
 				for (int i = 0; i < tokens.length; i++) {
 					switch (tokens[i]) {
+						case "GT":   gtIdx   = i; break;
 						case "AD":   adIdx   = i; break;
 						case "ADP":  adpIdx  = i; break;
 						case "RO":   roIdx   = i; break;
@@ -155,8 +231,8 @@ public class AlleleDosageCalculator {
 			float[] parsedDosages = new float[numGenotypes];
 			boolean[] isMissing   = new boolean[numGenotypes];
 			
-			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding);
+			extractRawDosages(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, rawFrequencies);
 
 			// ── Phase 3: Adaptive Rounding via Clustering (Optional) ───────────
 			// If adaptive rounding is enabled, parsedDosages currently holds the purely raw frequencies.
@@ -348,19 +424,21 @@ public class AlleleDosageCalculator {
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 		
 		String lastFormat = "";
-		int adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
-		
+		int len = 0;
+		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
 		float[] parsedDosages = new float[numGenotypes];
 		boolean[] isMissing   = new boolean[numGenotypes];
-		
+
 		for (String[] columns : blockIterator) {
-			String format = columns.length > 8 ? columns[8] : "";
-			if (!format.equals(lastFormat)) {
-				lastFormat = format;
-				adIdx = -1; roIdx = -1; aoIdx = -1; adpIdx = -1; bsdpIdx = -1;
-				String[] tokens = format.split(":");
-				for (int i = 0; i < tokens.length; i++) {
-					switch (tokens[i]) {
+			String formatStr = columns.length > 8 ? columns[8] : "";
+			if (!formatStr.equals(lastFormat)) {
+				lastFormat = formatStr;
+				String[] format = formatStr.split(":");
+				gtIdx = -1; adIdx = -1; adpIdx = -1; roIdx = -1; aoIdx = -1; bsdpIdx = -1;
+				
+				for (int i = 0; i < format.length; i++) {
+					switch (format[i]) {
+						case "GT":   gtIdx   = i; break;
 						case "AD":   adIdx   = i; break;
 						case "ADP":  adpIdx  = i; break;
 						case "RO":   roIdx   = i; break;
@@ -370,9 +448,9 @@ public class AlleleDosageCalculator {
 				}
 			}
 			
-			int len = Math.min(columns.length - 9, numGenotypes);
-			extractRawDosages(columns, len, callerType, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding);
+			len = Math.min(columns.length - 9, numGenotypes);
+			extractRawDosages(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
+							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, false);
 			
 			if (adaptiveRounding) {
 				assignDosagesViaClustering(parsedDosages, isMissing, ploidyLevels);
@@ -451,8 +529,17 @@ public class AlleleDosageCalculator {
 	 * algorithm can process them later. Otherwise, it rounds them immediately.
 	 */
 	private void extractRawDosages(String[] columns, int len, String callerType, 
-			int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
-			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, boolean adaptiveRounding) {
+			int gtIdx, int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
+			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
+			boolean adaptiveRounding, boolean rawFrequencies) {
+		extractRawDosagesExtended(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, minDepth, 
+								  ploidyLevels, parsedDosages, isMissing, adaptiveRounding, rawFrequencies, null, null);
+	}
+
+	private void extractRawDosagesExtended(String[] columns, int len, String callerType, 
+			int gtIdx, int adIdx, int roIdx, int aoIdx, int adpIdx, int bsdpIdx, int minDepth, 
+			float[] ploidyLevels, float[] parsedDosages, boolean[] isMissing, 
+			boolean adaptiveRounding, boolean rawFrequencies, int[] refDepths, int[] altDepths) {
 		
 		for (int i = 0; i < len; i++) {
 			String   genotypeStr = columns[9 + i];
@@ -526,7 +613,19 @@ public class AlleleDosageCalculator {
 								foundCounts  = true;
 							}
 						}
-						break;
+				}
+				// Capture depths if arrays provided
+				if (refDepths != null) refDepths[i] = (int)countRef;
+				if (altDepths != null) altDepths[i] = (int)countAlt;
+
+				// Fallback to GT if counts not found
+				if (!foundCounts && gtIdx != -1 && gtTokens.length > gtIdx && !gtTokens[gtIdx].startsWith(".")) {
+					String[] alleles = gtTokens[gtIdx].split("[/|]");
+					for (String a : alleles) {
+						if (a.equals("0")) countRef++;
+						else if (!a.equals(".")) countAlt++;
+					}
+					foundCounts = true;
 				}
 			} catch (NumberFormatException e) {
 				// Malformed data → stays missing
@@ -540,9 +639,11 @@ public class AlleleDosageCalculator {
 			isMissing[i] = true;
 
 			if (foundCounts && (countRef + countAlt) > 0) {
-				float rawDosage = countRef / (countRef + countAlt);
+				float rawDosage = countAlt / (countRef + countAlt);
 				
-				if (adaptiveRounding) {
+				if (rawFrequencies) {
+					parsedDosages[i] = Float.valueOf(df.format(rawDosage));
+				} else if (adaptiveRounding) {
 					// Phase 3: Defer rounding. Keep raw frequency.
 					parsedDosages[i] = rawDosage;
 				} else {

@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.cenicana.bio.io.VcfFastReader;
+import org.cenicana.bio.utils.HweUtils;
 
 /**
  * Streaming VCF statistics calculator.
@@ -409,7 +410,7 @@ public class VcfStatisticsCalculator {
 						else                    hweChiSqHistogram[4]++;
 
 						// Calculate Fisher exact test for P-value (like Wigginton 2005 / NGSEP)
-						double fisherPValue = calculateHweFisherExactTest(n00, n01, n11);
+						double fisherPValue = HweUtils.calculateHweFisherExactTest(n00, n01, n11);
 						if (fisherPValue < 0.05) numHweViolations++;
 					}
 				}
@@ -459,7 +460,7 @@ public class VcfStatisticsCalculator {
 
 		// ── Tajima's D ────────────────────────────────────────────────────────
 		if (tajimaSiteCount > 0 && numSegSites > 1) {
-			piHat = piPerSiteSum;
+			piHat = piPerSiteSum / tajimaSiteCount; // Normalized per-site nucleotide diversity
 			int nEff = (int) Math.round((double) totalAllelesForTajima / tajimaSiteCount);
 			if (nEff >= 2) {
 				int S = numSegSites;
@@ -477,7 +478,9 @@ public class VcfStatisticsCalculator {
 				double e2 = c2 / (a1 * a1 + a2);
 				double varD = e1 * S + e2 * S * (S - 1);
 				if (varD > 0) {
-					tajimaD = (piHat - thetaW) / Math.sqrt(varD);
+					// Use both piHat and thetaW on the same scale (total region) for the D calculation
+					double piTotal = piPerSiteSum; 
+					tajimaD = (piTotal - thetaW) / Math.sqrt(varD);
 				}
 			}
 		}
@@ -499,48 +502,6 @@ public class VcfStatisticsCalculator {
 		}
 	}
 
-	// ── Fisher Exact Test for HWE (Wigginton et al. 2005) ────────────────────
-	private double calculateHweFisherExactTest(int obsHom1, int obsHet, int obsHom2) {
-		int n = obsHom1 + obsHet + obsHom2;
-		int nA = 2 * obsHom1 + obsHet;
-		int nB = 2 * obsHom2 + obsHet;
-
-		int minorAlleleCount = Math.min(nA, nB);
-		int majorAlleleCount = Math.max(nA, nB);
-
-		int minHet = minorAlleleCount % 2;
-		int maxHet = minorAlleleCount;
-
-		double[] probs = new double[maxHet + 1];
-
-		double[] logFacs = new double[n * 2 + 1];
-		for (int i = 1; i <= n * 2; i++) logFacs[i] = logFacs[i - 1] + Math.log(i);
-
-		double maxLogProb = -Double.MAX_VALUE;
-		for (int h = minHet; h <= maxHet; h += 2) {
-			int h1 = (minorAlleleCount - h) / 2;
-			int h2 = n - h - h1;
-			double logP = logFacs[n] + logFacs[minorAlleleCount] + logFacs[majorAlleleCount]
-				- logFacs[2 * n] - logFacs[h1] - logFacs[h] - logFacs[h2] + h * Math.log(2.0);
-			probs[h] = logP;
-			if (logP > maxLogProb) maxLogProb = logP;
-		}
-
-		double sum = 0.0;
-		for (int h = minHet; h <= maxHet; h += 2) {
-			probs[h] = Math.exp(probs[h] - maxLogProb);
-			sum += probs[h];
-		}
-
-		double pValue = 0.0;
-		double obsProb = probs[obsHet];
-		for (int h = minHet; h <= maxHet; h += 2) {
-			if (probs[h] <= obsProb + 1e-9) {
-				pValue += probs[h] / sum;
-			}
-		}
-		return Math.min(1.0, pValue);
-	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	private boolean isTransition(String ref, String alt) {

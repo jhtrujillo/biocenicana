@@ -55,13 +55,6 @@ public class PopulationStructureAnalyzer {
 
             while ((line = br.readLine()) != null) {
                 if (line.startsWith("##FORMAT=<ID=GT")) gtIdx = 0; // default assumption
-                if (line.startsWith("#CHROM")) {
-                    String[] header = line.split("\t");
-                    if (header.length > 8) {
-                        String[] fmt = header[8].split(":"); // This is wrong, header[8] is "FORMAT" literal
-                    }
-                    continue;
-                }
                 if (line.startsWith("#")) continue;
 
                 String[] cols = line.split("\t");
@@ -357,7 +350,8 @@ public class PopulationStructureAnalyzer {
 
         for (int c = 0; c < components; c++) {
             double[] v = new double[d];
-            for (int i = 0; i < d; i++) v[i] = Math.random();
+            Random rnd = new Random(42 + c);
+            for (int i = 0; i < d; i++) v[i] = rnd.nextDouble();
             
             for (int iter = 0; iter < 50; iter++) {
                 double[] nextV = new double[d];

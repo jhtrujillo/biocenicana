@@ -1,106 +1,108 @@
-# 🧬 BioCenicana
+# BioCenicana: Sequential Analysis Pipeline for Polyploid Genomics
 
-[![Java Version](https://img.shields.io/badge/Java-11%2B-blue.svg)](https://www.oracle.com/java/)
-[![Maven](https://img.shields.io/badge/Build-Maven-orange.svg)](https://maven.apache.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+BioCenicana is a high-performance Java toolkit optimized for **Saccharum spp. (Sugarcane)** and other complex polyploids. It uses a line-by-line streaming engine to process massive VCF files with minimal memory footprint.
 
-**BioCenicana** is a high-performance, streaming bioinformatics CLI toolkit meticulously designed for the complex genomics of polyploid crops, with a primary focus on Sugarcane (*Saccharum spp.*). It handles massive VCF files with memory efficiency, providing "Elite" grade population genetics and structure analysis.
+This manual follows the logical order of a standard bioinformatics pipeline.
 
 ---
 
-## 🚀 Key Features
-
-### 1. 🏆 Advanced Population Structure & Kinship Suite (`pop-structure`)
-The most comprehensive population structure module for polyploids. It goes beyond simple PCA to provide a multi-layered diagnostic of your germplasm.
-
-*   **Multi-Method Clustering:** Compare results from **K-Means** (centroid-based), **DBSCAN** (density-based for outlier detection), and **Gaussian Mixture Models (GMM)** (probabilistic/elliptical clustering).
-*   **DAPC (Discriminant Analysis of Principal Components):** Maximizes genetic separation between groups, providing the clearest view of population differentiation.
-*   **Ancestry & Admixture:** Interactive stacked barplots showing the genomic composition of every individual (Membership probabilities).
-*   **Genomic Relationship Matrix (Kinship):** Implementation of the **VanRaden algorithm** for polyploids. Essential for controlling relatedness in Mixed-Model GWAS.
-*   **Hierarchical Clustering (UPGMA):** Interactive dendrograms representing genetic kinship and lineage branching.
-*   **Genetic Divergence:** Automatic calculation of **Global $F_{st}$** and pairwise distance matrices.
-
-**Usage Example:**
+## Step 1: Compilation and Setup
+Before starting, ensure you have Java 11+ and Maven installed.
 ```bash
-java -jar biocenicana.jar pop-structure \
-  --vcf input.vcf \
-  --ploidy 10 \
-  --pcs 10 \
-  --output my_analysis
+mvn clean package -DskipTests
+# The executable JAR will be generated as: target/biocenicana-1.0.jar
 ```
 
-### 2. 🔍 Linkage Disequilibrium Analysis (`ld-analysis`)
-Analyze how genomic regions are inherited together.
-*   **LD Decay Plots:** Visualize how $r^2$ decreases over physical distance.
-*   **Multi-threaded Engine:** High-speed LD calculation for large marker sets.
-*   **Interactive Heatmaps:** Identify recombination blocks and haplotype structure.
+---
 
-**Usage Example:**
+## Step 2: Initial Dataset Diagnostics (`vcf-stats`)
+Always start by understanding the raw state of your VCF.
 ```bash
-java -jar biocenicana.jar ld-analysis -v input.vcf -o ld_results --max-dist 100000
+java -jar target/biocenicana-1.0.jar vcf-stats -v raw_data.vcf -o initial_stats -p 10
+```
+*   **Result**: Creates an interactive dashboard (`initial_stats.html`) showing allele frequencies, depth distributions, and missingness.
+*   **Use this to**: Decide your filtering thresholds (MAF and missingness).
+
+---
+
+## Step 3: Quality Control & Filtering (`vcf-filter`)
+Clean your dataset to keep only high-quality, informative markers.
+```bash
+java -jar target/biocenicana-1.0.jar vcf-filter -v raw_data.vcf -o filtered.vcf --min-maf 0.05 --max-missing 0.2 --top-n 5000
+```
+*   **Result**: A new VCF (`filtered.vcf`) containing the top 5000 most heterozygous and complete SNPs.
+
+---
+
+## Step 4: Population Structure & Kinship (`pop-structure`)
+Map the genetic space of your samples and calculate relationships.
+```bash
+java -jar target/biocenicana-1.0.jar pop-structure -v filtered.vcf -p 10 -o my_population
+```
+*   **Result**: Creates `my_population.pca.csv` (coordinates/clusters) and `my_population.kinship.csv` (VanRaden relationship matrix).
+*   **Visualization**: Open `my_population.pca.html` to explore the population in 3D/2D and see ancestry barplots.
+
+---
+
+## Step 5: Dosage & Distance Matrix Extraction (`allele-dosage` & `genetic-distance`)
+Export the finalized data for external statistical software.
+
+**A. Allele Dosages (for GWAS/Mapping):**
+```bash
+java -jar target/biocenicana-1.0.jar allele-dosage -v filtered.vcf -p 10 --raw > dosages_raw.tsv
 ```
 
-### 3. 🛡️ Polyploid-Aware VCF Filtering (`vcf-filter`)
-Streaming filter that avoids memory bottlenecks while cleaning complex datasets.
-*   **Dosage Estimation:** Automatically converts read depths (`AD`/`BSDP`) to accurate allele dosages for any ploidy level.
-*   **Top-N Polymorphism Selection:** Uses a Min-Heap to extract only the $N$ most informative markers (based on Expected Heterozygosity).
-*   **HWE & MAF Filtering:** Precise math for multiallelic and polysomic systems.
-
-**Usage Example:**
+**B. Genetic Distance (for Phylogeny/Diversity):**
 ```bash
-java -jar biocenicana.jar vcf-filter -v raw.vcf -o clean.vcf -p 10 -m 0.05 -x 0.2 --top-n 5000
+java -jar target/biocenicana-1.0.jar genetic-distance -v filtered.vcf -p 10 > matrix_distance.tsv
 ```
 
-### 4. 📊 Population Genetics Statistics (`vcf-stats`)
-Calculates highly precise metrics and generates a stunning interactive dashboard.
-*   **MAF Spectrum:** High-resolution distribution of allele frequencies.
-*   **Exact HWE:** Fisher's exact test for polyploids.
-*   **Sample Quality Control:** TS/TV ratios, heterozygosity, and missingness per sample.
+---
+
+## Step 6: Interactive SNP Quality Audit (`snp-explorer`)
+Audit individual SNP quality using **AD-Plots** (Reference vs Alternative depth scatter plots). By providing the VCF directly, the tool visualizes genotype clusters with high precision.
+```bash
+java -jar target/biocenicana-1.0.jar snp-explorer --vcf filtered.vcf --pca my_population.pca.csv --include list_of_snps.txt -p 10 -o audit.html
+```
+*   **Visual Check**: Open `audit.html`. This interactive dashboard allows you to:
+    *   **Filter**: Use `--include` to focus only on specific SNPs of interest (one ID per line).
+    *   **Histogram**: See the global distribution of allele frequencies.
+    *   **AD-Plot**: See the Ref vs Alt depth scatter plot (Genotype clustering).
+    *   **PCA View**: Map dosages onto the population structure from Step 4.
 
 ---
 
-## 🎨 Interactive Dashboards
-BioCenicana doesn't just output CSVs; it generates **Production-Ready HTML Dashboards** using `Plotly.js`. 
-
-*   **3D PCA Exploration:** Rotate and zoom into your population space.
-*   **Dynamic Coloring:** Toggle between different clustering methods in real-time.
-*   **Hover Diagnostics:** Identify specific varieties directly on the charts.
-*   **Zoomable Heatmaps:** Explore the Kinship matrix and Distance matrix with high resolution.
-
----
-
-## 🛠️ Installation & Build
-
-Requires **Java 11+** and **Maven**.
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/biocenicana.git
-    cd biocenicana
-    ```
-
-2.  **Compile with Maven:**
-    ```bash
-    mvn clean package
-    ```
-
-3.  **Run the tool:**
-    ```bash
-    java -jar target/biocenicana-1.0-SNAPSHOT-jar-with-dependencies.jar --help
-    ```
+## Step 7: Linkage Disequilibrium Analysis (`ld`)
+Study the recombination rates and LD decay.
+```bash
+java -jar target/biocenicana-1.0.jar ld -v filtered.vcf -o ld_report --max-dist 200000
+```
+*   **Output**: An LD decay dashboard showing $r^2$ reduction over physical distance.
 
 ---
 
-## 📂 Output Formats
-*   `.pca.csv`: Comprehensive table with PCs, Cluster IDs, LDs, and Ancestry Q-proportions.
-*   `.kinship.csv`: Square Genomic Relationship Matrix (TASSEL/GAPIT/GWASpoly compatible).
-*   `.pca.html`: Interactive diagnostic dashboard.
-*   `.vcf`: Filtered and/or dosage-corrected VCF file.
+## Step 8: Exporting to Specialized Formats (`gwaspoly` & `joinmap`)
+Finalize your analysis by connecting with other specialized tools.
+
+**A. Export for R/GWASpoly:**
+```bash
+java -jar target/biocenicana-1.0.jar gwaspoly-export -v filtered.vcf -p 10 -o gwas_ready.csv
+```
+
+**B. Convert for JoinMap (Linkage Mapping):**
+```bash
+java -jar target/biocenicana-1.0.jar joinmap --input data.loc --output fixed.loc --fix
+```
 
 ---
 
-## ⚖️ License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+*This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*
 
 ---
-*Developed for Advanced Genomic Breeding in Sugarcane.*
+
+## Step 9: Consolidating Batches (`vcf-merge`)
+If you have data from different sequencing batches or chromosomes, use this to join them into a single master VCF. It automatically handles the union of samples and fills gaps with missing data.
+```bash
+java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.vcf -o consolidated.vcf
+```
+*   **Intelligence**: Automatically detects samples in each file and creates a unified cross-table.
