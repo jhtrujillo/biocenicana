@@ -37,6 +37,9 @@ public class VcfStatsCommand implements Callable<Integer> {
 			+ "When provided, pairwise Fst is calculated between populations.")
 	private String popFile;
 
+	@Option(names = { "-t", "--threads" }, description = "Number of threads for parallel processing.", defaultValue = "-1")
+	private int threads;
+
 	@Override
 	public Integer call() throws Exception {
 		System.out.println("[biocenicana] Analyzing VCF: " + vcfFile);
@@ -59,8 +62,8 @@ public class VcfStatsCommand implements Callable<Integer> {
 				+ calc.populationNames.length + " → " + String.join(", ", calc.populationNames));
 		}
 
-		// Run statistics
-		calc.calculate(vcfFile);
+		int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
+		calc.calculate(vcfFile, numThreads);
 		System.out.println("[biocenicana] Done. Variants: "
 			+ (calc.numSnps + calc.numIndels)
 			+ "  |  Samples: " + calc.sampleNames.length

@@ -49,12 +49,8 @@ public class PopulationStructureAnalyzer {
 
         try (BufferedReader br = new BufferedReader(new FileReader(vcfFile))) {
             String line;
-            // Identify format index
-            int adIdx = -1;
-            int gtIdx = -1;
 
             while ((line = br.readLine()) != null) {
-                if (line.startsWith("##FORMAT=<ID=GT")) gtIdx = 0; // default assumption
                 if (line.startsWith("#")) continue;
 
                 String[] cols = line.split("\t");
@@ -62,10 +58,15 @@ public class PopulationStructureAnalyzer {
 
                 // Detect indices from FORMAT column
                 String[] fmt = cols[8].split(":");
-                adIdx = -1; gtIdx = -1;
+                int adIdx = -1, gtIdx = -1, bsdpIdx = -1, roIdx = -1, aoIdx = -1;
                 for (int i=0; i<fmt.length; i++) {
                     if (fmt[i].equals("GT")) gtIdx = i;
-                    if (fmt[i].equals("AD") || fmt[i].equals("BSDP")) adIdx = i;
+                    switch (fmt[i]) {
+                        case "AD":   adIdx   = i; break;
+                        case "BSDP": bsdpIdx = i; break;
+                        case "RO":   roIdx   = i; break;
+                        case "AO":   aoIdx   = i; break;
+                    }
                 }
 
                 double[] siteDosages = new double[numSamples];
@@ -85,15 +86,13 @@ public class PopulationStructureAnalyzer {
                         for (String a : alleles) if (!a.equals("0")) altCount++;
                         dosage = (double) altCount; // raw dosage (0 to ploidy)
                     } 
-                    // Fallback to AD
-                    else if (adIdx != -1 && parts.length > adIdx && !parts[adIdx].equals(".")) {
-                        String[] ad = parts[adIdx].split(",");
-                        if (ad.length >= 2) {
-                            try {
-                                double r = Double.parseDouble(ad[0]);
-                                double a = Double.parseDouble(ad[1]);
-                                if (r + a >= 5) dosage = (a / (r + a)) * ploidy;
-                            } catch (NumberFormatException ignored) {}
+                    // Fallback to centralized parser (NGSEP/GATK/Freebayes)
+                    else {
+                        String ref = cols[3];
+                        String alt = cols[4];
+                        double[] counts = AlleleDosageCalculator.getRefAltCounts(parts, adIdx, bsdpIdx, roIdx, aoIdx, ref, alt);
+                        if (counts != null && counts[0] + counts[1] >= 5) {
+                            dosage = (counts[1] / (counts[0] + counts[1])) * ploidy;
                         }
                     }
 

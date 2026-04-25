@@ -62,6 +62,10 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 		required = true)
 	private String vcfFile;
 
+	@Option(names = {"-o", "--output"},
+		description = "Path to the output TSV file. If not provided, prints to stdout.")
+	private String outputFile;
+
 	@Option(names = {"-p", "--ploidy"},
 		description = "Ploidy level of the organism (e.g., 10 for sugarcane).",
 		required = true)
@@ -83,13 +87,19 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 		defaultValue = "false")
 	private boolean adaptiveRounding;
 
+	@Option(names = {"-t", "--threads"},
+		description = "Number of threads to use for parallel processing. Default: number of available processors.",
+		defaultValue = "-1")
+	private int threads;
+
 	// ── Execution ──────────────────────────────────────────────────────────────
 
 	@Override
 	public Integer call() throws Exception {
 		try {
+			int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
 			AlleleDosageCalculator calculator = new AlleleDosageCalculator();
-			calculator.computeAndPrintDistanceMatrix(vcfFile, ploidy, caller.toString(), minDepth, adaptiveRounding);
+			calculator.computeAndPrintDistanceMatrix(vcfFile, ploidy, caller.toString(), minDepth, adaptiveRounding, numThreads, outputFile);
 			return 0;
 
 		} catch (Exception e) {

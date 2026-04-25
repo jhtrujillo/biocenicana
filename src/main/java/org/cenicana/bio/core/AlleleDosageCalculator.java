@@ -3,11 +3,9 @@ import org.cenicana.bio.utils.FileUtils;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.DecimalFormatSymbols;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.PriorityQueue;
 
 /**
@@ -52,10 +50,56 @@ public class AlleleDosageCalculator {
 		public int[] altDepths;
 	}
 	
-	// Formatter to round decimal representations to a single decimal point.
-	private final DecimalFormat df = new DecimalFormat("#.0");
+	// Formatter to round decimal representations to 6 decimal points.
+	private final DecimalFormat df = createFormatter();
+
+	private DecimalFormat createFormatter() {
+		DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.US);
+		return new DecimalFormat("0.######", symbols);
+	}
 
 	private List<String> matrizDosisString = new ArrayList<>();
+
+	// ── Public Utilities ───────────────────────────────────────────────────────
+
+	/**
+	 * Extracts Reference and Alternate allele counts from a VCF sample's format field.
+	 * Supports GATK (AD), Freebayes (RO/AO), and NGSEP (BSDP).
+	 * Dynamically maps A,C,G,T positions for modern NGSEP BSDP tags.
+	 * 
+	 * @return A double array [refCount, altCount] if counts are found, or null otherwise.
+	 */
+	public static double[] getRefAltCounts(String[] gData, int adIdx, int bsdpIdx, int roIdx, int aoIdx, String refBase, String altBase) {
+		try {
+			if (bsdpIdx != -1 && gData.length > bsdpIdx) {
+				String[] bsdp = gData[bsdpIdx].split(",");
+				if (bsdp.length == 4 && !bsdp[0].equals(".")) {
+					String firstAlt = altBase.contains(",") ? altBase.split(",")[0] : altBase;
+					int refIdx = -1, altIdx = -1;
+					if (refBase.equals("A")) refIdx = 0; else if (refBase.equals("C")) refIdx = 1; else if (refBase.equals("G")) refIdx = 2; else if (refBase.equals("T")) refIdx = 3;
+					if (firstAlt.equals("A")) altIdx = 0; else if (firstAlt.equals("C")) altIdx = 1; else if (firstAlt.equals("G")) altIdx = 2; else if (firstAlt.equals("T")) altIdx = 3;
+					if (refIdx != -1 && altIdx != -1) {
+						return new double[]{Double.parseDouble(bsdp[refIdx]), Double.parseDouble(bsdp[altIdx])};
+					}
+				} else if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
+					// Legacy NGSEP format (Alt,Ref)
+					return new double[]{Double.parseDouble(bsdp[1]), Double.parseDouble(bsdp[0])};
+				}
+			} else if (adIdx != -1 && gData.length > adIdx) {
+				String[] ads = gData[adIdx].split(",");
+				if (ads.length >= 2 && !ads[0].equals(".") && !ads[1].equals(".")) {
+					return new double[]{Double.parseDouble(ads[0]), Double.parseDouble(ads[1])};
+				}
+			} else if (roIdx != -1 && aoIdx != -1 && gData.length > Math.max(roIdx, aoIdx)) {
+				if (!gData[roIdx].equals(".") && !gData[aoIdx].equals(".")) {
+					String aoStr = gData[aoIdx];
+					if (aoStr.contains(",")) aoStr = aoStr.split(",")[0];
+					return new double[]{Double.parseDouble(gData[roIdx]), Double.parseDouble(aoStr)};
+				}
+			}
+		} catch (NumberFormatException ignored) {}
+		return null;
+	}
 
 	// ── Getters ────────────────────────────────────────────────────────────────
 
@@ -194,7 +238,7 @@ public class AlleleDosageCalculator {
 		// ── Phase 2: K-Nearest Neighbors (KNN) Pass 1 (Optional) ───────────────
 		float[][] distanceMatrix = null;
 		if (impute.contains("knn")) {
-			distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numGenotypes, adaptiveRounding);
+			distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numGenotypes, adaptiveRounding, 1);
 		}
 
 		// ── 3. Stream VCF line by line (low memory footprint) ──────────────────
@@ -306,11 +350,19 @@ public class AlleleDosageCalculator {
 
 	/**
 	 * Computes the N x N genetic distance matrix between all samples and prints it
-	 * as a TSV matrix to stdout.
+	 * as a TSV matrix to the specified output file (or stdout if null).
 	 */
 	public void computeAndPrintDistanceMatrix(String vcfFile, int ploidy, String callerType, 
-			int minDepth, boolean adaptiveRounding) throws IOException {
+			int minDepth, boolean adaptiveRounding, int threads, String outputFile) throws IOException {
 		
+		java.io.PrintWriter pw;
+		if (outputFile != null) {
+			pw = new java.io.PrintWriter(new java.io.FileWriter(outputFile));
+			System.out.println("[GeneticDistance] Writing distance matrix to: " + outputFile);
+		} else {
+			pw = new java.io.PrintWriter(System.out);
+		}
+
 		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
 		int numG = sampleIds.length;
 		
@@ -320,27 +372,29 @@ public class AlleleDosageCalculator {
 			ploidyLevels[y] = (1.0f / n) * y;
 		}
 		
-		float[][] distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numG, adaptiveRounding);
+		float[][] distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numG, adaptiveRounding, threads);
 		
 		// Print Header
-		System.out.print("Sample\t");
+		pw.print("Sample\t");
 		for (int i = 0; i < numG; i++) {
-			System.out.print(sampleIds[i] + (i == numG - 1 ? "" : "\t"));
+			pw.print(sampleIds[i] + (i == numG - 1 ? "" : "\t"));
 		}
-		System.out.println();
+		pw.println();
 		
 		// Print Matrix
 		for (int i = 0; i < numG; i++) {
-			System.out.print(sampleIds[i] + "\t");
+			pw.print(sampleIds[i] + "\t");
 			for (int j = 0; j < numG; j++) {
 				if (distanceMatrix[i][j] == Float.MAX_VALUE) {
-					System.out.print("NA" + (j == numG - 1 ? "" : "\t"));
+					pw.print("NA" + (j == numG - 1 ? "" : "\t"));
 				} else {
-					System.out.print(df.format(distanceMatrix[i][j]) + (j == numG - 1 ? "" : "\t"));
+					pw.print(df.format(distanceMatrix[i][j]) + (j == numG - 1 ? "" : "\t"));
 				}
 			}
-			System.out.println();
+			pw.println();
 		}
+		pw.flush();
+		if (outputFile != null) pw.close();
 	}
 
 	// ── Phase 3 Helpers: Adaptive Rounding via 1D K-Means Clustering ───────────
@@ -416,18 +470,25 @@ public class AlleleDosageCalculator {
 	// ── Phase 2 Helpers: KNN Distance Matrix and Imputation ────────────────────
 	
 	private float[][] buildDistanceMatrix(String vcfFile, String callerType, int minDepth, 
-			float[] ploidyLevels, int numGenotypes, boolean adaptiveRounding) throws IOException {
+			float[] ploidyLevels, int numGenotypes, boolean adaptiveRounding, int threads) throws IOException {
 		
 		float[][] distance = new float[numGenotypes][numGenotypes];
 		int[][] sharedSnps = new int[numGenotypes][numGenotypes];
 		
+		// Parallel setup
+		ExecutorService executor = Executors.newFixedThreadPool(threads);
+		List<Future<?>> futures = new ArrayList<>();
+		
+		// To avoid synchronization on distance/sharedSnps matrices, 
+		// we use a per-thread accumulation matrix if threads > 1
+		final float[][][] threadDist = (threads > 1) ? new float[threads][numGenotypes][numGenotypes] : null;
+		final int[][][] threadShared = (threads > 1) ? new int[threads][numGenotypes][numGenotypes] : null;
+		
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 		
 		String lastFormat = "";
-		int len = 0;
 		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
-		float[] parsedDosages = new float[numGenotypes];
-		boolean[] isMissing   = new boolean[numGenotypes];
+		int threadCounter = 0;
 
 		for (String[] columns : blockIterator) {
 			String formatStr = columns.length > 8 ? columns[8] : "";
@@ -435,7 +496,6 @@ public class AlleleDosageCalculator {
 				lastFormat = formatStr;
 				String[] format = formatStr.split(":");
 				gtIdx = -1; adIdx = -1; adpIdx = -1; roIdx = -1; aoIdx = -1; bsdpIdx = -1;
-				
 				for (int i = 0; i < format.length; i++) {
 					switch (format[i]) {
 						case "GT":   gtIdx   = i; break;
@@ -448,24 +508,66 @@ public class AlleleDosageCalculator {
 				}
 			}
 			
-			len = Math.min(columns.length - 9, numGenotypes);
-			extractRawDosages(columns, len, callerType, gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-							  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, false);
-			
-			if (adaptiveRounding) {
-				assignDosagesViaClustering(parsedDosages, isMissing, ploidyLevels);
-			}
-			
-			// Accumulate distance
-			for (int i = 0; i < len; i++) {
-				if (isMissing[i]) continue;
-				for (int j = i + 1; j < len; j++) {
-					if (isMissing[j]) continue;
-					distance[i][j] += Math.abs(parsedDosages[i] - parsedDosages[j]);
-					distance[j][i] = distance[i][j];
-					sharedSnps[i][j]++;
-					sharedSnps[j][i]++;
+			final int currentGtIdx = gtIdx, currentAdIdx = adIdx, currentAdpIdx = adpIdx;
+			final int currentRoIdx = roIdx, currentAoIdx = aoIdx, currentBsdpIdx = bsdpIdx;
+			final String[] currentCols = columns;
+			final int currentThreadId = (threads > 1) ? (threadCounter++ % threads) : 0;
+
+			Runnable task = () -> {
+				float[] parsedDosages = new float[numGenotypes];
+				boolean[] isMissing   = new boolean[numGenotypes];
+				int len = Math.min(currentCols.length - 9, numGenotypes);
+				
+				extractRawDosages(currentCols, len, callerType, currentGtIdx, currentAdIdx, currentRoIdx, currentAoIdx, currentAdpIdx, currentBsdpIdx, 
+								  minDepth, ploidyLevels, parsedDosages, isMissing, adaptiveRounding, false);
+				
+				if (adaptiveRounding) {
+					assignDosagesViaClustering(parsedDosages, isMissing, ploidyLevels);
 				}
+
+				float[][] targetDist = (threadDist != null) ? threadDist[currentThreadId] : distance;
+				int[][] targetShared = (threadShared != null) ? threadShared[currentThreadId] : sharedSnps;
+
+				for (int i = 0; i < len; i++) {
+					if (isMissing[i]) continue;
+					for (int j = i + 1; j < len; j++) {
+						if (isMissing[j]) continue;
+						targetDist[i][j] += Math.abs(parsedDosages[i] - parsedDosages[j]);
+						targetShared[i][j]++;
+					}
+				}
+			};
+
+			if (threads > 1) {
+				futures.add(executor.submit(task));
+			} else {
+				task.run();
+			}
+		}
+		
+		// Wait for completion and merge
+		if (threads > 1) {
+			for (Future<?> f : futures) {
+				try { f.get(); } catch (Exception e) { e.printStackTrace(); }
+			}
+			executor.shutdown();
+			
+			// Merge thread-local matrices
+			for (int t = 0; t < threads; t++) {
+				for (int i = 0; i < numGenotypes; i++) {
+					for (int j = i + 1; j < numGenotypes; j++) {
+						distance[i][j] += threadDist[t][i][j];
+						sharedSnps[i][j] += threadShared[t][i][j];
+					}
+				}
+			}
+		}
+
+		// Mirro the upper triangle to lower triangle
+		for (int i = 0; i < numGenotypes; i++) {
+			for (int j = i + 1; j < numGenotypes; j++) {
+				distance[j][i] = distance[i][j];
+				sharedSnps[j][i] = sharedSnps[i][j];
 			}
 		}
 		
@@ -554,7 +656,18 @@ public class AlleleDosageCalculator {
 					case "ngsep":
 						if (bsdpIdx != -1 && gtTokens.length > bsdpIdx) {
 							String[] bsdp = gtTokens[bsdpIdx].split(",");
-							if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
+							if (bsdp.length == 4 && !bsdp[0].equals(".")) {
+								String refBase = columns[3];
+								String altBase = columns[4].split(",")[0];
+								int refIdx = -1, altIdx = -1;
+								if (refBase.equals("A")) refIdx = 0; else if (refBase.equals("C")) refIdx = 1; else if (refBase.equals("G")) refIdx = 2; else if (refBase.equals("T")) refIdx = 3;
+								if (altBase.equals("A")) altIdx = 0; else if (altBase.equals("C")) altIdx = 1; else if (altBase.equals("G")) altIdx = 2; else if (altBase.equals("T")) altIdx = 3;
+								if (refIdx != -1 && altIdx != -1) {
+									countRef = Float.parseFloat(bsdp[refIdx]);
+									countAlt = Float.parseFloat(bsdp[altIdx]);
+									foundCounts = true;
+								}
+							} else if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
 								countAlt    = Float.parseFloat(bsdp[0]);
 								countRef    = Float.parseFloat(bsdp[1]);
 								foundCounts = true;
@@ -585,7 +698,18 @@ public class AlleleDosageCalculator {
 					default: // "auto"
 						if (bsdpIdx != -1 && gtTokens.length > bsdpIdx) {
 							String[] bsdp = gtTokens[bsdpIdx].split(",");
-							if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
+							if (bsdp.length == 4 && !bsdp[0].equals(".")) {
+								String refBase = columns[3];
+								String altBase = columns[4].split(",")[0];
+								int refIdx = -1, altIdx = -1;
+								if (refBase.equals("A")) refIdx = 0; else if (refBase.equals("C")) refIdx = 1; else if (refBase.equals("G")) refIdx = 2; else if (refBase.equals("T")) refIdx = 3;
+								if (altBase.equals("A")) altIdx = 0; else if (altBase.equals("C")) altIdx = 1; else if (altBase.equals("G")) altIdx = 2; else if (altBase.equals("T")) altIdx = 3;
+								if (refIdx != -1 && altIdx != -1) {
+									countRef = Float.parseFloat(bsdp[refIdx]);
+									countAlt = Float.parseFloat(bsdp[altIdx]);
+									foundCounts = true;
+								}
+							} else if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
 								countAlt = Float.parseFloat(bsdp[0]);
 								countRef = Float.parseFloat(bsdp[1]);
 								foundCounts = true;

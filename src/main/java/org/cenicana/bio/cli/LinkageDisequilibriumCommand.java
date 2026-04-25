@@ -30,6 +30,9 @@ public class LinkageDisequilibriumCommand implements Callable<Integer> {
     @Option(names = {"--bin-size"}, description = "Bin size in bp for the LD decay curve graph.", defaultValue = "1000")
     private int binSize;
 
+    @Option(names = {"-t", "--threads"}, description = "Number of threads for parallel processing.", defaultValue = "-1")
+    private int threads;
+
     @Override
     public Integer call() throws Exception {
         File f = new File(vcfFile);
@@ -56,7 +59,9 @@ public class LinkageDisequilibriumCommand implements Callable<Integer> {
         ldCalc.setMaxDistanceBp(windowSize);
         ldCalc.setGenerateHtml(generateHtml);
         ldCalc.setBinSizeBp(binSize);
-        ldCalc.computeLD(vcfFile, outputFile);
+        
+        int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
+        ldCalc.computeLD(vcfFile, outputFile, numThreads);
 
         return 0;
     }

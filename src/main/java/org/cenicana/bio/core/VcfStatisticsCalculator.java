@@ -4,18 +4,14 @@ import org.cenicana.bio.utils.FileUtils;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
 import org.cenicana.bio.io.VcfFastReader;
 import org.cenicana.bio.utils.HweUtils;
 
 /**
- * Streaming VCF statistics calculator.
- * Level 1: Ts/Tv, MAF, Missingness, Depth, OH, F-statistic, EH, Density per chromosome.
- * Level 2: HWE chi-square & Fisher Exact Test, AN distribution, Tajima's D, pairwise Fst.
+ * Streaming VCF statistics calculator with multi-threading support.
  */
 public class VcfStatisticsCalculator {
 
@@ -27,71 +23,55 @@ public class VcfStatisticsCalculator {
 
 	// ── Per-sample metrics ───────────────────────────────────────────────────
 	public String[] sampleNames;
-	public int[]    sampleMissingCount;    // # missing genotypes per sample
-	public int[]    sampleGenotypedCount;  // # valid (non-missing) genotypes per sample
-	public int[]    sampleHetCount;        // # heterozygous genotypes per sample
-	public int[]    sampleHomoRefCount;    // # homozygous reference genotypes
-	public int[]    sampleHomoAltCount;    // # homozygous alternative genotypes
-	public int[]    sampleNonRefCount;     // # any genotype with >=1 alt allele
-	public int[]    sampleTsCount;         // # transitions in this sample
-	public int[]    sampleTvCount;         // # transversions in this sample
-	public int[]    sampleRareAlleleCount; // # rare alleles (MAF < 0.05) in this sample
-	public long[]   sampleTotalDepth;      // sum of DP values per sample
-	public int[]    sampleDepthCount;      // # genotypes that had a DP value
+	public int[]    sampleMissingCount;
+	public int[]    sampleGenotypedCount;
+	public int[]    sampleHetCount;
+	public int[]    sampleHomoRefCount;
+	public int[]    sampleHomoAltCount;
+	public int[]    sampleNonRefCount;
+	public int[]    sampleTsCount;
+	public int[]    sampleTvCount;
+	public int[]    sampleRareAlleleCount;
+	public long[]   sampleTotalDepth;
+	public int[]    sampleDepthCount;
 
-	// Derived per-sample statistics (post-loop)
-	public double[] sampleObsHet;    // OH = hetCount / genotypedCount
-	public double[] sampleFstat;     // F = 1 - OH / meanEH
+	public double[] sampleObsHet;
+	public double[] sampleFstat;
 
-	// ── Global EH accumulator ────────────────────────────────────────────────
 	private double ehSum   = 0;
 	private int    ehCount = 0;
 	public  double meanEH  = 0;
 
-	// ── Density per chromosome ────────────────────────────────────────────────
 	public Map<String, Integer> variantsPerChromosome = new LinkedHashMap<>();
-	// Bin size for genomic density (1Mb)
 	public static final int DENSITY_BIN_SIZE = 1000000;
-	// Map<Chrom, Map<BinIdx, Count>>
 	public Map<String, Map<Integer, Integer>> binnedDensity = new LinkedHashMap<>();
 
-	// ── Histograms ────────────────────────────────────────────────────────────
-	public int[] siteMissingnessHistogram = new int[10]; // 0-10% ... 90-100%
-	public int[] mafHistogram             = new int[50]; // 0-0.01 ... 0.49-0.50 (50 bins)
-	public int[] ehHistogram              = new int[10]; // 0.0-0.1 ... 0.9-1.0
+	public int[] siteMissingnessHistogram = new int[10];
+	public int[] mafHistogram             = new int[50];
+	public int[] ehHistogram              = new int[10];
 
-	// ════════════════════════════════════════════════════════════════════════
-	// LEVEL 2 fields
-	// ════════════════════════════════════════════════════════════════════════
-
-	// ── HWE (biallelic diploid SNPs only) ────────────────────────────────────
-	// bins: [0-2), [2-3.84), [3.84-7), [7-10), [10+)
 	public int[]  hweChiSqHistogram  = new int[5];
-	public int    numHweViolations   = 0;  // sites with p < 0.05 (from Fisher exact test)
-	public int    numHweTested       = 0;  // biallelic diploid SNPs with enough data
+	public int    numHweViolations   = 0;
+	public int    numHweTested       = 0;
 	public double meanChiSq          = 0;
 	private double chiSqSum          = 0;
 
-	// ── AN – distinct alleles per site ───────────────────────────────────────
-	public int numMonomorphic  = 0;  // no alt allele observed
-	public int numBiallelic    = 0;  // exactly one alt allele
-	public int numMultiallelic = 0;  // 2+ alt alleles in ALT column
+	public int numMonomorphic  = 0;
+	public int numBiallelic    = 0;
+	public int numMultiallelic = 0;
 
-	// ── Tajima's D (genome-wide, diploid assumption) ─────────────────────────
 	public double tajimaD       = Double.NaN;
-	public int    numSegSites   = 0;   // S: segregating sites
-	public double piHat         = 0;   // π: average pairwise differences per site
-	public double thetaW        = 0;   // Watterson's θ_W = S / a1
-	private double piPerSiteSum = 0;   // accumulated sum of per-site π_i
-	private long   totalAllelesForTajima = 0; // for computing effective n
-	private int    tajimaSiteCount       = 0; // sites used for Tajima's
+	public int    numSegSites   = 0;
+	public double piHat         = 0;
+	public double thetaW        = 0;
+	private double piPerSiteSum = 0;
+	private long   totalAllelesForTajima = 0;
+	private int    tajimaSiteCount       = 0;
 
-	// ── Fst between populations (optional) ───────────────────────────────────
-	private Map<String, Integer> samplePopIndex = null; // sample name → pop index
+	private Map<String, Integer> samplePopIndex = null;
 	public  String[]             populationNames = null;
-	public  double[][]           pairwiseFst    = null; // [pop_i][pop_j] mean Fst
+	public  double[][]           pairwiseFst    = null;
 
-	/** Call this BEFORE calculate() to enable population-level Fst analysis. */
 	public void loadPopulationMap(String popFile) throws IOException {
 		Map<String, String> sampleToPop = new HashMap<>();
 		List<String> popOrder = new ArrayList<>();
@@ -118,8 +98,7 @@ public class VcfStatisticsCalculator {
 		}
 	}
 
-	// ── Main calculation method ───────────────────────────────────────────────
-	public void calculate(String vcfFile) throws IOException {
+	public void calculate(String vcfFile, int threads) throws IOException {
 		sampleNames = VcfFastReader.getSampleIds(vcfFile);
 		int numSamples = sampleNames.length;
 
@@ -135,357 +114,121 @@ public class VcfStatisticsCalculator {
 		sampleTotalDepth      = new long[numSamples];
 		sampleDepthCount      = new int[numSamples];
 
-		// Build sample→pop index array
-		int[] samplePopIdx = null;
-		int   numPops      = 0;
-		double[][][] fstAccum = null;
+		final int[] samplePopIdxArr;
+		final int   numPops;
 		if (samplePopIndex != null && populationNames != null) {
 			numPops      = populationNames.length;
-			samplePopIdx = new int[numSamples];
-			fstAccum     = new double[numPops][numPops][3];
+			samplePopIdxArr = new int[numSamples];
 			for (int i = 0; i < numSamples; i++) {
 				Integer pidx = samplePopIndex.get(sampleNames[i]);
-				samplePopIdx[i] = (pidx != null) ? pidx : -1;
+				samplePopIdxArr[i] = (pidx != null) ? pidx : -1;
 			}
+		} else {
+			numPops = 0;
+			samplePopIdxArr = null;
 		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(threads);
+		List<LocalStats> localStatsList = Collections.synchronizedList(new ArrayList<>());
 
 		try (BufferedReader br = new BufferedReader(new FileReader(vcfFile))) {
 			String line;
-			int[][] parsedGenotypes = new int[numSamples][]; // Temp array for 2-pass per site
-
+			List<String> chunk = new ArrayList<>(1000);
 			while ((line = br.readLine()) != null) {
 				if (line.startsWith("#")) continue;
-
-				String[] cols = line.split("\t");
-				if (cols.length < 9 + numSamples) continue;
-
-				String chrom = cols[0];
-				int    pos   = Integer.parseInt(cols[1]);
-				String ref   = cols[3];
-				String alt   = cols[4];
-				
-				// Update counters
-				variantsPerChromosome.merge(chrom, 1, Integer::sum);
-				int binIdx = pos / DENSITY_BIN_SIZE;
-				binnedDensity.computeIfAbsent(chrom, k -> new HashMap<>()).merge(binIdx, 1, Integer::sum);
-				String[] altAllelesList = alt.equals(".") ? new String[0] : alt.split(",");
-				int numAllelesAtSite = 1 + altAllelesList.length;
-
-				if (altAllelesList.length == 0) numMonomorphic++;
-				else if (altAllelesList.length == 1) numBiallelic++;
-				else numMultiallelic++;
-
-				boolean isBiallelicSnp = ref.length() == 1
-					&& altAllelesList.length == 1
-					&& altAllelesList[0].length() == 1
-					&& !alt.equals(".");
-				boolean isTransition = isBiallelicSnp && isTransition(ref, altAllelesList[0]);
-
-				if (isBiallelicSnp) {
-					numSnps++;
-					if (isTransition) numTransitions++;
-					else              numTransversions++;
-				} else {
-					numIndels++;
+				chunk.add(line);
+				if (chunk.size() >= 1000) {
+					final List<String> currentChunk = chunk;
+					executor.submit(() -> {
+						LocalStats ls = new LocalStats(numSamples, numPops);
+						for (String l : currentChunk) {
+							processLine(l, numSamples, ls, samplePopIdxArr);
+						}
+						localStatsList.add(ls);
+					});
+					chunk = new ArrayList<>(1000);
 				}
-
-				String[] fmt  = cols[8].split(":");
-				int depthIdx  = -1;
-				int gtIdx     = -1;
-				for (int i = 0; i < fmt.length; i++) {
-					if (fmt[i].equals("GT")) gtIdx = i;
-					if (fmt[i].equals("BSDP") || fmt[i].equals("DP") || fmt[i].equals("AD")) { depthIdx = i; break; }
-				}
-
-				// PASS 1: Parse alleles & counts
-				int siteMissing = 0;
-				int totalGenotypedAlleles = 0;
-				int[] siteAlleleCounts = new int[numAllelesAtSite];
-				int n00 = 0, n01 = 0, n11 = 0; // HWE stats
-				int[][] popAlleles = (samplePopIdx != null) ? new int[numPops][2] : null;
-
-				for (int i = 0; i < numSamples; i++) {
-					parsedGenotypes[i] = null;
-					String gData = cols[9 + i];
-					String[] gParts = gData.split(":");
-					String gt = (gtIdx != -1 && gParts.length > gtIdx) ? gParts[gtIdx] : ".";
-
-					if (gt.equals(".") || gt.startsWith("./.") || gt.startsWith("./")) {
-						// Fallback to AD/BSDP for polyploid allele counting if GT is missing
-						if (depthIdx != -1 && gParts.length > depthIdx && !gParts[depthIdx].equals(".")) {
-							try {
-								String[] ad = gParts[depthIdx].split(",");
-								if (ad.length >= 2) {
-									double rCount = Double.parseDouble(ad[0]);
-									double aCount = Double.parseDouble(ad[1]);
-									if (rCount + aCount >= 5) {
-										siteAlleleCounts[0] += (int)rCount;
-										siteAlleleCounts[1] += (int)aCount;
-										totalGenotypedAlleles += (int)(rCount + aCount);
-										sampleGenotypedCount[i]++;
-									} else {
-										siteMissing++;
-									}
-								} else {
-									siteMissing++;
-								}
-							} catch (NumberFormatException e) { siteMissing++; }
-						} else {
-							siteMissing++;
-						}
-					} else {
-						String[] alleles = gt.split("[/|]");
-						int[] numericAlleles = new int[alleles.length];
-						boolean valid = true;
-						for (int aIdx = 0; aIdx < alleles.length; aIdx++) {
-							if (alleles[aIdx].equals(".")) {
-								valid = false;
-								break;
-							}
-							try {
-								numericAlleles[aIdx] = Integer.parseInt(alleles[aIdx]);
-								if (numericAlleles[aIdx] >= numAllelesAtSite) valid = false; // invalid VCF GT
-							} catch (NumberFormatException e) {
-								valid = false;
-							}
-						}
-
-						if (valid) {
-							parsedGenotypes[i] = numericAlleles;
-							sampleGenotypedCount[i]++;
-							for (int a : numericAlleles) {
-								siteAlleleCounts[a]++;
-								totalGenotypedAlleles++;
-							}
-
-							// HWE counts (diploid biallelic)
-							if (isBiallelicSnp && numericAlleles.length == 2) {
-								if (numericAlleles[0] == 0 && numericAlleles[1] == 0) n00++;
-								else if (numericAlleles[0] == 1 && numericAlleles[1] == 1) n11++;
-								else n01++;
-							}
-
-							// Pop allele counts (biallelic only)
-							if (popAlleles != null && samplePopIdx[i] >= 0 && isBiallelicSnp) {
-								for (int a : numericAlleles) {
-									popAlleles[samplePopIdx[i]][a]++;
-								}
-							}
-						} else {
-							siteMissing++; // fallback to missing
-						}
+			}
+			if (!chunk.isEmpty()) {
+				final List<String> lastChunk = chunk;
+				executor.submit(() -> {
+					LocalStats ls = new LocalStats(numSamples, numPops);
+					for (String l : lastChunk) {
+						processLine(l, numSamples, ls, samplePopIdxArr);
 					}
+					localStatsList.add(ls);
+				});
+			}
+			executor.shutdown();
+			executor.awaitTermination(1, TimeUnit.DAYS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 
-					if (depthIdx != -1) {
-						String[] sf = gData.split(":");
-						if (sf.length > depthIdx && !sf[depthIdx].equals(".")) {
-							try {
-								String dr = sf[depthIdx];
-								int depth = 0;
-								if (dr.contains(",")) {
-									for (String d : dr.split(",")) depth += Integer.parseInt(d.trim());
-								} else {
-									depth = Integer.parseInt(dr);
-								}
-								sampleTotalDepth[i] += depth;
-								sampleDepthCount[i]++;
-							} catch (NumberFormatException ignored) {}
-						}
-					}
-				}
+		double[][][] fstAccum = (numPops > 0) ? new double[numPops][numPops][3] : null;
 
-				// Site missingness
-				double missFreq = (double) siteMissing / numSamples;
-				siteMissingnessHistogram[Math.min((int)(missFreq * 10), 9)]++;
+		for (LocalStats ls : localStatsList) {
+			numSnps += ls.numSnps; numIndels += ls.numIndels; numTransitions += ls.numTransitions; numTransversions += ls.numTransversions;
+			ehSum += ls.ehSum; ehCount += ls.ehCount; numHweViolations += ls.numHweViolations; numHweTested += ls.numHweTested;
+			chiSqSum += ls.chiSqSum; numMonomorphic += ls.numMonomorphic; numBiallelic += ls.numBiallelic; numMultiallelic += ls.numMultiallelic;
+			numSegSites += ls.numSegSites; piPerSiteSum += ls.piPerSiteSum; totalAllelesForTajima += ls.totalAllelesForTajima; tajimaSiteCount += ls.tajimaSiteCount;
 
-				if (totalGenotypedAlleles > 0) {
-					// Expected Heterozygosity: 1 - sum(pi^2) (Handles multiallelic accurately like NGSEP)
-					double sumSqFreqs = 0;
-					int minAc = Integer.MAX_VALUE;
-					int minAcIdx = -1;
-					for (int j = 0; j < siteAlleleCounts.length; j++) {
-						int c = siteAlleleCounts[j];
-						if (c > 0) {
-							double freq = (double) c / totalGenotypedAlleles;
-							sumSqFreqs += freq * freq;
-							if (c < minAc) {
-								minAc = c;
-								minAcIdx = j;
-							}
-						}
-					}
-					double eh = 1.0 - sumSqFreqs;
-					ehSum += eh;
-					ehCount++;
-					ehHistogram[Math.min((int)(eh * 10), 9)]++;
+			for (int i = 0; i < numSamples; i++) {
+				sampleMissingCount[i] += ls.sampleMissingCount[i]; sampleGenotypedCount[i] += ls.sampleGenotypedCount[i]; sampleHetCount[i] += ls.sampleHetCount[i];
+				sampleHomoRefCount[i] += ls.sampleHomoRefCount[i]; sampleHomoAltCount[i] += ls.sampleHomoAltCount[i]; sampleNonRefCount[i] += ls.sampleNonRefCount[i];
+				sampleTsCount[i] += ls.sampleTsCount[i]; sampleTvCount[i] += ls.sampleTvCount[i]; sampleRareAlleleCount[i] += ls.sampleRareAlleleCount[i];
+				sampleTotalDepth[i] += ls.sampleTotalDepth[i]; sampleDepthCount[i] += ls.sampleDepthCount[i];
+			}
 
-					// MAF
-					double maf = (double) minAc / totalGenotypedAlleles;
-					mafHistogram[Math.min((int)(maf * 100), 49)]++; // 50 bins
+			for (int i = 0; i < 10; i++) siteMissingnessHistogram[i] += ls.siteMissingnessHistogram[i];
+			for (int i = 0; i < 50; i++) mafHistogram[i] += ls.mafHistogram[i];
+			for (int i = 0; i < 10; i++) ehHistogram[i] += ls.ehHistogram[i];
+			for (int i = 0; i < 5; i++) hweChiSqHistogram[i] += ls.hweChiSqHistogram[i];
 
-					// PASS 2: Per-sample metrics using MAF & exact genotypes
-					for (int i = 0; i < numSamples; i++) {
-						int[] gt = parsedGenotypes[i];
-						if (gt == null) {
-							sampleMissingCount[i]++;
-							continue;
-						}
+			ls.variantsPerChromosome.forEach((chrom, count) -> variantsPerChromosome.merge(chrom, count, Integer::sum));
+			ls.binnedDensity.forEach((chrom, bins) -> {
+				Map<Integer, Integer> globalBins = binnedDensity.computeIfAbsent(chrom, k -> new HashMap<>());
+				bins.forEach((bin, count) -> globalBins.merge(bin, count, Integer::sum));
+			});
 
-						boolean isHet = false;
-						boolean hasRef = false;
-						boolean hasAlt = false;
-						boolean hasRare = false;
-
-						for (int a : gt) {
-							if (a == 0) hasRef = true;
-							else hasAlt = true;
-							if (a == minAcIdx && maf < 0.05) hasRare = true;
-						}
-
-						// Check if all alleles are the same
-						for (int j = 1; j < gt.length; j++) {
-							if (gt[j] != gt[0]) {
-								isHet = true;
-								break;
-							}
-						}
-
-						if (isHet) sampleHetCount[i]++;
-						else {
-							if (hasRef) sampleHomoRefCount[i]++;
-							if (hasAlt) sampleHomoAltCount[i]++;
-						}
-
-						if (hasAlt) sampleNonRefCount[i]++;
-						if (hasRare) sampleRareAlleleCount[i]++;
-
-						// Ts/Tv per sample (for biallelic SNPs)
-						if (isBiallelicSnp && hasAlt) {
-							if (isTransition) sampleTsCount[i]++;
-							else              sampleTvCount[i]++;
-						}
-					}
-
-					// Tajima's D
-					if (isBiallelicSnp && siteAlleleCounts[0] > 0 && siteAlleleCounts[1] > 0) {
-						numSegSites++;
-						int n = totalGenotypedAlleles;
-						if (n > 1) {
-							double pi_i = (double)(siteAlleleCounts[0] * siteAlleleCounts[1]) / (n * (n - 1.0) / 2.0);
-							piPerSiteSum += pi_i;
-							totalAllelesForTajima += n;
-							tajimaSiteCount++;
-						}
-					}
-				} else {
-					for (int i = 0; i < numSamples; i++) {
-						if (parsedGenotypes[i] == null) sampleMissingCount[i]++;
-					}
-				}
-
-				// HWE chi-square & Fisher Exact Test (biallelic diploid SNPs)
-				if (isBiallelicSnp) {
-					int nDip = n00 + n01 + n11;
-					if (nDip >= 5) { // NGSEP uses > 3
-						double pHwe = (2.0 * n00 + n01) / (2.0 * nDip);
-						double qHwe = 1.0 - pHwe;
-
-						// Clamping expected homozyogtes to avoid div-by-zero (like NGSEP)
-						double e00 = Math.max(1.0, Math.min(nDip - 2.0, pHwe * pHwe * nDip));
-						double e11 = Math.max(1.0, Math.min(nDip - 1.0 - e00, qHwe * qHwe * nDip));
-						double e01 = Math.max(1.0, nDip - e00 - e11);
-
-						double chi2 = (n00 - e00)*(n00 - e00)/e00
-							+ (n01 - e01)*(n01 - e01)/e01
-							+ (n11 - e11)*(n11 - e11)/e11;
-
-						numHweTested++;
-						chiSqSum += chi2;
-
-						// Bins for histogram
-						if      (chi2 < 2.0)    hweChiSqHistogram[0]++;
-						else if (chi2 < 3.84)   hweChiSqHistogram[1]++;
-						else if (chi2 < 7.0)    hweChiSqHistogram[2]++;
-						else if (chi2 < 10.0)   hweChiSqHistogram[3]++;
-						else                    hweChiSqHistogram[4]++;
-
-						// Calculate Fisher exact test for P-value (like Wigginton 2005 / NGSEP)
-						double fisherPValue = HweUtils.calculateHweFisherExactTest(n00, n01, n11);
-						if (fisherPValue < 0.05) numHweViolations++;
-					}
-				}
-
-				// Fst
-				if (popAlleles != null && isBiallelicSnp) {
-					int totRef = 0, totAlt = 0;
-					for (int pi = 0; pi < numPops; pi++) {
-						totRef += popAlleles[pi][0];
-						totAlt += popAlleles[pi][1];
-					}
-					int totAll = totRef + totAlt;
-					if (totAll > 0 && totRef > 0 && totAlt > 0) {
-						double ptot = (double) totRef / totAll;
-						double Ht   = 2.0 * ptot * (1.0 - ptot);
-						for (int pi = 0; pi < numPops; pi++) {
-							for (int pj = pi + 1; pj < numPops; pj++) {
-								int nI = popAlleles[pi][0] + popAlleles[pi][1];
-								int nJ = popAlleles[pj][0] + popAlleles[pj][1];
-								if (nI == 0 || nJ == 0) continue;
-								double pI = (double) popAlleles[pi][0] / nI;
-								double pJ = (double) popAlleles[pj][0] / nJ;
-								double Hs = (2.0*pI*(1-pI) + 2.0*pJ*(1-pJ)) / 2.0;
-								double fst = (Ht > 0) ? (Ht - Hs) / Ht : 0;
-								fstAccum[pi][pj][0] += Ht;
-								fstAccum[pi][pj][1] += Hs;
-								fstAccum[pi][pj][2]++;
-							}
-						}
+			if (fstAccum != null && ls.fstAccum != null) {
+				for (int pi = 0; pi < numPops; pi++) {
+					for (int pj = 0; pj < numPops; pj++) {
+						fstAccum[pi][pj][0] += ls.fstAccum[pi][pj][0];
+						fstAccum[pi][pj][1] += ls.fstAccum[pi][pj][1];
+						fstAccum[pi][pj][2] += ls.fstAccum[pi][pj][2];
 					}
 				}
 			}
 		}
 
-		// ── Post-loop derived calculations ────────────────────────────────────
 		meanEH     = ehCount > 0 ? ehSum / ehCount : 0.0;
 		meanChiSq  = numHweTested > 0 ? chiSqSum / numHweTested : 0.0;
-
-		sampleObsHet = new double[sampleNames.length];
-		sampleFstat  = new double[sampleNames.length];
-		for (int i = 0; i < sampleNames.length; i++) {
-			double oh = sampleGenotypedCount[i] > 0
-				? (double) sampleHetCount[i] / sampleGenotypedCount[i] : 0.0;
+		sampleObsHet = new double[numSamples];
+		sampleFstat  = new double[numSamples];
+		for (int i = 0; i < numSamples; i++) {
+			double oh = sampleGenotypedCount[i] > 0 ? (double) sampleHetCount[i] / sampleGenotypedCount[i] : 0.0;
 			sampleObsHet[i] = oh;
 			sampleFstat[i]  = meanEH > 0 ? 1.0 - oh / meanEH : 0.0;
 		}
 
-		// ── Tajima's D ────────────────────────────────────────────────────────
 		if (tajimaSiteCount > 0 && numSegSites > 1) {
-			piHat = piPerSiteSum / tajimaSiteCount; // Normalized per-site nucleotide diversity
+			piHat = piPerSiteSum / tajimaSiteCount; 
 			int nEff = (int) Math.round((double) totalAllelesForTajima / tajimaSiteCount);
 			if (nEff >= 2) {
 				int S = numSegSites;
 				double a1 = 0, a2 = 0;
-				for (int i = 1; i < nEff; i++) {
-					a1 += 1.0 / i;
-					a2 += 1.0 / ((double)i * i);
-				}
+				for (int i = 1; i < nEff; i++) { a1 += 1.0 / i; a2 += 1.0 / ((double)i * i); }
 				thetaW = S / a1;
 				double b1 = (nEff + 1.0) / (3.0 * (nEff - 1));
 				double b2 = 2.0 * (nEff * nEff + nEff + 3.0) / (9.0 * nEff * (nEff - 1));
-				double c1 = b1 - 1.0 / a1;
-				double c2 = b2 - (nEff + 2.0) / (a1 * nEff) + a2 / (a1 * a1);
-				double e1 = c1 / a1;
-				double e2 = c2 / (a1 * a1 + a2);
+				double c1 = b1 - 1.0 / a1; double c2 = b2 - (nEff + 2.0) / (a1 * nEff) + a2 / (a1 * a1);
+				double e1 = c1 / a1; double e2 = c2 / (a1 * a1 + a2);
 				double varD = e1 * S + e2 * S * (S - 1);
-				if (varD > 0) {
-					// Use both piHat and thetaW on the same scale (total region) for the D calculation
-					double piTotal = piPerSiteSum; 
-					tajimaD = (piTotal - thetaW) / Math.sqrt(varD);
-				}
+				if (varD > 0) tajimaD = (piPerSiteSum - thetaW) / Math.sqrt(varD);
 			}
 		}
 
-		// ── Pairwise Fst ─────────────────────────────────────────────────────
 		if (fstAccum != null) {
 			pairwiseFst = new double[numPops][numPops];
 			for (int pi = 0; pi < numPops; pi++) {
@@ -502,13 +245,136 @@ public class VcfStatisticsCalculator {
 		}
 	}
 
+	private void processLine(String line, int numSamples, LocalStats ls, int[] samplePopIdx) {
+		String[] cols = line.split("\t");
+		if (cols.length < 9 + numSamples) return;
+		String chrom = cols[0]; int pos = Integer.parseInt(cols[1]); String ref = cols[3]; String alt = cols[4];
+		String[] altAllelesList = alt.equals(".") ? new String[0] : alt.split(",");
+		int numAllelesAtSite = 1 + altAllelesList.length;
 
-	// ── Helpers ───────────────────────────────────────────────────────────────
+		boolean isSnp = ref.length() == 1 && (altAllelesList.length == 0 || altAllelesList[0].length() == 1);
+		if (isSnp) ls.numSnps++; else ls.numIndels++;
+
+		if (alt.equals(".")) ls.numMonomorphic++;
+		else if (altAllelesList.length == 1) ls.numBiallelic++;
+		else ls.numMultiallelic++;
+
+		ls.variantsPerChromosome.merge(chrom, 1, Integer::sum);
+		ls.binnedDensity.computeIfAbsent(chrom, k -> new HashMap<>()).merge(pos / DENSITY_BIN_SIZE, 1, Integer::sum);
+
+		int siteMissing = 0, totalGenotypedAlleles = 0;
+		int[] siteAlleleCounts = new int[numAllelesAtSite];
+		int n00 = 0, n01 = 0, n11 = 0;
+
+		for (int i = 0; i < numSamples; i++) {
+			String[] gData = cols[9 + i].split(":");
+			String gt = gData[0];
+			if (gt.startsWith(".")) { ls.sampleMissingCount[i]++; siteMissing++; }
+			else {
+				ls.sampleGenotypedCount[i]++;
+				String[] alleles = gt.split("[/|]");
+				boolean isHet = false; String firstAllele = alleles[0];
+				for (String a : alleles) {
+					if (!a.equals(firstAllele)) isHet = true;
+					int idx = Integer.parseInt(a);
+					if (idx < numAllelesAtSite) { siteAlleleCounts[idx]++; totalGenotypedAlleles++; }
+				}
+				if (isHet) ls.sampleHetCount[i]++;
+				else { if (firstAllele.equals("0")) ls.sampleHomoRefCount[i]++; else ls.sampleHomoAltCount[i]++; }
+				if (!firstAllele.equals("0") || isHet) ls.sampleNonRefCount[i]++;
+				if (altAllelesList.length == 1 && alleles.length == 2) {
+					if (gt.equals("0/0") || gt.equals("0|0")) n00++; else if (gt.equals("1/1") || gt.equals("1|1")) n11++; else n01++;
+				}
+			}
+		}
+
+		ls.siteMissingnessHistogram[Math.min(9, (int) (10.0 * siteMissing / numSamples))]++;
+
+		if (totalGenotypedAlleles > 0) {
+			int minAc = Integer.MAX_VALUE;
+			for (int c : siteAlleleCounts) if (c > 0 && c < minAc) minAc = c;
+			double maf = (double) minAc / totalGenotypedAlleles;
+			ls.mafHistogram[Math.min(49, (int) (100.0 * maf))]++;
+
+			double eh = 1.0;
+			for (int c : siteAlleleCounts) eh -= Math.pow((double) c / totalGenotypedAlleles, 2);
+			ls.ehSum += eh; ls.ehCount++;
+			ls.ehHistogram[Math.min(9, (int) (10.0 * eh))]++;
+
+			if (altAllelesList.length == 1 && isSnp) {
+				if (isTransition(ref, altAllelesList[0])) ls.numTransitions++; else ls.numTransversions++;
+				if (numSamples >= 5) {
+					ls.numHweTested++;
+					double pVal = HweUtils.calculateHweFisherExactTest(n00, n01, n11);
+					if (pVal < 0.05) ls.numHweViolations++;
+					double p = (double) (2 * n00 + n01) / (2 * (n00 + n01 + n11));
+					double exp01 = 2.0 * p * (1.0 - p) * (n00 + n01 + n11);
+					double chi2 = (exp01 > 0) ? Math.pow(n01 - exp01, 2) / exp01 : 0;
+					ls.chiSqSum += chi2;
+					ls.hweChiSqHistogram[chi2 < 2 ? 0 : chi2 < 3.84 ? 1 : chi2 < 7 ? 2 : chi2 < 10 ? 3 : 4]++;
+				}
+			}
+
+			if (maf > 0) {
+				ls.numSegSites++; ls.totalAllelesForTajima += totalGenotypedAlleles; ls.tajimaSiteCount++;
+				double p = (double) siteAlleleCounts[0] / totalGenotypedAlleles;
+				ls.piPerSiteSum += 2.0 * p * (1.0 - p) * totalGenotypedAlleles / (totalGenotypedAlleles - 1.0);
+			}
+
+			if (samplePopIdx != null && altAllelesList.length == 1) {
+				double pGlobal = (double) siteAlleleCounts[0] / totalGenotypedAlleles;
+				double Ht = 2.0 * pGlobal * (1.0 - pGlobal);
+				for (int pi = 0; pi < ls.numPops; pi++) {
+					for (int pj = pi + 1; pj < ls.numPops; pj++) {
+						double pI = getPopFreq(cols, numSamples, pi, samplePopIdx);
+						double pJ = getPopFreq(cols, numSamples, pj, samplePopIdx);
+						if (!Double.isNaN(pI) && !Double.isNaN(pJ)) {
+							double Hs = (2.0 * pI * (1 - pI) + 2.0 * pJ * (1 - pJ)) / 2.0;
+							ls.fstAccum[pi][pj][0] += Ht; ls.fstAccum[pi][pj][1] += Hs; ls.fstAccum[pi][pj][2]++;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private double getPopFreq(String[] cols, int numSamples, int popIdx, int[] samplePopIdx) {
+		int count0 = 0, total = 0;
+		for (int i = 0; i < numSamples; i++) {
+			if (samplePopIdx[i] == popIdx) {
+				String gt = cols[9 + i].split(":")[0];
+				if (!gt.startsWith(".")) {
+					for (String a : gt.split("[/|]")) { if (a.equals("0")) count0++; total++; }
+				}
+			}
+		}
+		return total > 0 ? (double) count0 / total : Double.NaN;
+	}
+
+	private static class LocalStats {
+		int numSnps=0, numIndels=0, numTransitions=0, numTransversions=0, numHweViolations=0, numHweTested=0, numMonomorphic=0, numBiallelic=0, numMultiallelic=0, numSegSites=0, tajimaSiteCount=0, ehCount=0;
+		double ehSum=0, chiSqSum=0, piPerSiteSum=0;
+		long totalAllelesForTajima=0;
+		int[] sampleMissingCount, sampleGenotypedCount, sampleHetCount, sampleHomoRefCount, sampleHomoAltCount, sampleNonRefCount, sampleTsCount, sampleTvCount, sampleRareAlleleCount, sampleDepthCount;
+		long[] sampleTotalDepth;
+		int[] siteMissingnessHistogram = new int[10], mafHistogram = new int[50], ehHistogram = new int[10], hweChiSqHistogram = new int[5];
+		Map<String, Integer> variantsPerChromosome = new HashMap<>();
+		Map<String, Map<Integer, Integer>> binnedDensity = new HashMap<>();
+		double[][][] fstAccum;
+		int numPops;
+		LocalStats(int numSamples, int numPops) {
+			this.numPops = numPops;
+			sampleMissingCount = new int[numSamples]; sampleGenotypedCount = new int[numSamples]; sampleHetCount = new int[numSamples];
+			sampleHomoRefCount = new int[numSamples]; sampleHomoAltCount = new int[numSamples]; sampleNonRefCount = new int[numSamples];
+			sampleTsCount = new int[numSamples]; sampleTvCount = new int[numSamples]; sampleRareAlleleCount = new int[numSamples];
+			sampleDepthCount = new int[numSamples]; sampleTotalDepth = new long[numSamples];
+			if (numPops > 0) fstAccum = new double[numPops][numPops][3];
+		}
+	}
+
 	private boolean isTransition(String ref, String alt) {
 		ref = ref.toUpperCase(); alt = alt.toUpperCase();
-		return (ref.equals("A") && alt.equals("G")) ||
-			   (ref.equals("G") && alt.equals("A")) ||
-			   (ref.equals("C") && alt.equals("T")) ||
-			   (ref.equals("T") && alt.equals("C"));
+		return (ref.equals("A") && alt.equals("G")) || (ref.equals("G") && alt.equals("A")) ||
+			   (ref.equals("C") && alt.equals("T")) || (ref.equals("T") && alt.equals("C"));
 	}
 }

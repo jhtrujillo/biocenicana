@@ -47,7 +47,7 @@
                     <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>
-                            <mainClass>org.cenicana.bio.cli.VcfToolkit</mainClass>
+                            <mainClass>org.cenicana.bio.BioCenicanaApplication</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -57,9 +57,7 @@
                 <executions>
                     <execution>
                         <id>make-assembly</id>
-                        <!-- this is used for inheritance merges -->
                         <phase>package</phase>
-                        <!-- bind to the packaging phase -->
                         <goals>
                             <goal>single</goal>
                         </goals>

@@ -1,11 +1,9 @@
 package org.cenicana.bio.core;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.LinkedList;
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
 import org.cenicana.bio.io.VcfFastReader;
 
 /**
@@ -44,9 +42,13 @@ public class LinkageDisequilibriumCalculator {
         }
     }
 
-    public void computeLD(String inputVcf, String outputTsv) throws IOException {
+    public void computeLD(String inputVcf, String outputTsv, int threads) throws IOException {
         String[] sampleNames = VcfFastReader.getSampleIds(inputVcf);
         int numSamples = sampleNames.length;
+        
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        final AtomicInteger totalPairs = new AtomicInteger(0);
+        final AtomicInteger totalProcessed = new AtomicInteger(0);
 
         System.out.println("[LD] Computing Linkage Disequilibrium with allele dosages...");
         System.out.println("[LD] Max distance: " + maxDistanceBp + " bp. Min MAF: " + minMaf);
@@ -59,14 +61,13 @@ public class LinkageDisequilibriumCalculator {
 
             // Bins for LD Decay Curve
             int numBins = (maxDistanceBp / binSizeBp) + 1;
-            double[] sumR2 = new double[numBins];
-            long[] countR2 = new long[numBins];
+            final double[] sumR2 = new double[numBins];
+            final long[] countR2 = new long[numBins];
+            final Object matrixLock = new Object();
 
             LinkedList<MarkerDosage> slidingWindow = new LinkedList<>();
 
             String line;
-            int totalProcessed = 0;
-            int totalPairs = 0;
 
             while ((line = br.readLine()) != null) {
                 if (line.startsWith("#")) continue;
@@ -93,41 +94,16 @@ public class LinkageDisequilibriumCalculator {
                 MarkerDosage marker = new MarkerDosage(chrom, pos, id, numSamples);
                 int genotypedCount = 0;
                 double sumDosage = 0;
+                String refBase = cols[3];
+                String altBase = cols[4];
 
                 for (int i = 0; i < numSamples; i++) {
                     String[] gData = cols[9 + i].split(":");
-                    double countRef = 0;
-                    double countAlt = 0;
-                    boolean foundCounts = false;
 
-                    try {
-                        if (bsdpIdx != -1 && gData.length > bsdpIdx) {
-                            String[] bsdp = gData[bsdpIdx].split(",");
-                            if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
-                                countAlt = Double.parseDouble(bsdp[0]);
-                                countRef = Double.parseDouble(bsdp[1]);
-                                foundCounts = true;
-                            }
-                        } else if (adIdx != -1 && gData.length > adIdx) {
-                            String[] ads = gData[adIdx].split(",");
-                            if (ads.length >= 2 && !ads[0].equals(".") && !ads[1].equals(".")) {
-                                countRef = Double.parseDouble(ads[0]);
-                                countAlt = Double.parseDouble(ads[1]);
-                                foundCounts = true;
-                            }
-                        } else if (roIdx != -1 && aoIdx != -1 && gData.length > Math.max(roIdx, aoIdx)) {
-                            if (!gData[roIdx].equals(".") && !gData[aoIdx].equals(".")) {
-                                countRef = Double.parseDouble(gData[roIdx]);
-                                String aoStr = gData[aoIdx].contains(",") ? gData[aoIdx].split(",")[0] : gData[aoIdx];
-                                countAlt = Double.parseDouble(aoStr);
-                                foundCounts = true;
-                            }
-                        }
-                    } catch (NumberFormatException ignored) {}
+                    double[] counts = AlleleDosageCalculator.getRefAltCounts(gData, adIdx, bsdpIdx, roIdx, aoIdx, refBase, altBase);
 
-                    if (foundCounts && (countRef + countAlt) >= 5) { // Min 5 reads depth to trust dosage
-                        // Dosage = proportion of alternate allele
-                        double dosage = countAlt / (countRef + countAlt);
+                    if (counts != null && (counts[0] + counts[1]) >= 5) {
+                        double dosage = counts[1] / (counts[0] + counts[1]);
                         marker.dosages[i] = dosage;
                         marker.missing[i] = false;
                         genotypedCount++;
@@ -155,31 +131,43 @@ public class LinkageDisequilibriumCalculator {
                     }
                 }
 
-                // Calculate pairwise LD with all markers currently in the window
-                for (MarkerDosage pastMarker : slidingWindow) {
-                    double r2 = calculatePearsonR2(marker, pastMarker, numSamples);
-                    if (r2 >= 0.0) { // Valid correlation calculated
-                        int distance = pos - pastMarker.pos;
-                        pw.printf("%s\t%d\t%s\t%d\t%s\t%d\t%.6f%n",
-                                chrom, pastMarker.pos, pastMarker.id, pos, id, distance, r2);
-                        
-                        // Accumulate for LD Decay
-                        if (distance <= maxDistanceBp) {
-                            int binIdx = distance / binSizeBp;
-                            sumR2[binIdx] += r2;
-                            countR2[binIdx]++;
+                // Calculate pairwise LD with all markers currently in the window in parallel
+                if (!slidingWindow.isEmpty()) {
+                    List<MarkerDosage> currentWindow = new ArrayList<>(slidingWindow);
+                    final MarkerDosage currentMarker = marker;
+                    
+                    executor.submit(() -> {
+                        for (MarkerDosage pastMarker : currentWindow) {
+                            double r2 = calculatePearsonR2(currentMarker, pastMarker, numSamples);
+                            if (r2 >= 0.0) {
+                                int distance = currentMarker.pos - pastMarker.pos;
+                                synchronized (pw) {
+                                    pw.printf("%s\t%d\t%s\t%d\t%s\t%d\t%.6f%n",
+                                            currentMarker.chrom, pastMarker.pos, pastMarker.id, currentMarker.pos, currentMarker.id, distance, r2);
+                                }
+                                
+                                synchronized (matrixLock) {
+                                    int binIdx = distance / binSizeBp;
+                                    if (binIdx < numBins) {
+                                        sumR2[binIdx] += r2;
+                                        countR2[binIdx]++;
+                                    }
+                                }
+                                totalPairs.incrementAndGet();
+                            }
                         }
-                        
-                        totalPairs++;
-                    }
+                    });
                 }
 
                 slidingWindow.addLast(marker);
-                totalProcessed++;
+                totalProcessed.incrementAndGet();
             }
 
-            System.out.println("[LD] Complete. Processed markers: " + totalProcessed);
-            System.out.println("[LD] Pairwise LD combinations calculated: " + totalPairs);
+            executor.shutdown();
+            try { executor.awaitTermination(1, TimeUnit.DAYS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+            System.out.println("[LD] Complete. Processed markers: " + totalProcessed.get());
+            System.out.println("[LD] Pairwise LD combinations calculated: " + totalPairs.get());
 
             // Calculate LD Half-Decay Distance
             double maxR2 = 0.0;

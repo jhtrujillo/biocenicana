@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioCenicana | Web Control Center</title>
+    <style>
+        :root {
+            --primary: #00ff88;
+            --secondary: #00d4ff;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent-gradient: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            background: rgba(15, 23, 42, 0.95);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            padding: 12px 15px;
+            border-radius: 10px;
+            color: var(--text-dim);
+            text-decoration: none;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            border-left: 3px solid var(--primary);
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: radial-gradient(circle at top right, rgba(0, 212, 255, 0.05), transparent);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .welcome-msg h1 { margin: 0; font-size: 1.8rem; }
+        .welcome-msg p { margin: 5px 0 0; color: var(--text-dim); }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover { transform: translateY(-5px); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--text-dim); font-size: 0.9rem; }
+        
+        .input-control {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .btn-run {
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 10px;
+            color: #000;
+            font-weight: 700;
+            padding: 12px 25px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: opacity 0.3s;
+        }
+
+        .btn-run:hover { opacity: 0.9; }
+
+        /* --- Console --- */
+        .console-container {
+            margin-top: 30px;
+            background: #000;
+            border-radius: 15px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--primary);
+            position: relative;
+        }
+
+        .console-line { margin-bottom: 5px; font-size: 0.9rem; }
+        .line-info { color: var(--primary); }
+        .line-error { color: #ff5555; }
+        .line-cmd { color: var(--secondary); }
+
+        .status-badge {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="sidebar">
+        <div class="logo">🧬 BioCenicana</div>
+        <div class="nav-item active">Dashboard</div>
+        <div class="nav-item">VCF Filter</div>
+        <div class="nav-item">Genetic Distance</div>
+        <div class="nav-item">LD Decay</div>
+        <div class="nav-item">Pop Structure (PCA)</div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div class="welcome-msg">
+                <h1>Web Control Center</h1>
+                <p>Suite de Análisis Genómico en Paralelo</p>
+            </div>
+            <div class="status-badge" id="app-status">ENGINE READY</div>
+        </div>
+
+        <div class="card-grid">
+            <!-- VCF Stats Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">VCF Statistics</div>
+                </div>
+                <div class="form-group">
+                    <label>Input VCF</label>
+                    <input type="text" id="stats-vcf" class="input-control" value="filtered_50k_strict_biocenicana.vcf">
+                </div>
+                <button class="btn-run" onclick="runStats()">Run Diagnostics</button>
+            </div>
+
+            <!-- Results Gallery Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Results Gallery</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="btn-run" style="background: rgba(255,255,255,0.1); color: white;" onclick="window.open('/ld_results_50k_decay.html', '_blank')">👁️ View LD Decay Plot</button>
+                    <button class="btn-run" style="background: rgba(255,255,255,0.1); color: white;" onclick="window.open('/pca_results_50k.pca.html', '_blank')">👁️ View PCA Clusters</button>
+                    <button class="btn-run" style="background: rgba(255,255,255,0.1); color: white;" onclick="window.open('/docs/benchmark_report.html', '_blank')">📄 View Final Report</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="console-container" id="console">
+            <div class="console-line line-info">[SYSTEM] Initialized BioCenicana Web Engine...</div>
+            <div class="console-line line-info">[SYSTEM] Ready for analysis.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const consoleEl = document.getElementById('console');
+
+    function log(msg, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `console-line line-${type}`;
+        div.innerText = msg;
+        consoleEl.appendChild(div);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    async function runStats() {
+        const vcf = document.getElementById('stats-vcf').value;
+        const out = document.getElementById('stats-out').value;
+        log(`[WEB] Initiating VCF Stats for ${vcf}...`, 'cmd');
+        
+        try {
+            const response = await fetch('/api/analysis/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    command: 'vcf-stats',
+                    args: `-v ${vcf} -o ${out} -p 10 -t 4`
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                log(data.output, 'info');
+                log('[SUCCESS] Statistics generated successfully.', 'info');
+            } else {
+                log('[ERROR] ' + data.error, 'error');
+            }
+        } catch (e) {
+            log('[ERROR] Connection failed.', 'error');
+        }
+    }
+
+    async function runLD() {
+        const window = document.getElementById('ld-window').value;
+        const threads = document.getElementById('ld-threads').value;
+        const vcf = 'filtered_50k_strict_biocenicana.vcf';
+        log(`[WEB] Calculating LD Decay (Window: ${window}bp, Threads: ${threads})...`, 'cmd');
+
+        try {
+            const response = await fetch('/api/analysis/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    command: 'ld',
+                    args: `-v ${vcf} -o web_ld.tsv -w ${window} -p 10 -t ${threads} --html`
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                log(data.output, 'info');
+                log('[SUCCESS] LD analysis complete. Dashboard: web_ld_decay.html', 'info');
+            } else {
+                log('[ERROR] ' + data.error, 'error');
+            }
+        } catch (e) {
+            log('[ERROR] Connection failed.', 'error');
+        }
+    }
+</script>
+
+</body>
+</html>

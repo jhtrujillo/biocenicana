@@ -42,13 +42,15 @@ public class GwasPolyExporter {
 
                 pw.print(marker + "," + chrom + "," + pos);
 
-                // Identify depth index (AD or BSDP)
+                // Identify depth indices
                 String[] format = cols[8].split(":");
-                int adIdx = -1;
+                int adIdx = -1, bsdpIdx = -1, roIdx = -1, aoIdx = -1;
                 for (int i = 0; i < format.length; i++) {
-                    if (format[i].equals("AD") || format[i].equals("BSDP")) {
-                        adIdx = i;
-                        break;
+                    switch (format[i]) {
+                        case "AD":   adIdx   = i; break;
+                        case "BSDP": bsdpIdx = i; break;
+                        case "RO":   roIdx   = i; break;
+                        case "AO":   aoIdx   = i; break;
                     }
                 }
 
@@ -59,18 +61,10 @@ public class GwasPolyExporter {
                     String acgtString = "";
                     double dosage = -1; // -1 means missing
 
-                    // 1. Try to get dosage from AD if available
-                    if (adIdx != -1 && fields.length > adIdx && !fields[adIdx].equals(".")) {
-                        String[] adValues = fields[adIdx].split(",");
-                        if (adValues.length >= 2) {
-                            try {
-                                double rCount = Double.parseDouble(adValues[0]);
-                                double aCount = Double.parseDouble(adValues[1]);
-                                if (rCount + aCount > 0) {
-                                    dosage = rCount / (rCount + aCount);
-                                }
-                            } catch (NumberFormatException ignored) {}
-                        }
+                    // 1. Try to get dosage from read counts using centralized parser
+                    double[] counts = AlleleDosageCalculator.getRefAltCounts(fields, adIdx, bsdpIdx, roIdx, aoIdx, ref, alt);
+                    if (counts != null && counts[0] + counts[1] > 0) {
+                        dosage = counts[0] / (counts[0] + counts[1]); // ref proportion
                     }
 
                     // 2. Fallback to GT if AD is missing
