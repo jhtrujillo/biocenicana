@@ -106,3 +106,24 @@ If you have data from different sequencing batches or chromosomes, use this to j
 java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.vcf -o consolidated.vcf
 ```
 *   **Intelligence**: Automatically detects samples in each file and creates a unified cross-table.
+
+---
+
+## Step 10: Comparative Genomics (`comp-gen`)
+Integrate disparate genomic datasets to study synteny and conservation between genomes. This tool supports outputs from **McScanX** and **SynMap2 (CoGe)**.
+
+```bash
+java -jar target/biocenicana-1.0.jar comp-gen \
+  --gff1 genome1.gff \
+  --gff2 genome2.gff \
+  --collinearity results.collinearity \
+  --cds1 genome1.cds.fa \
+  --cds2 genome2.cds.fa \
+  -o integrated_report.tsv
+```
+*   **Results**: Generates an integrated TSV report linking syntenic blocks, gene coordinates, and sequence lengths.
+*   **Input Support**: Automatically detects McScanX `.collinearity` files or SynMap2 tabular exports.
+
+---
+
+*This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*
