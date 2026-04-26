@@ -388,10 +388,10 @@ Más allá de la supremacía computacional, la verdadera fortaleza estadística 
 
 **Figura 5. Topologías Filogenéticas Interactivas y Proyección Poblacional.**
 
-| ![Filograma Radial](../assets/tree1.svg) | ![Cladograma Circular](../assets/ree2.svg) |
+| ![Filograma Radial](../assets/tree1.png) | ![Cladograma Circular](../assets/tree2.png) |
 | :---: | :---: |
 | <small><b>(A) Filograma Radial:</b> Las longitudes de las ramas son proporcionales a las distancias genéticas euclidianas. Esta vista circular maximiza el uso del espacio visual para paneles de gran tamaño.</small> | <small><b>(B) Cladograma Circular:</b> Prioriza puramente la topología de ramificación, alineando las ramas para facilitar la identificación de la relación de ancestría común más reciente (MRCA).</small> |
-| ![Filograma Rectangular](../assets/ree3.svg) | ![Cladograma Rectangular](../assets/ree4.svg) |
+| ![Filograma Rectangular](../assets/tree3.png) | ![Cladograma Rectangular](../assets/tree4.png) |
 | <small><b>(C) Filograma Rectangular:</b> Formato clásico de publicación. Permite rastrear y escalar la divergencia genética exacta (eje X) desde el nodo raíz hasta cada genotipo contemporáneo.</small> | <small><b>(D) Cladograma Rectangular:</b> Alinea todos los nodos hoja a la misma profundidad, haciendo extremadamente clara la correspondencia de color inyectada desde los resultados del PCA poblacional.</small> |
 
 > [!NOTE]
