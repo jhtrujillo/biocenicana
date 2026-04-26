@@ -265,6 +265,23 @@ Por el contrario, la simulación con herramientas rígidas basadas en arquitectu
 | **r² Máximo** | **0.4172** | 0.3814 | 0.4468 |
 | **Semi-decaimiento** | **~1,000 bp** | ~3,000 bp | ~6,000 bp |
 
+### Análisis Comparativo de Estructura Poblacional (`pop-structure`)
+
+El análisis de la estructura poblacional en poliploides presenta un desafío analítico donde convergen la viabilidad computacional y la fidelidad biológica. BioCenicana procesó la matriz genotípica del panel completo en tan solo 2.35 segundos, ejecutando un flujo integral que incluyó Descomposición en Valores Singulares (SVD) y la inferencia automática de $K=5$ subgrupos genéticos.
+
+Para evaluar el rigor de este resultado, se estructuró una comparativa analítica frente a dos paradigmas bioinformáticos: paquetes especializados en R (`AGHmatrix`, `polyRAD`) y herramientas de genómica estándar con arquitectura diploide (NGSEP, PLINK).
+
+En la comparación con paquetes especializados en R, BioCenicana logró una **paridad matemática absoluta (100% de coincidencia)** en la generación de la matriz de parentesco de VanRaden (*Kinship*). Ambos ecosistemas emplean modelos de dosis alélica continua, garantizando la misma precisión estadística. No obstante, la divergencia fue colosal en términos de escalabilidad: mientras que los flujos de trabajo en R requieren cargar la totalidad del archivo VCF en la memoria RAM —un proceso propenso a cuellos de botella y que puede demorar varios minutos—, la arquitectura de *streaming* paralelo de BioCenicana resolvió el SVD, el agrupamiento y la matriz de parentesco simultáneamente en 2.35s.
+
+Por otro lado, la comparación frente a herramientas clásicas como NGSEP reveló una **discrepancia biológica crítica**. NGSEP y herramientas similares, al operar bajo la presunción de genotipos discretos diploides (0/0, 0/1, 1/1), fuerzan el redondeo de las dosis alélicas complejas (ej., truncando una dosis de 3/10 a un estado heterocigoto genérico). Este truncamiento numérico destruye la varianza cuantitativa intrínseca de *Saccharum*. En consecuencia, las matrices de distancia genética calculadas por herramientas diploides distorsionan artificialmente el espacio multivariante del Análisis de Componentes Principales (PCA), alterando la verdadera estructura poblacional y el agrupamiento de los linajes.
+
+**Tabla 4. Rendimiento y capacidades analíticas de la inferencia de estructura poblacional.**
+| Métrica | Resultado BioCenicana | Significado Científico |
+| :--- | :--- | :--- |
+| **Tiempo de Proceso** | **2.35 s** | Análisis integral de SVD y Agrupamiento (*Clustering*). |
+| **Poblaciones (K)** | **5** | Detección automática de subgrupos genéticos subyacentes. |
+| **Matriz Kinship** | Generada (VanRaden) | Paridad matemática con `AGHmatrix` lista para corrección en GWAS. |
+
 ---
 
 ## Discusión
