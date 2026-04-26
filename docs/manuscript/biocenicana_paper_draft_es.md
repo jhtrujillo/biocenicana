@@ -452,14 +452,20 @@ Esta fusión permite generar "Mapas de Calor Evolutivos" bidimensionales. Al anc
 
 Para complementar la genómica estructural con una métrica pura de presión selectiva, BioCenicana incluye el submódulo `kaks-calc`. Basado en el modelo estocástico de Nei y Gojobori (1986), este motor computa nativamente las tasas de sustitución no sinónimas (Ka) y sinónimas (Ks) directamente a partir de las secuencias codificantes (CDS) alineadas por la matriz de colinealidad. La inyección de este ratio (ω = Ka/Ks) en el dashboard de sintenia permite a los investigadores visualizar interactivamente qué genes conservados dentro de un bloque estructural están experimentando evolución purificadora (ω < 1), evolución neutral (ω ≈ 1) o selección darwiniana positiva (ω > 1). 
 
-**Figura 6. Dashboard Interactivo de Sintenia y Densidad Evolutiva.**
+**Figura 6. Dashboard Interactivo de Sintenia, Genómica Estructural y Dinámica Evolutiva.**
 
-| ![Bloques de Sintenia](../assets/comgenomic1.png) | ![Heatmap Evolutivo y Ka/Ks](../assets/comgenomic2.png) |
+| ![Pan-genoma](../assets/comgenomic4.png) | ![Filtro Base](../assets/comgenomic1.png) |
 | :---: | :---: |
-| <small><b>(A) Alineamiento de Macro-Sintenia:</b> Visualización interactiva de las relaciones de ortología estructural entre cromosomas homólogos. Los bloques coloreados representan regiones de alta colinealidad genética.</small> | <small><b>(B) Dinámica Funcional (SNPs y Ka/Ks):</b> Integración espacial de la abundancia alélica. Los colores cálidos demarcan *hotspots* mutacionales, enriquecidos interactivamente con datos de presión de selección.</small> |
+| <small><b>(A) Macro-Sintenia Pan-genómica:</b> Mapeo masivo de genomas completos (>110k genes cruzados).</small> | <small><b>(B) Filtrado Estructural Dinámico:</b> Aislamiento de regiones sinténicas mediante selección de secuencias homólogas.</small> |
+| ![Filtro Estricto y Tooltips](../assets/comgenomic2.png) | ![Alineación de Subgenomas](../assets/comgenomic5.png) |
+| <small><b>(C) Depuración de Ruido e Interactividad:</b> Aplicación de umbrales altos de conservación y extracción *on-demand* de funciones génicas.</small> | <small><b>(D) Arquitectura de Subgenomas:</b> Mapeo estructural focalizado de una línea comercial contra la referencia ancestral.</small> |
+| ![Heatmap Evolutivo](../assets/comgenomic3.png) | ![Correlación Evolutiva/Estructural](../assets/comgenomic6.png) |
+| <small><b>(E) Mapa de Calor Evolutivo (SNPs):</b> Transición de la vista física a funcional, coloreando los bloques por su diversidad poblacional.</small> | <small><b>(F) Hotspots Mutacionales:</b> Visualización térmica sobre la estructura, identificando zonas de alta presión selectiva (rojo) y alta conservación (verde/azul).</small> |
+| ![Topología Circos](../assets/comgenomic7.png) | ![Aislamiento Circos](../assets/comgenomic8.png) |
+| <small><b>(G) Topología Circular (Circos):</b> Alineamiento de un cromosoma comercial contra múltiples alelos homólogos, ideal para análisis poliploides.</small> | <small><b>(H) Aislamiento de Señales:</b> Interacción de foco (*hover*) para iluminar relaciones ortólogas específicas en redes densas.</small> |
 
 > [!NOTE]
-> **Navegación Genómica de Alta Resolución:** Las visualizaciones de la Figura 6 son capturas estáticas extraídas del entorno `visor_sintenia.html`. Este módulo nativo, renderizado en HTML5, permite búsquedas interactivas por *GeneID*, exploración bajo demanda de los valores Ka/Ks en tooltips funcionales, y filtrado dinámico del ruido de fondo genómico sin necesidad de depender de ecosistemas bioinformáticos en la nube.
+> **Exploración Genómica en Vivo:** La Figura 6 presenta capturas estáticas de la suite analítica `comp-gen`. Puedes interactuar de forma inmersiva con el *Heatmap Evolutivo*, explorar los valores reales de presión de selección (Ka/Ks), aplicar filtros dinámicos y probar las transiciones topológicas en tiempo real a través del visor público disponible en: [johntrujillomonte.com/projects/biocenicana/visor_heatmap_evolutivo.html](https://johntrujillomonte.com/projects/biocenicana/visor_heatmap_evolutivo.html)
 
 ---
 
