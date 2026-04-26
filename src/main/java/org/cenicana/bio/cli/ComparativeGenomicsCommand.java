@@ -50,10 +50,13 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--vcf"}, description = "[Optional] VCF file mapped to Genome 2 (e.g., CC-01-1940) to calculate population diversity (SNP density) per syntenic block and generate an Evolutionary Heatmap.")
     private String vcf;
 
+    @Option(names = {"--kaks"}, description = "[Optional] Ka/Ks result file (TSV: Gene1 \\t Gene2 \\t Ka \\t Ks \\t Ka/Ks). Used to visualize evolutionary selection pressure.")
+    private String kaks;
+
     @Override
     public Integer call() throws Exception {
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks);
         return 0;
     }
 }

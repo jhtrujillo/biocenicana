@@ -22,7 +22,8 @@ public class ComparativeGenomicsAnalyzer {
     public void runAnalysis(String gff1, String gff2, String collinearity,
                             String cds1, String cds2, String prot1, String prot2,
                             String outputTsv, String vizOutput,
-                            String annotFile1, String annotFile2, String vcfFile) throws IOException {
+                            String annotFile1, String annotFile2, String vcfFile,
+                            String kaksFile) throws IOException {
         
         System.out.println("[Phase 1/4] Loading GFF files...");
         GffParser gffParser = new GffParser();
@@ -37,6 +38,28 @@ public class ComparativeGenomicsAnalyzer {
         Map<String, String> annot2 = annotLoader.load(annotFile2);
         System.out.println("  - Annot1: " + annot1.size() + " entries.");
         System.out.println("  - Annot2: " + annot2.size() + " entries.");
+
+        System.out.println("[Phase 1c/4] Loading Ka/Ks Selection Data...");
+        Map<String, double[]> kaksData = new HashMap<>(); // Key: G1:G2, Value: [Ka, Ks, Ka/Ks]
+        if (kaksFile != null && !kaksFile.isBlank()) {
+            try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(java.nio.file.Paths.get(kaksFile))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.trim().isEmpty() || line.startsWith("#")) continue;
+                    String[] p = line.split("\t");
+                    if (p.length >= 5) {
+                        try {
+                            String key = p[0] + ":" + p[1];
+                            double ka = Double.parseDouble(p[2]);
+                            double ks = Double.parseDouble(p[3]);
+                            double ratio = Double.parseDouble(p[4]);
+                            kaksData.put(key, new double[]{ka, ks, ratio});
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+            System.out.println("  - Loaded Ka/Ks for " + kaksData.size() + " gene pairs.");
+        }
         
         System.out.println("[Phase 2/4] Loading Sequence Data (FASTA)...");
         FastaReader fastaReader = new FastaReader();
@@ -167,7 +190,7 @@ public class ComparativeGenomicsAnalyzer {
             }
 
             System.out.println("[Viz] Generating interactive visualization...");
-            generateVisualization(blocks, genes1, genes2, annot1, annot2, blockDiv, vizOutput);
+            generateVisualization(blocks, genes1, genes2, annot1, annot2, blockDiv, kaksData, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
     }
@@ -175,6 +198,7 @@ public class ComparativeGenomicsAnalyzer {
     private void generateVisualization(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
                                        Map<String, String> annot1, Map<String, String> annot2,
                                        Map<String, Double> blockDiv,
+                                       Map<String, double[]> kaksData,
                                        String outputPath) throws IOException {
         StringBuilder dataJson = new StringBuilder("[");
         boolean first = true;
@@ -188,8 +212,11 @@ public class ComparativeGenomicsAnalyzer {
                     String desc1 = annot1.getOrDefault(g1.getId(), g1.getDescription()).replace("\"", "'");
                     String desc2 = annot2.getOrDefault(g2.getId(), g2.getDescription()).replace("\"", "'");
                     double div = blockDiv.getOrDefault(block.getBlockId(), 0.0);
-                    dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
-                            block.getBlockId(), block.getOrientation(), div,
+                    double[] kk = kaksData.getOrDefault(g1.getId() + ":" + g2.getId(), null);
+                    String kkJson = kk == null ? "\"kk\":null" : String.format(java.util.Locale.US, "\"kk\":{\"ka\":%.4f,\"ks\":%.4f,\"r\":%.4f}", kk[0], kk[1], kk[2]);
+                    
+                    dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,%s,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
+                            block.getBlockId(), block.getOrientation(), div, kkJson,
                             g1.getId(), g1.getChromosome(), g1.getStart(), g1.getEnd(), desc1,
                             g2.getId(), g2.getChromosome(), g2.getStart(), g2.getEnd(), desc2));
                     first = false;

@@ -48,6 +48,23 @@ def generate_mock_collinearity(filename, pref1, pref2, num_genes=50, chrom1="Chr
             g2 = f"{pref2}_{chrom2}_g{i:04d}"
             f.write(f"{i-1}: {g1} {g2} 0.0\n")
 
+def generate_mock_kaks(filename, pref1, pref2, num_genes=50, chrom1="Chr01", chrom2="Chr01"):
+    with open(filename, 'w') as f:
+        f.write("#Gene1\tGene2\tKa\tKs\tKa/Ks\n")
+        for i in range(1, num_genes + 1):
+            g1 = f"{pref1}_{chrom1}_g{i:04d}"
+            g2 = f"{pref2}_{chrom2}_g{i:04d}"
+            ks = random.uniform(0.01, 0.5)
+            # Most genes are purifying (Ka/Ks < 1)
+            # Some are neutral (Ka/Ks ~ 1)
+            # A few are positive (Ka/Ks > 1)
+            r_type = random.random()
+            if r_type < 0.8: kaks = random.uniform(0.05, 0.5)  # Purifying
+            elif r_type < 0.95: kaks = random.uniform(0.8, 1.2) # Neutral
+            else: kaks = random.uniform(1.5, 3.5)              # Positive
+            ka = ks * kaks
+            f.write(f"{g1}\t{g2}\t{ka:.4f}\t{ks:.4f}\t{kaks:.4f}\n")
+
 # Directory for simulation
 sim_dir = "simulation_data"
 if not os.path.exists(sim_dir):
@@ -61,10 +78,13 @@ for g in genomes:
     generate_mock_gff_and_annot(f"{sim_dir}/{g}.gff", f"{sim_dir}/{g}_annot.tsv", g)
     generate_mock_fasta(f"{sim_dir}/{g}.cds.fa", g)
 
-print("[Sim] Generating Collinearity...")
+print("[Sim] Generating Collinearity and Ka/Ks...")
 # R570 vs CC01 (highly syntenic)
 generate_mock_collinearity(f"{sim_dir}/R570_vs_CC01.collinearity", "R570", "CC01")
+generate_mock_kaks(f"{sim_dir}/R570_vs_CC01.kaks.tsv", "R570", "CC01")
+
 # R570 vs Spontaneum (mostly syntenic)
 generate_mock_collinearity(f"{sim_dir}/R570_vs_Spont.collinearity", "R570", "Spont")
+generate_mock_kaks(f"{sim_dir}/R570_vs_Spont.kaks.tsv", "R570", "Spont")
 
 print(f"[Sim] Done! Data available in '{sim_dir}'")

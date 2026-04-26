@@ -22,7 +22,8 @@ import picocli.CommandLine.Command;
              JoinMapCommand.class,
              SnpExplorerCommand.class,
              VcfMergeCommand.class,
-             ComparativeGenomicsCommand.class
+             ComparativeGenomicsCommand.class,
+             KaKsCalcCommand.class
          })
 public class VcfToolkit {
 
