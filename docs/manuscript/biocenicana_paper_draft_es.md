@@ -297,17 +297,18 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 <br>
 
 **Figura 3. Resultados Visuales de Inferencia Poblacional (Generados por BioCenicana).** 
-*(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship) que demuestra la estructura de covarianza genómica.*
+*(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship). (E) Matriz de Distancia Genética Euclidiana por Pares.*
 
 <p align="center">
-  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105834.png" width="45%" title="Scree Plot">
-  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105822.png" width="45%" title="WCSS vs K">
+  <img src="../assets/pca_variance.png" width="45%" alt="Scree Plot" title="Scree Plot">
+  <img src="../assets/wcss_k.png" width="45%" alt="WCSS vs K" title="WCSS vs K">
 </p>
 <p align="center">
-  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105817.png" width="90%" title="Dendrogram">
+  <img src="../assets/dendrogram.png" width="90%" alt="Dendrogram" title="Dendrogram">
 </p>
 <p align="center">
-  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105871.png" width="90%" title="Kinship Matrix">
+  <img src="../assets/kinship_heatmap.png" width="45%" alt="Kinship Matrix" title="Kinship Matrix">
+  <img src="../assets/distance_heatmap.png" width="45%" alt="Euclidean Distance" title="Euclidean Distance">
 </p>
 
 ---
