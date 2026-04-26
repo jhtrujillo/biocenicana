@@ -296,7 +296,7 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 
 <br>
 
-**Figura 3. Resultados Visuales de Inferencia Poblacional (Generados por BioCenicana).** 
+**Figura 3. Inferencia de Clústeres Genéticos y Matrices de Parentesco.** 
 *(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship). (E) Matriz de Distancia Genética Euclidiana por Pares.*
 
 <p align="center">
@@ -309,6 +309,18 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 <p align="center">
   <img src="../assets/Kinship.png" width="45%" alt="Kinship Matrix" title="Kinship Matrix">
   <img src="../assets/GeneticDistanceMatrixHeatmap.png" width="45%" alt="Euclidean Distance" title="Euclidean Distance">
+</p>
+
+<br>
+
+**Figura 4. Proyección de Estructura Poblacional y Ancestría.**
+*(A) Análisis de Componentes Principales (PCA) mostrando la separación espacial de los tres clústeres genéticos ($K=3$). (B) Proporciones de Ancestría (Admixture) revelando la contribución genómica de los linajes fundadores en cada accesión.*
+
+<p align="center">
+  <img src="../assets/ClusterVisualizationPCA.png" width="90%" alt="PCA Clusters" title="PCA Clusters">
+</p>
+<p align="center">
+  <img src="../assets/Ancestry.png" width="90%" alt="Ancestry Proportions" title="Ancestry Proportions">
 </p>
 
 ---
