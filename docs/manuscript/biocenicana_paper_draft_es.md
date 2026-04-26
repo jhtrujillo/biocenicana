@@ -426,7 +426,7 @@ Esta discrepancia no es un artefacto matemático, sino una representación biol�
 </p>
 
 > [!NOTE]
-> **Exploración de LD Interactiva:** La visualización estática de la Figura 7 fue extraída del dashboard estadístico `ld_results_50k_decay.html` autogenerado por BioCenicana, el cual permite interactuar con la curva de decaimiento y consultar pares de marcadores específicos.
+> **Exploración de LD Interactiva:** La visualización estática de la Figura 7 fue extraída del dashboard estadístico autogenerado por BioCenicana. El visor interactivo original está disponible públicamente en [johntrujillomonte.com/projects/biocenicana/ld_results_50k_decay.html](https://johntrujillomonte.com/projects/biocenicana/ld_results_50k_decay.html). Este entorno web permite interactuar con la curva de decaimiento y consultar valores $r^2$ exactos para pares de marcadores específicos.
 
 **Tabla 7. Comparación de Capacidades en el Cálculo de LD (Ploidía 10x).**
 
