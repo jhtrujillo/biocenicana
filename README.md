@@ -173,4 +173,55 @@ By adding the `--viz` flag, the engine generates an interactive, high-performanc
 
 ---
 
+## Step 11: SNP-Based Phylogenetic Tree (`snp-tree`)
+Build an interactive **Neighbor-Joining phylogenetic tree** directly from a VCF file. The tool computes a pairwise genetic distance matrix and reconstructs the tree topology, then generates a standalone HTML viewer that works **100% offline** (no internet or external libraries required).
+
+```bash
+java -jar target/biocenicana-1.0.jar snp-tree \
+  -v filtered.vcf \
+  -p 10 \
+  --output filogenia.nwk
+```
+
+*   **Output**: `filogenia.nwk` (Newick format) and `filogenia.html` (interactive viewer).
+
+#### Optional: Color Nodes by PCA Clusters (`--pca`)
+Combine the tree with population structure results from Step 4 (`pop-structure`) to color each leaf node by its cluster assignment:
+
+```bash
+java -jar target/biocenicana-1.0.jar snp-tree \
+  -v filtered.vcf \
+  -p 10 \
+  --output filogenia.nwk \
+  --pca my_population.pca.csv
+```
+
+#### Interactive Viewer Features
+Open the generated `.html` file in any browser to access:
+
+*   **4 Layout Modes** (switchable on the fly):
+    *   **Rectangular Cladogram**: Classical tree, all leaves at the same depth.
+    *   **Rectangular Phylogram**: Branch lengths proportional to genetic distance.
+    *   **Radial Cladogram**: Circular layout for topology overview.
+    *   **Radial Phylogram**: Circular layout with real branch lengths.
+*   **Genetic Distance Clustering**: A slider that dynamically cuts the tree at a distance threshold, automatically grouping and color-coding clades by genetic proximity.
+*   **PCA Cluster Coloring** (requires `--pca`): Colors leaf nodes by their population structure cluster using any of the 3 methods available: **K-Means**, **DBSCAN**, or **GMM**.
+*   **Sample Search**: Highlights matching nodes in red for quick identification.
+*   **Interactive Tooltip**: Shows branch length and cumulative distance on hover.
+*   **Pan / Zoom**: Mouse drag and scroll wheel for navigation.
+*   **SVG Export**: Exports a high-resolution vector image for publications.
+
+#### Parameters
+| Flag | Description |
+|---|---|
+| `-v` / `--vcf` | **(Required)** Input VCF file |
+| `-p` / `--ploidy` | **(Required)** Ploidy level (e.g., `10` for sugarcane) |
+| `-o` / `--output` | **(Required)** Output Newick file path (`.nwk`) |
+| `--pca` | **(Optional)** PCA CSV from `pop-structure` to color nodes by cluster |
+| `-c` / `--caller` | Variant caller hint (`auto`, `gatk`, `freebayes`, `ngsep`). Default: `auto` |
+| `-md` / `--min-depth` | Minimum genotype depth to trust a call. Default: `0` |
+| `-t` / `--threads` | Number of CPU threads. Default: all available |
+
+---
+
 *This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*
