@@ -361,7 +361,7 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 </p>
 
 > [!NOTE]
-> **Disponibilidad de Datos Interactivos:** El archivo HTML generado nativamente por BioCenicana, que contiene el modelo tridimensional rotatorio y los metadatos completos del análisis poblacional, está disponible para su exploración interactiva como Material Suplementario en el repositorio de GitHub: [Explorar Dashboard Interactivo 3D (PCA)](../assets/pca_interactive_dashboard.html).
+> **Disponibilidad de Datos Interactivos:** El archivo HTML generado nativamente por BioCenicana, que contiene el modelo tridimensional rotatorio y los metadatos completos del análisis poblacional, está disponible para su exploración interactiva como Material Suplementario en el siguiente enlace web: [Explorar Dashboard Interactivo 3D (PCA)](https://johntrujillomonte.com/projects/biocenicana/pca_interactive_dashboard.html).
 
 ---
 
