@@ -407,7 +407,7 @@ Más allá de la supremacía computacional, la verdadera fortaleza estadística 
 </p>
 
 > [!NOTE]
-> **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El archivo interactivo original `biocenicana_tree.html` permite alternar entre estos 3 modos en tiempo real, hacer zoom y ajustar umbrales de distancia para cortar clados.
+> **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El visor interactivo original está disponible públicamente en [johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html](https://johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html). Este entorno web permite alternar entre estos 3 modos en tiempo real, hacer zoom interactivo y ajustar dinámicamente los umbrales de distancia para identificar y aislar clados específicos.
 
 ---
 
