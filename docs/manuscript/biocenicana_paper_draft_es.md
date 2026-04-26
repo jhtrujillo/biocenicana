@@ -445,12 +445,6 @@ Para complementar la genómica estructural con una métrica pura de presión sel
 
 ---
 
-## Conclusiones
-
-BioCenicana se presenta como un ecosistema bioinformático de alto rendimiento, diseñado específicamente para superar las limitaciones computacionales en el análisis de genomas poliploides. Mediante la implementación de un motor de *streaming* paralelo, la herramienta logra procesar millones de marcadores genéticos en hardware estándar, superando en velocidad a herramientas establecidas por órdenes de magnitud sin comprometer la precisión matemática.
-
-La aplicación de BioCenicana a un panel de diversidad de caña de azúcar demostró su capacidad para resolver subestructuras poblacionales complejas, identificar relaciones evolutivas coherentes con pedigrís conocidos y mapear la dinámica mutacional sobre bloques estructurales conservados. La entrega de resultados mediante paneles HTML interactivos y autónomos elimina la barrera técnica para los investigadores no bioinformáticos, facilitando la interpretación inmediata de datos genómicos complejos. En definitiva, BioCenicana constituye una herramienta estratégica para acelerar el mejoramiento genético de la caña de azúcar y otras especies poliploides, aportando rigor estadístico y eficiencia operativa a la agricultura moderna.
-
 ---
 
 ## Disponibilidad de Datos
