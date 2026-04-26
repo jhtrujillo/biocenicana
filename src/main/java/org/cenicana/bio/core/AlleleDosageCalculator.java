@@ -347,9 +347,29 @@ public class AlleleDosageCalculator {
 	}
 
 	// ── Public API: Distance Matrix ────────────────────────────────────────────
+	
+	public static class DistanceResult {
+		public String[] sampleIds;
+		public float[][] matrix;
+	}
+
+	public DistanceResult computeDistanceMatrix(String vcfFile, int ploidy, String callerType, 
+			int minDepth, boolean adaptiveRounding, int threads) throws IOException {
+		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
+		int n = Math.max(ploidy, 2);
+		float[] ploidyLevels = new float[n + 1];
+		for (int y = 0; y <= n; y++) ploidyLevels[y] = (1.0f / n) * y;
+		
+		float[][] matrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, sampleIds.length, adaptiveRounding, threads);
+		
+		DistanceResult dr = new DistanceResult();
+		dr.sampleIds = sampleIds;
+		dr.matrix = matrix;
+		return dr;
+	}
 
 	/**
-	 * Computes the N x N genetic distance matrix between all samples and prints it
+	 * Prints the N x N genetic distance matrix between all samples and prints it
 	 * as a TSV matrix to the specified output file (or stdout if null).
 	 */
 	public void computeAndPrintDistanceMatrix(String vcfFile, int ploidy, String callerType, 

@@ -137,7 +137,10 @@ public class ComparativeGenomicsAnalyzer {
         if (vizOutput != null) {
             if (vcfFile != null && !vcfFile.isBlank()) {
                 System.out.println("[Phase 4b/5] Calculando abundancia de marcadores en regiones colineales (VCF)...");
-                Map<String, double[]> bStats = new HashMap<>(); // [start, end, snpCount]
+                // --- HIGH PERFORMANCE VCF PARSING ---
+                System.out.println("[Phase 4b/5] Indexing blocks by chromosome for fast VCF lookup...");
+                // Index: Map<NormalizedChr, List<RegionRecord>>
+                Map<String, List<VcfRegion>> chrIndex = new HashMap<>();
                 for (SyntenicBlock block : blocks) {
                     long minStart1 = Long.MAX_VALUE, maxEnd1 = 0;
                     long minStart2 = Long.MAX_VALUE, maxEnd2 = 0;
@@ -156,35 +159,55 @@ public class ComparativeGenomicsAnalyzer {
                             maxEnd2 = Math.max(maxEnd2, g2.getEnd());
                         }
                     }
-                    if (chr1 != null) bStats.put(block.getBlockId() + "___g1___" + chr1, new double[]{minStart1, maxEnd1, 0});
-                    if (chr2 != null) bStats.put(block.getBlockId() + "___g2___" + chr2, new double[]{minStart2, maxEnd2, 0});
+                    if (chr1 != null) {
+                        String nChr = normalizeChromosome(chr1);
+                        chrIndex.computeIfAbsent(nChr, k -> new ArrayList<>()).add(new VcfRegion(block.getBlockId(), minStart1, maxEnd1));
+                    }
+                    if (chr2 != null) {
+                        String nChr = normalizeChromosome(chr2);
+                        chrIndex.computeIfAbsent(nChr, k -> new ArrayList<>()).add(new VcfRegion(block.getBlockId(), minStart2, maxEnd2));
+                    }
                 }
-                
+
+                System.out.println("  - Starting high-speed VCF scan...");
+                long snpTotal = 0;
                 try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(java.nio.file.Paths.get(vcfFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        if (line.startsWith("#") || line.trim().isEmpty()) continue;
-                        String[] parts = line.split("\t", 3);
-                        if (parts.length < 2) continue;
-                        String vcfChr = normalizeChromosome(parts[0]);
-                        long pos;
-                        try { pos = Long.parseLong(parts[1]); } catch (Exception e) { continue; }
+                        if (line.isEmpty() || line.charAt(0) == '#') continue;
                         
-                        for (Map.Entry<String, double[]> e : bStats.entrySet()) {
-                            String blockChr = normalizeChromosome(e.getKey().split("___")[2]);
-                            if (blockChr.equals(vcfChr)) {
-                                double[] vals = e.getValue();
-                                if (pos >= vals[0] && pos <= vals[1]) vals[2]++;
+                        // Ultra-fast parsing of first two columns without full split
+                        int tab1 = line.indexOf('\t');
+                        if (tab1 < 1) continue;
+                        int tab2 = line.indexOf('\t', tab1 + 1);
+                        if (tab2 < 1) continue;
+                        
+                        String vcfChrRaw = line.substring(0, tab1);
+                        String vcfChr = normalizeChromosome(vcfChrRaw);
+                        
+                        List<VcfRegion> regions = chrIndex.get(vcfChr);
+                        if (regions != null) {
+                            long pos = Long.parseLong(line.substring(tab1 + 1, tab2));
+                            for (VcfRegion reg : regions) {
+                                if (pos >= reg.start && pos <= reg.end) {
+                                    reg.count++;
+                                }
                             }
                         }
+                        snpTotal++;
+                        if (snpTotal % 500000 == 0) System.out.print(".");
                     }
                 }
-                for (Map.Entry<String, double[]> e : bStats.entrySet()) {
-                    String bId = e.getKey().split("___")[0];
-                    double[] vals = e.getValue();
-                    if (vals[2] > 0) {
-                        double sizeKb = Math.max(1, (vals[1] - vals[0]) / 1000.0);
-                        blockDiv.put(bId, blockDiv.getOrDefault(bId, 0.0) + (vals[2] / sizeKb));
+                System.out.println("\n  - VCF scan complete. Calculating final density...");
+
+                // Aggregating counts back to blockDiv
+                for (List<VcfRegion> regions : chrIndex.values()) {
+                    for (VcfRegion reg : regions) {
+                        if (reg.count > 0) {
+                            double sizeKb = Math.max(1, (reg.end - reg.start) / 1000.0);
+                            double density = reg.count / sizeKb;
+                            blockDiv.put(reg.blockId, blockDiv.getOrDefault(reg.blockId, 0.0) + density);
+                        }
                     }
                 }
             }
@@ -264,5 +287,13 @@ public class ComparativeGenomicsAnalyzer {
         s = s.replace("chromosome", "").replace("chr", "").replace("contig", "").replace("scaffold", "");
         s = s.replaceFirst("^0+(?!$)", "");
         return s;
+    }
+
+    private static class VcfRegion {
+        String blockId;
+        long start, end, count;
+        VcfRegion(String id, long s, long e) {
+            this.blockId = id; this.start = s; this.end = e; this.count = 0;
+        }
     }
 }

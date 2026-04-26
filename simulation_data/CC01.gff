@@ -1,0 +1,101 @@
+##gff-version 3
+Chr01	MockSource	gene	1000	1500	.	+	.	ID=CC01_Chr01_g0001;Name=CC01_Chr01_g0001;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	1000	1500	.	+	.	ID=CC01_Chr01_g0001.1;Parent=CC01_Chr01_g0001
+Chr01	MockSource	gene	2000	2500	.	+	.	ID=CC01_Chr01_g0002;Name=CC01_Chr01_g0002;description=kinase domain protein;Ontology_term=GO:0004672;Dbxref=PFAM:PF00069
+Chr01	MockSource	mRNA	2000	2500	.	+	.	ID=CC01_Chr01_g0002.1;Parent=CC01_Chr01_g0002
+Chr01	MockSource	gene	3000	3500	.	+	.	ID=CC01_Chr01_g0003;Name=CC01_Chr01_g0003;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	3000	3500	.	+	.	ID=CC01_Chr01_g0003.1;Parent=CC01_Chr01_g0003
+Chr01	MockSource	gene	4000	4500	.	+	.	ID=CC01_Chr01_g0004;Name=CC01_Chr01_g0004;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	4000	4500	.	+	.	ID=CC01_Chr01_g0004.1;Parent=CC01_Chr01_g0004
+Chr01	MockSource	gene	5000	5500	.	+	.	ID=CC01_Chr01_g0005;Name=CC01_Chr01_g0005;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	5000	5500	.	+	.	ID=CC01_Chr01_g0005.1;Parent=CC01_Chr01_g0005
+Chr01	MockSource	gene	6000	6500	.	+	.	ID=CC01_Chr01_g0006;Name=CC01_Chr01_g0006;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	6000	6500	.	+	.	ID=CC01_Chr01_g0006.1;Parent=CC01_Chr01_g0006
+Chr01	MockSource	gene	7000	7500	.	+	.	ID=CC01_Chr01_g0007;Name=CC01_Chr01_g0007;description=hypothetical protein
+Chr01	MockSource	mRNA	7000	7500	.	+	.	ID=CC01_Chr01_g0007.1;Parent=CC01_Chr01_g0007
+Chr01	MockSource	gene	8000	8500	.	+	.	ID=CC01_Chr01_g0008;Name=CC01_Chr01_g0008;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	8000	8500	.	+	.	ID=CC01_Chr01_g0008.1;Parent=CC01_Chr01_g0008
+Chr01	MockSource	gene	9000	9500	.	+	.	ID=CC01_Chr01_g0009;Name=CC01_Chr01_g0009;description=photosystem II reaction center;Ontology_term=GO:0009523;Dbxref=PFAM:PF00124
+Chr01	MockSource	mRNA	9000	9500	.	+	.	ID=CC01_Chr01_g0009.1;Parent=CC01_Chr01_g0009
+Chr01	MockSource	gene	10000	10500	.	+	.	ID=CC01_Chr01_g0010;Name=CC01_Chr01_g0010;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	10000	10500	.	+	.	ID=CC01_Chr01_g0010.1;Parent=CC01_Chr01_g0010
+Chr01	MockSource	gene	11000	11500	.	+	.	ID=CC01_Chr01_g0011;Name=CC01_Chr01_g0011;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	11000	11500	.	+	.	ID=CC01_Chr01_g0011.1;Parent=CC01_Chr01_g0011
+Chr01	MockSource	gene	12000	12500	.	+	.	ID=CC01_Chr01_g0012;Name=CC01_Chr01_g0012;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	12000	12500	.	+	.	ID=CC01_Chr01_g0012.1;Parent=CC01_Chr01_g0012
+Chr01	MockSource	gene	13000	13500	.	+	.	ID=CC01_Chr01_g0013;Name=CC01_Chr01_g0013;description=hypothetical protein
+Chr01	MockSource	mRNA	13000	13500	.	+	.	ID=CC01_Chr01_g0013.1;Parent=CC01_Chr01_g0013
+Chr01	MockSource	gene	14000	14500	.	+	.	ID=CC01_Chr01_g0014;Name=CC01_Chr01_g0014;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	14000	14500	.	+	.	ID=CC01_Chr01_g0014.1;Parent=CC01_Chr01_g0014
+Chr01	MockSource	gene	15000	15500	.	+	.	ID=CC01_Chr01_g0015;Name=CC01_Chr01_g0015;description=unknown protein
+Chr01	MockSource	mRNA	15000	15500	.	+	.	ID=CC01_Chr01_g0015.1;Parent=CC01_Chr01_g0015
+Chr01	MockSource	gene	16000	16500	.	+	.	ID=CC01_Chr01_g0016;Name=CC01_Chr01_g0016;description=hypothetical protein
+Chr01	MockSource	mRNA	16000	16500	.	+	.	ID=CC01_Chr01_g0016.1;Parent=CC01_Chr01_g0016
+Chr01	MockSource	gene	17000	17500	.	+	.	ID=CC01_Chr01_g0017;Name=CC01_Chr01_g0017;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	17000	17500	.	+	.	ID=CC01_Chr01_g0017.1;Parent=CC01_Chr01_g0017
+Chr01	MockSource	gene	18000	18500	.	+	.	ID=CC01_Chr01_g0018;Name=CC01_Chr01_g0018;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	18000	18500	.	+	.	ID=CC01_Chr01_g0018.1;Parent=CC01_Chr01_g0018
+Chr01	MockSource	gene	19000	19500	.	+	.	ID=CC01_Chr01_g0019;Name=CC01_Chr01_g0019;description=transcription factor MYB;Ontology_term=GO:0003677;Dbxref=PFAM:PF00249
+Chr01	MockSource	mRNA	19000	19500	.	+	.	ID=CC01_Chr01_g0019.1;Parent=CC01_Chr01_g0019
+Chr01	MockSource	gene	20000	20500	.	+	.	ID=CC01_Chr01_g0020;Name=CC01_Chr01_g0020;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	20000	20500	.	+	.	ID=CC01_Chr01_g0020.1;Parent=CC01_Chr01_g0020
+Chr01	MockSource	gene	21000	21500	.	+	.	ID=CC01_Chr01_g0021;Name=CC01_Chr01_g0021;description=hypothetical protein
+Chr01	MockSource	mRNA	21000	21500	.	+	.	ID=CC01_Chr01_g0021.1;Parent=CC01_Chr01_g0021
+Chr01	MockSource	gene	22000	22500	.	+	.	ID=CC01_Chr01_g0022;Name=CC01_Chr01_g0022;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	22000	22500	.	+	.	ID=CC01_Chr01_g0022.1;Parent=CC01_Chr01_g0022
+Chr01	MockSource	gene	23000	23500	.	+	.	ID=CC01_Chr01_g0023;Name=CC01_Chr01_g0023;description=transcription factor MYB;Ontology_term=GO:0003677;Dbxref=PFAM:PF00249
+Chr01	MockSource	mRNA	23000	23500	.	+	.	ID=CC01_Chr01_g0023.1;Parent=CC01_Chr01_g0023
+Chr01	MockSource	gene	24000	24500	.	+	.	ID=CC01_Chr01_g0024;Name=CC01_Chr01_g0024;description=hypothetical protein
+Chr01	MockSource	mRNA	24000	24500	.	+	.	ID=CC01_Chr01_g0024.1;Parent=CC01_Chr01_g0024
+Chr01	MockSource	gene	25000	25500	.	+	.	ID=CC01_Chr01_g0025;Name=CC01_Chr01_g0025;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	25000	25500	.	+	.	ID=CC01_Chr01_g0025.1;Parent=CC01_Chr01_g0025
+Chr01	MockSource	gene	26000	26500	.	+	.	ID=CC01_Chr01_g0026;Name=CC01_Chr01_g0026;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	26000	26500	.	+	.	ID=CC01_Chr01_g0026.1;Parent=CC01_Chr01_g0026
+Chr01	MockSource	gene	27000	27500	.	+	.	ID=CC01_Chr01_g0027;Name=CC01_Chr01_g0027;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	27000	27500	.	+	.	ID=CC01_Chr01_g0027.1;Parent=CC01_Chr01_g0027
+Chr01	MockSource	gene	28000	28500	.	+	.	ID=CC01_Chr01_g0028;Name=CC01_Chr01_g0028;description=unknown protein
+Chr01	MockSource	mRNA	28000	28500	.	+	.	ID=CC01_Chr01_g0028.1;Parent=CC01_Chr01_g0028
+Chr01	MockSource	gene	29000	29500	.	+	.	ID=CC01_Chr01_g0029;Name=CC01_Chr01_g0029;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	29000	29500	.	+	.	ID=CC01_Chr01_g0029.1;Parent=CC01_Chr01_g0029
+Chr01	MockSource	gene	30000	30500	.	+	.	ID=CC01_Chr01_g0030;Name=CC01_Chr01_g0030;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	30000	30500	.	+	.	ID=CC01_Chr01_g0030.1;Parent=CC01_Chr01_g0030
+Chr01	MockSource	gene	31000	31500	.	+	.	ID=CC01_Chr01_g0031;Name=CC01_Chr01_g0031;description=kinase domain protein;Ontology_term=GO:0004672;Dbxref=PFAM:PF00069
+Chr01	MockSource	mRNA	31000	31500	.	+	.	ID=CC01_Chr01_g0031.1;Parent=CC01_Chr01_g0031
+Chr01	MockSource	gene	32000	32500	.	+	.	ID=CC01_Chr01_g0032;Name=CC01_Chr01_g0032;description=ATP binding cassette transporter;Ontology_term=GO:0042626;Dbxref=PFAM:PF00005
+Chr01	MockSource	mRNA	32000	32500	.	+	.	ID=CC01_Chr01_g0032.1;Parent=CC01_Chr01_g0032
+Chr01	MockSource	gene	33000	33500	.	+	.	ID=CC01_Chr01_g0033;Name=CC01_Chr01_g0033;description=photosystem II reaction center;Ontology_term=GO:0009523;Dbxref=PFAM:PF00124
+Chr01	MockSource	mRNA	33000	33500	.	+	.	ID=CC01_Chr01_g0033.1;Parent=CC01_Chr01_g0033
+Chr01	MockSource	gene	34000	34500	.	+	.	ID=CC01_Chr01_g0034;Name=CC01_Chr01_g0034;description=kinase domain protein;Ontology_term=GO:0004672;Dbxref=PFAM:PF00069
+Chr01	MockSource	mRNA	34000	34500	.	+	.	ID=CC01_Chr01_g0034.1;Parent=CC01_Chr01_g0034
+Chr01	MockSource	gene	35000	35500	.	+	.	ID=CC01_Chr01_g0035;Name=CC01_Chr01_g0035;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	35000	35500	.	+	.	ID=CC01_Chr01_g0035.1;Parent=CC01_Chr01_g0035
+Chr01	MockSource	gene	36000	36500	.	+	.	ID=CC01_Chr01_g0036;Name=CC01_Chr01_g0036;description=kinase domain protein;Ontology_term=GO:0004672;Dbxref=PFAM:PF00069
+Chr01	MockSource	mRNA	36000	36500	.	+	.	ID=CC01_Chr01_g0036.1;Parent=CC01_Chr01_g0036
+Chr01	MockSource	gene	37000	37500	.	+	.	ID=CC01_Chr01_g0037;Name=CC01_Chr01_g0037;description=hypothetical protein
+Chr01	MockSource	mRNA	37000	37500	.	+	.	ID=CC01_Chr01_g0037.1;Parent=CC01_Chr01_g0037
+Chr01	MockSource	gene	38000	38500	.	+	.	ID=CC01_Chr01_g0038;Name=CC01_Chr01_g0038;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	38000	38500	.	+	.	ID=CC01_Chr01_g0038.1;Parent=CC01_Chr01_g0038
+Chr01	MockSource	gene	39000	39500	.	+	.	ID=CC01_Chr01_g0039;Name=CC01_Chr01_g0039;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	39000	39500	.	+	.	ID=CC01_Chr01_g0039.1;Parent=CC01_Chr01_g0039
+Chr01	MockSource	gene	40000	40500	.	+	.	ID=CC01_Chr01_g0040;Name=CC01_Chr01_g0040;description=hypothetical protein
+Chr01	MockSource	mRNA	40000	40500	.	+	.	ID=CC01_Chr01_g0040.1;Parent=CC01_Chr01_g0040
+Chr01	MockSource	gene	41000	41500	.	+	.	ID=CC01_Chr01_g0041;Name=CC01_Chr01_g0041;description=unknown protein
+Chr01	MockSource	mRNA	41000	41500	.	+	.	ID=CC01_Chr01_g0041.1;Parent=CC01_Chr01_g0041
+Chr01	MockSource	gene	42000	42500	.	+	.	ID=CC01_Chr01_g0042;Name=CC01_Chr01_g0042;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	42000	42500	.	+	.	ID=CC01_Chr01_g0042.1;Parent=CC01_Chr01_g0042
+Chr01	MockSource	gene	43000	43500	.	+	.	ID=CC01_Chr01_g0043;Name=CC01_Chr01_g0043;description=heat shock protein 70;Ontology_term=GO:0009408;Dbxref=PFAM:PF00012
+Chr01	MockSource	mRNA	43000	43500	.	+	.	ID=CC01_Chr01_g0043.1;Parent=CC01_Chr01_g0043
+Chr01	MockSource	gene	44000	44500	.	+	.	ID=CC01_Chr01_g0044;Name=CC01_Chr01_g0044;description=unknown protein
+Chr01	MockSource	mRNA	44000	44500	.	+	.	ID=CC01_Chr01_g0044.1;Parent=CC01_Chr01_g0044
+Chr01	MockSource	gene	45000	45500	.	+	.	ID=CC01_Chr01_g0045;Name=CC01_Chr01_g0045;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	45000	45500	.	+	.	ID=CC01_Chr01_g0045.1;Parent=CC01_Chr01_g0045
+Chr01	MockSource	gene	46000	46500	.	+	.	ID=CC01_Chr01_g0046;Name=CC01_Chr01_g0046;description=disease resistance protein (NBS-LRR);Ontology_term=GO:0043207;Dbxref=PFAM:PF00931
+Chr01	MockSource	mRNA	46000	46500	.	+	.	ID=CC01_Chr01_g0046.1;Parent=CC01_Chr01_g0046
+Chr01	MockSource	gene	47000	47500	.	+	.	ID=CC01_Chr01_g0047;Name=CC01_Chr01_g0047;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	47000	47500	.	+	.	ID=CC01_Chr01_g0047.1;Parent=CC01_Chr01_g0047
+Chr01	MockSource	gene	48000	48500	.	+	.	ID=CC01_Chr01_g0048;Name=CC01_Chr01_g0048;description=UDP-glucosyltransferase;Ontology_term=GO:0008194;Dbxref=PFAM:PF00201
+Chr01	MockSource	mRNA	48000	48500	.	+	.	ID=CC01_Chr01_g0048.1;Parent=CC01_Chr01_g0048
+Chr01	MockSource	gene	49000	49500	.	+	.	ID=CC01_Chr01_g0049;Name=CC01_Chr01_g0049;description=cytochrome P450;Ontology_term=GO:0004497;Dbxref=PFAM:PF00067
+Chr01	MockSource	mRNA	49000	49500	.	+	.	ID=CC01_Chr01_g0049.1;Parent=CC01_Chr01_g0049
+Chr01	MockSource	gene	50000	50500	.	+	.	ID=CC01_Chr01_g0050;Name=CC01_Chr01_g0050;description=hypothetical protein
+Chr01	MockSource	mRNA	50000	50500	.	+	.	ID=CC01_Chr01_g0050.1;Parent=CC01_Chr01_g0050

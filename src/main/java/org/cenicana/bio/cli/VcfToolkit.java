@@ -23,7 +23,9 @@ import picocli.CommandLine.Command;
              SnpExplorerCommand.class,
              VcfMergeCommand.class,
              ComparativeGenomicsCommand.class,
-             KaKsCalcCommand.class
+             KaKsCalcCommand.class,
+             PhylogenyCommand.class,
+             SnpTreeCommand.class
          })
 public class VcfToolkit {
 

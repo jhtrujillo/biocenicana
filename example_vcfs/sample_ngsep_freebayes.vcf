@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##source=freebayes
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=RO,Number=1,Type=Integer,Description="Reference allele observation count">
+##FORMAT=<ID=AO,Number=A,Type=Integer,Description="Alternate allele observation count">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1	Sample2	Sample3
+Chr1	1000	.	A	G	.	.	.	GT:RO:AO	0/1:35:15	1/1:0:50	0/0:40:0
+Chr1	2000	.	C	T	.	.	.	GT:RO:AO	0/1:25:25	./.:.:.	0/0:48:2
