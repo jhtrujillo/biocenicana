@@ -86,6 +86,14 @@
         <button class="btn btn-sm" id="btn-mode-heat" onclick="setMode('heat')">Evol. Heatmap</button>
       </div>
     </div>
+    <!-- Chart Type -->
+    <div class="panel">
+      <h4>&#128202; Chart Type</h4>
+      <div style="display:flex;gap:5px;">
+        <button class="btn btn-sm" id="btn-view-ribbons" onclick="setView('ribbons')" style="background:#2563eb;color:white;border-color:#2563eb;">Ribbons</button>
+        <button class="btn btn-sm" id="btn-view-dotplot" onclick="setView('dotplot')">Dotplot 2D</button>
+      </div>
+    </div>
     <!-- Sequence selector -->
     <div class="panel">
       <h4>&#128197; Sequence Selector</h4>
@@ -141,6 +149,14 @@ function applySelection(){render();}
 let data=[];
 let activeC=null;
 let colorMode='struct';
+let viewMode='ribbons';
+
+function setView(m){
+    viewMode=m;
+    d3.select("#btn-view-ribbons").style("background", m==='ribbons'?"#2563eb":"white").style("color", m==='ribbons'?"white":"black").style("border-color", m==='ribbons'?"#2563eb":"#cbd5e1");
+    d3.select("#btn-view-dotplot").style("background", m==='dotplot'?"#2563eb":"white").style("color", m==='dotplot'?"white":"black").style("border-color", m==='dotplot'?"#2563eb":"#cbd5e1");
+    render();
+}
 
 function setMode(m){
     colorMode=m;
@@ -265,11 +281,14 @@ function render(){
   const x2=d3.scaleLinear().domain([0,o2]).range([0,W]);
   const svgRoot=d3.select("#viz").append("svg").attr("width",W+M*2).attr("height",H+M*2);
   const svg=svgRoot.append("g").attr("transform",`translate(${M},${M})`);
-  const y1=100,y2=360;
+  const tip=d3.select("#tooltip");
 
-  // Genome labels
-  svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text("R570");
-  svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text("CC 01-1940");
+  if(viewMode === 'ribbons') {
+    const y1=100,y2=360;
+
+    // Genome labels
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text("R570");
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text("CC 01-1940");
 
   // Coverage bars (density) for genome 1
   s1.forEach(c=>{
@@ -342,6 +361,59 @@ function render(){
         tip.style("opacity",1).html(h).style("left",(e.clientX+12)+"px").style("top",(e.clientY-10)+"px");
       }).on("mouseout",()=>tip.style("opacity",0));
   });
+
+  } else if (viewMode === 'dotplot') {
+      const yDot = d3.scaleLinear().domain([0, o2]).range([0, H]);
+      
+      // Grid
+      s1.forEach(c=>{
+          svg.append("line").attr("x1",x1(offs1[c])).attr("y1",0).attr("x2",x1(offs1[c])).attr("y2",H).attr("stroke","#e2e8f0").attr("stroke-width",1).attr("stroke-dasharray","4 4");
+          svg.append("text").attr("x",x1(offs1[c]+c1M[c]/2)).attr("y",-10).attr("text-anchor","middle").attr("font-size","9px").attr("fill","#64748b").text(c);
+      });
+      s2.forEach(c=>{
+          svg.append("line").attr("x1",0).attr("y1",yDot(offs2[c])).attr("x2",W).attr("y2",yDot(offs2[c])).attr("stroke","#e2e8f0").attr("stroke-width",1).attr("stroke-dasharray","4 4");
+          svg.append("text").attr("x",-10).attr("y",yDot(offs2[c]+c2M[c]/2)).attr("text-anchor","end").attr("font-size","9px").attr("fill","#64748b").text(c);
+      });
+      svg.append("rect").attr("x",0).attr("y",0).attr("width",W).attr("height",H).attr("fill","none").attr("stroke","#cbd5e1").attr("stroke-width",2);
+      
+      // Labels
+      svg.append("text").attr("x",W/2).attr("y",-40).attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 1 (R570)");
+      svg.append("text").attr("x",-H/2).attr("y",-70).attr("transform","rotate(-90)").attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 2 (CC 01-1940)");
+
+      // Lines
+      d3.group(data,d=>d.b).forEach((genes,bId)=>{
+          const c1=genes[0].c1,c2=genes[0].c2,ori=genes[0].o;
+          const s1_min=d3.min(genes,d=>d.s1), e1_max=d3.max(genes,d=>d.e1);
+          const s2_min=d3.min(genes,d=>d.s2), e2_max=d3.max(genes,d=>d.e2);
+          
+          let xs = x1(offs1[c1] + s1_min), xe = x1(offs1[c1] + e1_max);
+          let ys = yDot(offs2[c2] + s2_min), ye = yDot(offs2[c2] + e2_max);
+          if(ori === "minus") {
+              const temp = ys; ys = ye; ye = temp;
+          }
+          
+          let col=ori==="minus"?invColor:colorScale(bId);
+          if(colorMode === 'heat') col = divColorScale(genes[0].div || 0);
+
+          svg.append("line")
+            .attr("x1",xs).attr("y1",ys).attr("x2",xe).attr("y2",ye)
+            .attr("stroke",col).attr("stroke-width",3).attr("stroke-opacity",0.8)
+            .attr("stroke-linecap","round").attr("class","ribbon")
+            .attr("data-c1",c1).attr("data-c2",c2).attr("data-b",bId)
+            .on("mouseover",(e)=>{
+              d3.select(e.target).attr("stroke-width",6).attr("stroke-opacity",1);
+              let h=`<strong>Block #${bId}</strong><br>Genes: ${genes.length}<br>${c1} &harr; ${c2}<br>`;
+              h+=ori==="minus"?`<span class="tag tag-inv">Inverted</span>`:`<span class="tag tag-plus">Collinear</span>`;
+              if(genes[0].div !== undefined) {
+                  h += `<div style="margin-top:6px;font-size:10px;color:#f8fafc;background:rgba(255,255,255,0.1);padding:4px;border-radius:4px;">🧬 <strong>Diversity:</strong> ${genes[0].div.toFixed(2)} SNPs/Kbp</div>`;
+              }
+              tip.style("opacity",1).html(h).style("left",(e.clientX+12)+"px").style("top",(e.clientY-10)+"px");
+            }).on("mouseout",(e)=>{
+                d3.select(e.target).attr("stroke-width",3).attr("stroke-opacity",0.8);
+                tip.style("opacity",0);
+            });
+      });
+  }
 }
 render();
 </script>
