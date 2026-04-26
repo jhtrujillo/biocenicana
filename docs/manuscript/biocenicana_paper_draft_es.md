@@ -283,6 +283,17 @@ Por otro lado, la comparación matemática con paquetes especializados en R (`AG
 | **Integración Analítica** | **Total** (SVD, Clusters, Kinship) | Fragmentada (Solo Distancia) | Manual (Requiere varios paquetes) |
 | **Consumo de Memoria** | Óptimo (*Streaming*) | Alto | Crítico (Carga en RAM) |
 
+Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana radica en la riqueza de sus resultados biológicos. Mientras que herramientas tradicionales como NGSEP se limitan a exportar una matriz matemática genérica de distancias (sin encabezados ni metadatos) que obliga al usuario a programar el resto del análisis, el motor de BioCenicana realiza de forma nativa la inferencia poblacional completa y exporta un panel estructurado listo para su interpretación evolutiva (Tabla 5).
+
+**Tabla 5. Comparativa de resultados analíticos generados automáticamente.**
+| Parámetro Biológico | Salida BioCenicana | Salida NGSEP | Aplicación en GWAS y Mejoramiento |
+| :--- | :--- | :--- | :--- |
+| **Matriz de Parentesco** | Sí (VanRaden *Kinship*) | No (Solo Distancia IBS) | Corrección de parentesco oculto mediante Modelos Lineales Mixtos. |
+| **Coordenadas PCA** | Sí (PC1 a PC10 extraídos) | No | Corrección matemática de la estratificación poblacional. |
+| **Inferencia de Clústeres** | Sí ($K=3$, KMeans, DBSCAN) | No | Identificación de subpoblaciones y linajes fundadores. |
+| **Proporciones Ancestría** | Sí (Matriz Q1-Q3 Admixture) | No | Selección de híbridos y cuantificación de introgresiones silvestres. |
+| **Formato de Exportación** | CSV Estructurado y Visor HTML | Texto plano numérico | Interpretación visual e inmediata sin programación adicional en R. |
+
 ---
 
 ## Discusión
