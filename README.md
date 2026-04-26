@@ -2,6 +2,30 @@
 
 BioCenicana is a high-performance Java toolkit optimized for **Saccharum spp. (Sugarcane)** and other complex polyploids. It uses a line-by-line streaming engine to process massive VCF files with minimal memory footprint.
 
+## Why BioCenicana?
+*   **Streaming Engine**: Reads datasets line-by-line, decoupling RAM consumption from the number of variants. Run 60GB VCFs on a standard laptop.
+*   **Polyploid-Aware Mathematics**: Discards discrete genotyping in favor of continuous allele dosages using Maximum Likelihood estimation.
+*   **All-in-One Toolkit**: Go from raw VCF to PCA, Kinship, Phylogeny, LD decay, and Comparative Genomics in a single executable. No messy R scripts required.
+*   **Interactive HTML Dashboards**: Every module exports a 100% offline HTML/D3.js interactive viewer. Democratize your results with non-bioinformatician breeders instantly.
+
+## Quick Start (Try it in 2 minutes)
+We provide a small simulated dataset so you can test BioCenicana immediately without needing your own data.
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/jhtrujillo/biocenicana.git
+cd biocenicana
+
+# 2. Compile the JAR file (Requires Java 11+ and Maven)
+mvn clean package -DskipTests
+
+# 3. Run the interactive PCA and Kinship module on the test VCF
+java -jar target/biocenicana-1.0.jar pop-structure -v simulation_data/CC01_sim.vcf -p 10 -o test_output
+```
+*Open `test_output.pca.html` in your web browser to explore the 3D PCA plot!*
+
+---
+
 This manual follows the logical order of a standard bioinformatics pipeline.
 
 ---
