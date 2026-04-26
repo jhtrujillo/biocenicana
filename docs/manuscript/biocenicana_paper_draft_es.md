@@ -267,20 +267,21 @@ Por el contrario, la simulación con herramientas rígidas basadas en arquitectu
 
 ### Análisis Comparativo de Estructura Poblacional (`pop-structure`)
 
-El análisis de la estructura poblacional en poliploides presenta un desafío analítico donde convergen la viabilidad computacional y la fidelidad biológica. BioCenicana procesó la matriz genotípica del panel completo en tan solo 2.35 segundos, ejecutando un flujo integral que incluyó Descomposición en Valores Singulares (SVD) y la inferencia automática de $K=5$ subgrupos genéticos.
+El análisis de la estructura poblacional en poliploides presenta un desafío analítico donde convergen la viabilidad computacional y la fidelidad biológica. Mediante la ejecución de pruebas de rendimiento estandarizadas, BioCenicana procesó la matriz genotípica del panel completo en **11.04 segundos**, ejecutando un flujo integral *Todo-en-Uno* que abarcó: la lectura, el filtrado de variantes, la Descomposición en Valores Singulares (SVD), la inferencia automática de $K=3$ subgrupos genéticos y la construcción de la matriz Kinship.
 
-Para evaluar el rigor de este resultado, se estructuró una comparativa analítica frente a dos paradigmas bioinformáticos: paquetes especializados en R (`AGHmatrix`, `polyRAD`) y herramientas de genómica estándar con arquitectura diploide (NGSEP, PLINK).
+Para evaluar el rigor y la eficiencia de este resultado, se estructuró una comparativa empírica frente a dos paradigmas bioinformáticos: el estándar de la industria en Java (NGSEP) y los paquetes especializados en R (`AGHmatrix`, `polyRAD`).
 
-En la comparación con paquetes especializados en R, BioCenicana logró una **paridad matemática absoluta (100% de coincidencia)** en la generación de la matriz de parentesco de VanRaden (*Kinship*). Ambos ecosistemas emplean modelos de dosis alélica continua, garantizando la misma precisión estadística. No obstante, la divergencia fue colosal en términos de escalabilidad: mientras que los flujos de trabajo en R requieren cargar la totalidad del archivo VCF en la memoria RAM —un proceso propenso a cuellos de botella y que puede demorar varios minutos—, la arquitectura de *streaming* paralelo de BioCenicana resolvió el SVD, el agrupamiento y la matriz de parentesco simultáneamente en 2.35s.
+En la evaluación de escalabilidad frente a herramientas como NGSEP (versión 5.1.0), se demostró una superioridad absoluta en eficiencia y consolidación. Al configurar explícitamente a NGSEP para calcular distancias bajo un modelo decaploide (`-p 10 -s 3`), el procesamiento tomó **25.04 segundos** —más del doble que BioCenicana— para generar únicamente una matriz de distancia en formato de texto plano. NGSEP carece de integración nativa para la reducción de dimensionalidad (PCA), la identificación de clústeres no supervisados o el cálculo estandarizado de la matriz de parentesco de VanRaden. Esto obliga a los investigadores a recurrir a lenguajes adicionales para completar el flujo poblacional, fragmentando el análisis.
 
-Por otro lado, la comparación frente a herramientas clásicas como NGSEP reveló una **discrepancia biológica crítica**. NGSEP y herramientas similares, al operar bajo la presunción de genotipos discretos diploides (0/0, 0/1, 1/1), fuerzan el redondeo de las dosis alélicas complejas (ej., truncando una dosis de 3/10 a un estado heterocigoto genérico). Este truncamiento numérico destruye la varianza cuantitativa intrínseca de *Saccharum*. En consecuencia, las matrices de distancia genética calculadas por herramientas diploides distorsionan artificialmente el espacio multivariante del Análisis de Componentes Principales (PCA), alterando la verdadera estructura poblacional y el agrupamiento de los linajes.
+Por otro lado, la comparación matemática con paquetes especializados en R (`AGHmatrix`) reveló una **paridad matemática absoluta (100% de coincidencia)** en la matriz de parentesco (*Kinship*). Ambos ecosistemas emplean la dosis alélica continua, garantizando una alta precisión estadística adaptada a la complejidad genómica de *Saccharum*. Sin embargo, los flujos en R exigen la carga total del archivo VCF en la memoria RAM —un proceso sumamente ineficiente para genomas grandes que consume altos volúmenes de memoria y toma minutos en iniciar—. La arquitectura de *streaming* paralelo de BioCenicana elimina este cuello de botella y entrega el flujo analítico poblacional completo de manera casi instantánea, unificando precisión biológica y excelencia computacional.
 
-**Tabla 4. Rendimiento y capacidades analíticas de la inferencia de estructura poblacional.**
-| Métrica | Resultado BioCenicana | Significado Científico |
-| :--- | :--- | :--- |
-| **Tiempo de Proceso** | **2.35 s** | Análisis integral de SVD y Agrupamiento (*Clustering*). |
-| **Poblaciones (K)** | **5** | Detección automática de subgrupos genéticos subyacentes. |
-| **Matriz Kinship** | Generada (VanRaden) | Paridad matemática con `AGHmatrix` lista para corrección en GWAS. |
+**Tabla 4. Rendimiento comparativo del Análisis de Estructura Poblacional (Ploidía 10).**
+| Métrica / Herramienta | BioCenicana | NGSEP 5.1.0 | Flujo en R (`AGHmatrix`) |
+| :--- | :--- | :--- | :--- |
+| **Tiempo de Ejecución** | **11.04 s** | 25.04 s | ~Minutos (Cuello de botella I/O) |
+| **Dosis Alélica** | Continua (Nativa) | Continua (Configurada) | Continua (Nativa) |
+| **Integración Analítica** | **Total** (SVD, Clusters, Kinship) | Fragmentada (Solo Distancia) | Manual (Requiere varios paquetes) |
+| **Consumo de Memoria** | Óptimo (*Streaming*) | Alto | Crítico (Carga en RAM) |
 
 ---
 
