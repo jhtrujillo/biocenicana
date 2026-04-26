@@ -1,0 +1,331 @@
+# BioCenicana: Un Conjunto de Herramientas de Alto Rendimiento Basado en Transmisión de Datos (Streaming) para el Análisis Genómico de Poliploides con Aplicaciones en *Saccharum* spp.
+
+---
+
+**Autores:** Jhon Henry Trujillo Montenegro¹, [Nombre del coautor]², [Nombre del coautor]³
+
+**Afiliaciones:**
+¹ Centro de Investigación de la Caña de Azúcar de Colombia (Cenicaña), Cali, Colombia
+² [Institución], [Ciudad], [País]
+³ [Institución], [Ciudad], [País]
+
+**Autor para correspondencia:** [correo electrónico]
+
+**Abreviaturas:** VCF, Variant Call Format (Formato de Llamada de Variantes); SNP, Single Nucleotide Polymorphism (Polimorfismo de Nucleótido Único); PCA, Principal Component Analysis (Análisis de Componentes Principales); NJ, Neighbor-Joining; LD, Linkage Disequilibrium (Desequilibrio de Ligamiento); MAF, Minor Allele Frequency (Frecuencia del Alelo Menor); GWAS, Genome-Wide Association Study (Estudio de Asociación de Genoma Completo); QC, Quality Control (Control de Calidad); GMM, Gaussian Mixture Model (Modelo de Mezcla Gaussiana); DBSCAN, Density-Based Spatial Clustering of Applications con Noise (Agrupamiento Espacial Basado en Densidad de Aplicaciones con Ruido).
+
+---
+
+## Resumen (Abstract)
+
+Las especies poliploides, como la caña de azúcar (*Saccharum* spp., 2n = 10x ≈ 100–130), presentan desafíos estadísticos y computacionales sustanciales para los flujos de trabajo de análisis genómico estándar, los cuales están diseñados principalmente para organismos diploides. Las herramientas existentes a menudo no logran escalar al tamaño de los conjuntos de datos de poliploides, requieren una sobrecarga de memoria significativa, o carecen de soporte integrado para genómica poblacional consciente de las dosis alélicas. Aquí presentamos **BioCenicana**, un conjunto de herramientas Java de código abierto y alto rendimiento que implementa un motor de procesamiento secuencial (streaming) línea por línea para procesar archivos de Formato de Llamada de Variantes (VCF) a gran escala con una huella de memoria mínima. BioCenicana integra un flujo de trabajo analítico completo que abarca: (i) diagnóstico inicial del conjunto de datos y filtrado de control de calidad; (ii) extracción de la dosis alélica para análisis posteriores de GWAS; (iii) análisis de la estructura poblacional mediante Análisis de Componentes Principales (PCA), estimación de ancestría, y cálculo de la matriz de parentesco (Kinship) de VanRaden; (iv) análisis del decaimiento del Desequilibrio de Ligamiento (LD); (v) genómica comparativa, incluyendo visualización de sintenia, mapas de calor evolutivos basados en la densidad de SNPs, y estimación de la presión de selección (tasas Ka/Ks); y (vi) reconstrucción filogenética basada en SNPs mediante el algoritmo Neighbor-Joining con visualización interactiva. Todos los resultados analíticos se entregan como paneles de control HTML interactivos e independientes, que no requieren conexión a internet ni dependencias externas. Aplicado a un panel de diversidad de 220 genotipos de *Saccharum* spp. genotipados mediante secuenciación por genotipado (GBS/RAD-seq) con aproximadamente 50,000 SNPs de alta calidad, BioCenicana logró resolver exitosamente la subestructura poblacional, identificar importantes bloques sinténicos cromosómicos entre los genomas CC01-1940 y R570, y reconstruir un árbol filogenético de alta resolución coherente con los pedigrís de mejoramiento conocidos. BioCenicana está disponible de forma gratuita en https://github.com/jhtrujillo/biocenicana.
+
+---
+
+## Resumen en Lenguaje Sencillo (Plain Language Summary)
+
+La caña de azúcar tiene uno de los genomas más complejos entre los cultivos agrícolas — posee hasta 13 copias de cada cromosoma, lo que hace que las herramientas de análisis genómico estándar sean en gran medida inadecuadas. BioCenicana es un software desarrollado específicamente para analizar caña de azúcar y otros cultivos poliploides (con múltiples copias de cromosomas). Este lee archivos de datos genómicos (formato VCF) línea por línea sin cargar todo el conjunto de datos en la memoria RAM, lo que permite procesar millones de marcadores genéticos en un computador portátil estándar. El software produce reportes visuales interactivos — incluyendo mapas de poblaciones, árboles evolutivos y gráficos de comparación de cromosomas — todos empaquetados como archivos HTML únicos que se abren directamente en cualquier navegador web sin necesidad de conexión a internet. Esto hace que el análisis genómico sea accesible para los mejoradores de plantas e investigadores que trabajan en entornos con recursos limitados.
+
+---
+
+## Introducción
+
+La caña de azúcar (*Saccharum* spp.) es uno de los cultivos de mayor importancia económica en el mundo, responsable de aproximadamente el 80% de la producción mundial de azúcar y sirviendo como una materia prima clave para la bioenergía (FAO, 2022). Los cultivares comerciales modernos son híbridos interespecíficos complejos derivados principalmente de *Saccharum officinarum* y *Saccharum spontaneum*, con niveles de ploidía altamente variables que típicamente oscilan entre 2n = 10x ≈ 100 y 130 cromosomas (D'Hont et al., 1996; Grivet y Arruda, 2001). Esta extrema complejidad genómica — caracterizada por herencia polisómica, aneuploidía frecuente y redundancia alélica extensiva — plantea desafíos sustanciales para los flujos de trabajo bioinformáticos estándar diseñados para organismos diploides.
+
+A pesar de la disponibilidad de herramientas de propósito general como GATK (McKenna et al., 2010), PLINK (Purcell et al., 2007) y TASSEL (Bradbury et al., 2007), su aplicación a datos de poliploides es severamente limitada. Muchas herramientas asumen una ploidía fija de dos, calculan frecuencias alélicas incorrectas en sistemas polisómicos, o requieren que todo el conjunto de datos se cargue en la memoria RAM — una restricción poco práctica al procesar archivos VCF con cientos de muestras en miles de andamiajes (scaffolds) cromosómicos. Existe software especializado para genómica de poliploides (p. ej., GWASpoly, Rosyara et al., 2016; polyRAD, Clark et al., 2019; updog, Gerard et al., 2018), pero estas herramientas típicamente abordan tareas analíticas específicas en lugar de proporcionar un flujo de trabajo integrado de principio a fin.
+
+La necesidad de un conjunto de herramientas integrado, eficiente en memoria y consciente de la poliploidía es particularmente aguda en contextos de mejoramiento genético aplicado, donde los investigadores requieren una transición rápida desde los datos crudos de genotipado hasta conocimientos prácticos sobre la estructura poblacional, diversidad genética y relaciones evolutivas. Desarrollamos **BioCenicana** para abordar esta brecha. El conjunto de herramientas implementa un motor de transmisión de datos (streaming) que procesa archivos VCF secuencialmente — una línea a la vez — desacoplando así el uso de memoria del tamaño del conjunto de datos. Integra todos los pasos principales de un flujo de trabajo moderno de genómica poblacional en una sola aplicación de línea de comandos, y genera paneles HTML interactivos e independientes que facilitan la interpretación y comunicación de los resultados sin requerir entornos bioinformáticos especializados.
+
+Aquí describimos el diseño, la implementación y la validación de BioCenicana, y demostramos su aplicación a un panel de 220 accesiones de *Saccharum* spp. Mostramos que la herramienta recupera subestructuras poblacionales conocidas, produce árboles filogenéticos consistentes con los registros de pedigrí y permite un análisis genómico comparativo a gran escala entre genomas de referencia.
+
+---
+
+## Materiales y Métodos
+
+### Material Vegetal y Genotipado
+
+Para este estudio se utilizó un archivo VCF correspondiente a un panel de diversidad de 220 accesiones de *Saccharum* spp., las cuales representan toda la diversidad presente dentro del banco de germoplasma de Cenicaña (el cual alberga actualmente alrededor de 1,600 accesiones). Estas accesiones fueron genotipadas en estudios previos mediante técnicas de GBS y RAD-seq y mapeadas al genoma de referencia CC01-1940. El archivo VCF fue seleccionado y filtrado teniendo en cuenta estrictos parámetros de calidad: un número mínimo de individuos genotipados del 50% (es decir, al menos 110 individuos por variante), una calidad mínima de llamado de 30, y una profundidad de secuenciación mínima de 20X. Este VCF depurado sirvió como punto de partida para todos los análisis de la herramienta.
+
+### Arquitectura de Software
+
+BioCenicana está desarrollado en el lenguaje de programación Java 11 y se distribuye como un único archivo ejecutable (formato JAR). Esto significa que la herramienta es portátil y puede ejecutarse en cualquier sistema operativo (Windows, Mac o Linux) sin requerir instalaciones complejas o configuraciones adicionales.
+
+La herramienta se opera desde la terminal (interfaz de línea de comandos) y fue construida utilizando la biblioteca *picocli*. Esta biblioteca garantiza que los comandos sigan el estándar **POSIX** (Portable Operating System Interface), lo cual es simplemente un conjunto de reglas universales que aseguran que los comandos de BioCenicana se comporten de manera predecible y familiar para cualquier usuario (por ejemplo, usando guiones cortos para opciones simples como `-v` y guiones dobles para opciones completas como `--vcf`). Además, genera automáticamente manuales de ayuda en pantalla. Internamente, el programa está diseñado para reportar claramente al sistema operativo si un análisis fue exitoso o si falló, facilitando su integración en flujos de trabajo automatizados.
+
+El principio de diseño central, y la mayor ventaja técnica de BioCenicana, es su **motor de procesamiento secuencial (streaming)**. Normalmente, los programas de genómica intentan cargar todo el archivo de datos (VCF) en la memoria principal del computador (RAM) antes de analizarlo, lo cual hace que los equipos colapsen o se queden sin memoria cuando los archivos son muy grandes. Para solucionar esto, BioCenicana lee los archivos como si fuera un libro: avanza línea por línea extrayendo únicamente la información necesaria de forma temporal y descartando el resto.
+
+Gracias a este enfoque, el consumo de memoria del computador ya no depende de cuántos millones de variantes genéticas (SNPs) tenga el archivo, sino únicamente de la cantidad de muestras (individuos) analizadas. En términos prácticos, esto permite a un investigador procesar archivos genómicos gigantescos que superan los 60 GB en computadores portátiles estándar que solo tienen 8 GB de memoria RAM, democratizando el acceso a análisis de alta complejidad computacional.
+
+Adicionalmente, la arquitectura de la herramienta incorpora soporte para **procesamiento en paralelo (multiprocesamiento)**. Esto significa que las tareas matemáticas más exigentes, como el cálculo de distancias genéticas o la creación de matrices de parentesco, pueden dividir su carga de trabajo automáticamente entre los múltiples núcleos (procesadores) que tenga el computador. El usuario puede habilitar esto fácilmente indicando el número de hilos de procesamiento deseados (por ejemplo, mediante el comando `-t`), lo cual acelera drásticamente los tiempos de ejecución y aprovecha al máximo la capacidad del equipo.
+
+### Módulos y Funciones de la Herramienta
+
+BioCenicana está estructurado en cinco módulos principales, cada uno diseñado para ejecutar una etapa específica del análisis genómico y producir resultados visuales directamente interpretables:
+
+1. **`vcf-stats` y `vcf-filter` (Control de Calidad):** Funciones encargadas de diagnosticar el estado de los datos crudos (frecuencias, datos faltantes, profundidad) y filtrar las variantes de baja calidad o poco informativas.
+2. **`pop-structure` (Estructura Poblacional):** Módulo que determina cómo se agrupan los individuos genéticamente, utilizando técnicas estadísticas de reducción de dimensionalidad, estimación de ancestría (admixture) y matrices de parentesco.
+3. **`ld` (Desequilibrio de Ligamiento):** Función para medir qué tan ligados (heredados juntos) están los marcadores a lo largo de los cromosomas, lo cual es vital para saber cuántos marcadores se necesitan en estudios genéticos.
+4. **`snp-tree` (Filogenia):** Módulo que reconstruye la historia evolutiva y las relaciones biológicas de parentesco entre las accesiones, generando un árbol interactivo.
+5. **`comp-gen` y `kaks-calc` (Genómica Comparativa):** Herramientas para comparar grandes bloques de cromosomas entre dos especies o variedades (sintenia) e identificar matemáticamente qué genes están bajo presión de selección evolutiva.
+
+### Fundamentos Biológicos, Estadísticos y Bioinformáticos
+
+A continuación, se detalla la metodología de construcción de cada módulo, integrando explícitamente los principios biológicos, los modelos estadísticos/matemáticos subyacentes y las estrategias bioinformáticas implementadas en el código de BioCenicana.
+
+#### 1. Módulo de Control de Calidad y Filtrado (`vcf-stats`, `vcf-filter`)
+
+A diferencia de los organismos diploides (donde un genotipo suele ser solo bivalente, por ejemplo AA, Aa o aa), en los organismos poliploides complejos como la caña de azúcar es fundamental comprender la "dosis alélica". Esto significa que importa exactamente cuántas copias de un alelo variante posee un individuo, lo cual puede ir desde 0 hasta 10 copias en un genoma decaploide. Dado que las secuencias de ADN crudas producidas por los secuenciadores contienen errores de lectura, falsos positivos y regiones con baja cobertura que no representan mutaciones biológicas reales, es indispensable un proceso de diagnóstico y depuración riguroso. Para abordar esto, el módulo se dividió computacionalmente en dos funciones complementarias: `vcf-stats` para el diagnóstico y `vcf-filter` para la depuración activa.
+
+La función `vcf-stats` se construyó como una herramienta de perfilamiento bioinformático no destructivo. Su objetivo es leer un archivo crudo y calcular las métricas estadísticas globales y por individuo sin alterar los datos originales. Computacionalmente, utiliza el **motor de transmisión secuencial (*streaming engine*)** de BioCenicana. A diferencia de los programas de genómica tradicionales que intentan cargar todo el archivo masivo directamente en la memoria principal (RAM) —lo que suele causar colapsos en computadores de escritorio— un *streaming engine* funciona procesando el archivo como si fuera una cinta transportadora: lee y analiza los datos rigurosamente "línea por línea", extrayendo lo necesario y liberando de la memoria la información que ya procesó. Durante este ciclo de lectura continua, el algoritmo extrae en tiempo real los campos de profundidad de lectura (`DP`) y profundidad alélica (`AD`) para compilar tres métricas fundamentales:
+1. **Frecuencia del Alelo Menor (MAF):** Se calcula sumando todas las observaciones del alelo alternativo sobre el total de alelos muestreados en la población. 
+2. **Tasa de Datos Faltantes (Missing Rate):** Evalúa qué porcentaje de la población carece de información confiable para un marcador específico.
+3. **Profundidad Media:** Cuantifica la cobertura de secuenciación promedio por individuo y por marcador.
+
+Los resultados se consolidan estadísticamente y se exportan automáticamente como un panel de control HTML interactivo, permitiendo al investigador visualizar gráficamente el estado de salud de su genotipado antes de tomar decisiones de filtrado.
+
+Una vez identificados los perfiles de error mediante `vcf-stats`, el usuario emplea la función `vcf-filter` para depurar la base de datos. Esta función integra métodos estadísticos sofisticados para lidiar con la incertidumbre propia de los poliploides. Para resolver la ambigüedad en zonas del genoma con baja profundidad de secuenciación, `vcf-filter` evita realizar un llamado genotípico rígido o absoluto. En su lugar, aplica un **modelo de máxima verosimilitud ponderado**. 
+
+En términos sencillos, la "verosimilitud" es un concepto estadístico que evalúa qué tan lógico es un resultado observado bajo diferentes escenarios hipotéticos. En lugar de forzar al programa a adivinar ciegamente si el individuo tiene, por ejemplo, 3 o 4 copias del gen mutante (dosis) a partir de una lectura secuencial pobre, el modelo calcula una probabilidad matemática para *cada una* de las 11 posibles dosis reales (desde 0 hasta 10 copias en un genoma decaploide). Si $D$ son los datos de las lecturas observadas (campo `AD` en el VCF) y $k$ es una posible dosis alélica, el modelo determina la probabilidad $P(k|D)$. Posteriormente, en lugar de elegir caprichosamente un único número entero, la herramienta calcula un valor "esperado" (continuo) multiplicando cada dosis por su respectiva probabilidad y sumándolas todas:
+
+$$ \text{Dosis Estimada} = \sum_{k=0}^{10} k \cdot P(k | D) $$
+
+Este sofisticado enfoque probabilístico permite a BioCenicana asignar valores genotípicos con decimales (por ejemplo, estimar que la dosis es de 3.4 copias en lugar de redondear bruscamente a 3). Esto minimiza dramáticamente el sesgo técnico generado por la secuenciación incompleta y retiene la valiosa incertidumbre estadística para los análisis posteriores.
+
+A nivel de ejecución, `vcf-filter` opera aplicando una serie de umbrales estrictos definidos por el usuario a través de parámetros de la línea de comandos. Los parámetros principales incluyen:
+
+*   `--ploidy`: Define el nivel de ploidía biológica de la especie analizada (por ejemplo, $10$ para cultivares modernos de caña de azúcar). Este parámetro es estructuralmente fundamental, ya que le indica al modelo de máxima verosimilitud exactamente cuántos estados de dosis alélica (de 0 a $k$) debe evaluar computacionalmente.
+*   `--min-maf`: Frecuencia mínima del alelo menor permitida (típicamente $0.05$ para eliminar variantes raras que suelen representar ruido técnico).
+*   `--max-missing`: Proporción máxima de individuos sin datos permitida para conservar un marcador (por ejemplo, $0.20$ tolera un 20% de datos faltantes en la población).
+*   `--min-dp`: Profundidad de secuenciación mínima requerida por muestra para considerar que la lectura de la dosis alélica es estadísticamente válida.
+*   `--top-n`: (Opcional) Un filtro bioinformático de selección de características (*feature selection*) que clasifica y retiene únicamente los marcadores más informativos basados en su heterocigosidad esperada, reduciendo drásticamente la carga computacional para los análisis posteriores.
+*   `-t` (Hilos de Procesamiento): Aunque el archivo se lee secuencialmente, el cálculo de las probabilidades de máxima verosimilitud para cientos de muestras en cada variante es matemáticamente intensivo. Este parámetro permite paralelizar estas operaciones distribuyendo la carga de cálculo entre los múltiples núcleos del procesador de la máquina, acelerando masivamente el tiempo de depuración.
+
+Las variantes que no superan estos umbrales paramétricos son omitidas del flujo de memoria al instante. El resultado es la exportación en tiempo real de un archivo VCF altamente depurado, garantizando una complejidad temporal mínima de $O(N)$ y un consumo de RAM casi imperceptible.
+
+**Ejemplo de Ejecución:**
+```bash
+# 1. Diagnóstico estadístico asumiendo un genoma decaploide
+java -jar biocenicana.jar vcf-stats -v panel_crudo.vcf --ploidy 10 -o reporte_stats.html
+
+# 2. Depuración activa basada en umbrales aprovechando 8 núcleos del procesador
+java -jar biocenicana.jar vcf-filter -v panel_crudo.vcf -o panel_filtrado.vcf -t 8 \
+    --ploidy 10 --min-maf 0.05 --max-missing 0.20 --min-dp 20 --top-n 50000
+```
+
+#### 2. Módulo de Análisis de Estructura Poblacional (`pop-structure`)
+
+Identificar la estructura de una población (es decir, cómo se agrupan los individuos y si existe mezcla genética o *admixture*) es biológicamente esencial para evitar resultados falsos positivos en estudios de asociación (GWAS) y para orientar cruces estratégicos en programas de mejoramiento. Las poblaciones modernas de caña de azúcar, caracterizadas por su extrema complejidad, son el resultado de introgresiones históricas continuas entre especies domesticadas y silvestres. Para mapear y desenredar esta intrincada red genética, BioCenicana ejecuta un flujo de trabajo estadístico secuencial: primero, reduce la enorme dimensionalidad de los datos genómicos para hacerlos interpretables; segundo, calcula una matriz exacta del parentesco entre las accesiones; y finalmente, despliega modelos algorítmicos de agrupamiento (*clustering*) para descubrir y clasificar automáticamente las subpoblaciones subyacentes.
+
+El primer desafío analítico radica en la inmensa cantidad de datos. Biológicamente, intentar comparar 220 plantas utilizando 50,000 marcadores genéticos simultáneamente es imposible para el ojo humano, ya que implicaría visualizar un gráfico de 50,000 dimensiones. Para resolver esto, el módulo aplica un Análisis de Componentes Principales (PCA). Matemáticamente, el PCA es una técnica de álgebra lineal que reduce la dimensionalidad, "comprimiendo" toda la información masiva en unos pocos ejes nuevos (Componentes Principales) que preservan la mayor cantidad de variación estadística posible. El programa construye una matriz de genotipos basada en las dosis alélicas, la estandariza y extrae sus vectores principales. Así, los investigadores pueden ver en un simple gráfico 3D cómo las plantas se agrupan según su similitud genética global.
+
+Paralelamente a esta reducción visual, es necesario calcular el grado exacto de consanguinidad de la población. Para ello, el módulo construye una Matriz de Parentesco (*Kinship*), la cual es esencialmente una tabla cuadrada que cuantifica el grado de similitud biológica entre todos los pares posibles de individuos. BioCenicana utiliza el método de VanRaden (2008) adaptado para poliploides. La lógica estadística de este método asume que si dos plantas comparten un alelo muy raro (con baja frecuencia poblacional), están mucho más estrechamente emparentadas que si comparten un alelo muy común. Para lograrlo, la fórmula resta a la dosis alélica de cada planta ($X$) el promedio de la población ($P$) con el fin de "centrar" el dato, y luego calcula el producto matricial consigo mismo dividiéndolo por un factor de escala de la varianza ($c$), resultando en la ecuación:
+
+$$ \text{Kinship} = \frac{(X - P)(X - P)'}{c} $$
+
+El valor numérico final indica con precisión matemática qué tan parientes son dos plantas, información indispensable para realizar modelos predictivos precisos en genética cuantitativa.
+
+Una vez que el PCA ha reducido la información genómica al espacio tridimensional, el siguiente paso es identificar fronteras biológicas objetivas mediante algoritmos de agrupamiento estadístico (*Clustering*). En lugar de obligar al investigador a definir agrupaciones subjetivamente, el programa integra tres modelos matemáticos de inteligencia artificial para clasificar automáticamente a las plantas con perfiles genéticos similares. El primero es K-Means, un agrupamiento por centroides geométricos donde el usuario define el número de grupos esperados; el algoritmo ubica puntos centrales en el espacio y asigna cada planta a su centro más cercano (distancia euclidiana), siendo excelente para poblaciones bien estructuradas en grupos esféricos. El segundo es DBSCAN, un agrupamiento por densidad espacial que, a diferencia de K-Means, no requiere adivinar cuántos grupos existen. Este modelo busca "manchas" densamente pobladas en el gráfico y etiqueta matemáticamente como "ruido" a aquellas plantas aisladas en zonas vacías, haciéndolo ideal para descubrir estructuras irregulares o híbridos anómalos. El tercero es el Modelo de Mezcla Gaussiana (GMM), el cual representa el enfoque estadístico más avanzado. En lugar de hacer clasificaciones tajantes o absolutas, el GMM asume que cada subpoblación tiene forma de campana de Gauss en múltiples dimensiones y calcula probabilidades de pertenencia; por ejemplo, puede dictaminar que una planta tiene un 80% de probabilidad de pertenecer al clado silvestre y un 20% al domesticado, capturando elegantemente la naturaleza gradual de la hibridación genética.
+
+A nivel operativo, estas pesadas operaciones matriciales son orquestadas mediante una serie de parámetros en la línea de comandos que le otorgan control analítico total al investigador. El parámetro `-t` (hilos) es vital, ya que paraleliza el trabajo de álgebra lineal distribuyéndolo entre múltiples procesadores de la máquina para evitar cuellos de botella computacionales. Asimismo, parámetros como `--n-pca` dictan el número exacto de componentes a extraer, mientras que `--dbscan-eps` (radio de búsqueda espacial) y `--dbscan-minpts` (número mínimo de plantas vecinas) permiten afinar milimétricamente la sensibilidad de los algoritmos de agrupamiento por densidad. Finalmente, los resultados tabulares se inyectan dinámicamente en plantillas HTML autónomas que utilizan bibliotecas nativas de JavaScript, permitiendo al investigador rotar e interactuar libremente con las nubes de puntos poblacionales 3D desde cualquier navegador web, sin requerir instalación de software de terceros.
+
+**Ejemplo de Ejecución:**
+```bash
+# Análisis completo de estructura poblacional utilizando 8 hilos de procesamiento (-t)
+# Se calculan 10 componentes principales (--n-pca) y los modelos de agrupamiento 
+# con parámetros de densidad específicos para DBSCAN (--dbscan-eps, --dbscan-minpts)
+java -jar biocenicana.jar pop-structure -v panel_filtrado.vcf -t 8 \
+    --ploidy 10 --pca --n-pca 10 --kinship \
+    --admixture -k 5 \
+    --dbscan-eps 0.5 --dbscan-minpts 5 \
+    -o resultados_pop/
+```
+
+#### 3. Módulo de Desequilibrio de Ligamiento (`ld`)
+
+El Desequilibrio de Ligamiento (LD, por sus siglas en inglés) es un concepto estadístico fundamental en genética poblacional que mide la asociación biológica o "co-herencia" entre diferentes regiones del ADN. En términos simples, si dos marcadores genéticos se encuentran físicamente muy cerca en un mismo cromosoma, existe una alta probabilidad de que se hereden juntos de generación en generación, evadiendo la separación que normalmente ocurre durante la recombinación (entrecruzamiento). Por ejemplo, si en un panel de diversidad de caña de azúcar observamos que una mutación genética responsable de la resistencia a la roya casi siempre aparece acompañada de otra mutación silenciosa ubicada un poco más adelante en el mismo cromosoma, decimos que ambos marcadores se encuentran en "alto desequilibrio de ligamiento". Cuantificar el LD es crucial para el diseño experimental: si el LD en un cultivo "decae" (es decir, se pierde) rápidamente a lo largo de unos pocos pares de bases de distancia, los investigadores sabrán de antemano que están obligados a secuenciar el genoma con una enorme densidad de marcadores genéticos para no correr el riesgo de "perderse" genes agronómicamente importantes durante un estudio de asociación de genoma completo (GWAS).
+
+Para medir matemáticamente la fuerza de esta co-herencia, el módulo calcula el estadístico $r^2$. Los valores numéricos generados por este estadístico fluctúan estrictamente entre 0 (lo que indica que los marcadores se heredan de manera completamente aleatoria e independiente) y 1 (lo que indica que los marcadores se heredan siempre juntos como un bloque perfecto e inquebrantable). El núcleo algorítmico de BioCenicana para calcular esta matriz de $r^2$ toma como base el histórico modelo formulado por Hill y Robertson (Hill & Robertson, 1968), el cual estimaba originalmente las varianzas y covarianzas de frecuencias alélicas en poblaciones finitas. Sin embargo, BioCenicana implementa una optimización estadística profunda de este modelo. Las herramientas tradicionales se limitan a fenotipos diploides discretos (donde un marcador simplemente se categoriza como presente o ausente, ej. 0, 1 o 2). En contraste, el algoritmo de BioCenicana fue generalizado algebraicamente para procesar variables de **dosis continuas** (como los valores probabilísticos estimados por el modelo de máxima verosimilitud del módulo `vcf-filter`, por ejemplo, 3.4 o 5.8 copias de un alelo). Este importante avance matemático permite que el motor de correlación se adapte automáticamente a **cualquier nivel de ploidía**, garantizando precisión estadística absoluta tanto en especies diploides sencillas (como el arroz o el maíz) como en especies poliploides de altísima complejidad (como la caña de azúcar decaploide), sin requerir alteraciones en el código fuente.
+
+A nivel de software, calcular el $r^2$ entre todas las combinaciones posibles de 50,000 marcadores genéticos implicaría billones de operaciones matemáticas — un problema computacionalmente explosivo que saturaría la memoria de cualquier estación de trabajo convencional. Para sortear esto, el módulo fue diseñado empleando un algoritmo bioinformático de ventana deslizante (*sliding window*). A nivel operativo, el usuario define el parámetro `--max-dist` para indicarle al programa la distancia física máxima (en pares de bases) dentro de la cual tiene sentido biológico buscar correlaciones. El algoritmo recorre secuencialmente el cromosoma calculando el LD únicamente entre variantes vecinas que caigan dentro de dicha ventana, apoyándose fuertemente en el paralelismo distribuido por hilos de CPU (`-t`). Adicionalmente, el parámetro `--min-r2` actúa como un umbral estadístico que descarta al instante las correlaciones débiles o consideradas ruido, ahorrando drásticamente espacio de escritura en el disco duro. Finalmente, los millones de cálculos resultantes de $r^2$ se ajustan a una curva matemática de decaimiento no lineal en función de la distancia física, y se exportan nativamente a un gráfico interactivo HTML. Esto permite al genetista visualizar e inferir exactamente a qué distancia física (en kb) se rompen los bloques haplotípicos en su población de mejoramiento.
+
+**Ejemplo de Ejecución:**
+```bash
+# Estimación del decaimiento del LD calculando en paralelo (-t 8) 
+# con una ventana máxima de 200kb y filtrando correlaciones débiles (--min-r2)
+java -jar biocenicana.jar ld -v panel_filtrado.vcf --ploidy 10 -t 8 \
+    --max-dist 200000 --min-r2 0.1 -o grafico_ld.html
+```
+
+#### 4. Módulo de Reconstrucción Filogenética (`snp-tree`)
+
+Determinar la historia evolutiva de las plantas es un pilar fundamental en la conservación y el aprovechamiento de los recursos fitogenéticos. Biológicamente, conocer la filogenia permite a los taxónomos y genetistas validar pedigrís históricos, separar especies puras de híbridos de introgresión, e identificar visualmente el grado de parentesco biológico. Para lograr esto a partir de datos genómicos masivos, BioCenicana inicia su flujo de trabajo calculando una inmensa matriz de distancias genéticas emparejadas. Matemáticamente, el módulo emplea una métrica de **distancia euclidiana**. En términos sencillos, la distancia euclidiana representa la longitud de la línea recta más corta que conecta dos puntos en un espacio matemático. El algoritmo toma las dosis alélicas de la Planta A y las compara con las de la Planta B, midiendo matemáticamente qué tan "lejos" están sus perfiles genéticos directos. Al normalizar este valor por la cantidad exacta de marcadores que ambas plantas comparten de manera efectiva, el modelo logra evitar los graves sesgos estadísticos inducidos por los datos faltantes que son inherentes a las tecnologías modernas de secuenciación (como GBS o RAD-seq).
+
+Una vez que se tiene una tabla con la distancia exacta de cada planta respecto a todas las demás, se debe inferir y dibujar la topología evolutiva. Para ello, BioCenicana implementa el algoritmo *Neighbor-Joining* (Saitou & Nei, 1987). Algunos modelos evolutivos antiguos asumen un "reloj molecular estricto", asumiendo erróneamente que la **tasa de mutación es constante a lo largo del tiempo** en todos los linajes. Sin embargo, en la realidad biológica, algunas variedades acumulan mutaciones mucho más rápido que otras debido a fuertes presiones de domesticación o estrés ambiental. El algoritmo *Neighbor-Joining* soluciona esto elegantemente: no asume una tasa de mutación constante. En su lugar, el modelo computacional agrupa recursivamente a los pares más similares ("vecinos"), construyendo iterativamente una red que **minimiza la longitud total de todas las ramas evolutivas**. El árbol resultante refleja de manera altamente precisa la cantidad de evolución real que ha experimentado cada linaje de forma independiente.
+
+Ahora bien, es imperativo comprobar matemáticamente la robustez de este árbol. Para asegurar el máximo rigor científico, el algoritmo evalúa la confianza estadística de cada ramificación mediante la técnica de **bootstrap** (controlada por el parámetro `--bootstrap`). El *bootstrap* funciona como un exhaustivo test de estrés computacional: el programa toma los marcadores genéticos originales, extrae miles de subconjuntos de datos aleatorios (mezclándolos con reemplazo) y obliga a la computadora a reconstruir el árbol evolutivo cientos de veces sucesivas. Si, bajo el parámetro `--bootstrap 100`, las Plantas A y B terminan agrupadas juntas en 98 de los 100 árboles aleatorios generados, esa rama obtendrá un soporte de confianza innegable (98%), garantizando al investigador que ese evento evolutivo es biológicamente real y no un espejismo estadístico del muestreo.
+
+Los resultados finales de esta inferencia matemática se empaquetan en el formato estándar bioinformático universal *Newick*. Finalmente, un sofisticado motor de renderizado desarrollado nativamente en JavaScript lee este archivo sin depender de pesadas bibliotecas externas, calcula trigonométricamente las coordenadas espaciales de cada nodo, y dibuja el árbol evolutivo utilizando gráficos vectoriales interactivos (SVG). A nivel operativo, si el investigador conecta los resultados del módulo poblacional (utilizando el parámetro `--pca`), el motor teñirá dinámicamente cada rama del árbol, permitiendo una síntesis visual perfecta entre la estructura estadística de la población y su profunda historia evolutiva.
+
+**Ejemplo de Ejecución:**
+```bash
+# Reconstrucción filogenética en paralelo (-t 8) evaluando la robustez de las ramas (--bootstrap)
+# e integrando los resultados estadísticos del PCA para el coloreado interactivo de los nodos
+java -jar biocenicana.jar snp-tree -v panel_filtrado.vcf --ploidy 10 -t 8 \
+    --pca resultados_pop/pca_clusters.csv \
+    --bootstrap 100 -o filogenia_interactiva.html
+```
+
+#### 5. Módulo de Genómica Comparativa (`comp-gen`, `kaks-calc`)
+
+A diferencia de los módulos anteriores, enfocados en marcadores poblacionales, la Genómica Comparativa evalúa la arquitectura estructural de los cromosomas completos. Un concepto clave aquí es la **sintenia**, que ocurre cuando dos especies o variedades (por ejemplo, un híbrido comercial moderno y su ancestro silvestre) conservan el orden de sus bloques de genes a lo largo de un cromosoma, incluso tras millones de años de divergencia. Identificar estos bloques de genes conservados permite descubrir macro-mutaciones, como inversiones o fusiones cromosómicas, las cuales suelen tener un rol fundamental en la especiación y en la adaptación de las plantas a distintos entornos.
+
+Para mapear esta organización estructural, la función `comp-gen` actúa como un procesador e integrador de datos. En la bioinformática actual, y específicamente en los flujos de trabajo de Cenicaña, el estándar para identificar bloques homólogos es el uso de herramientas especializadas como **MCScanX** (Wang et al., 2012) o **SyMAP**. BioCenicana toma los resultados tabulares generados por estos programas, los cruza con las coordenadas físicas de los genomas (archivos GFF) y los convierte directamente en representaciones visuales interactivas.
+
+Un desafío común al visualizar la conexión de miles de genes entre dos genomas es que trazar simples líneas rectas genera gráficos saturados y difíciles de interpretar. Para resolverlo, el algoritmo implementa **curvas de Bezier**. Estas curvas son ecuaciones geométricas paramétricas que permiten dibujar trayectorias suaves para conectar un gen en el Genoma A con su homólogo en el Genoma B, facilitando la lectura del gráfico. Además, para simplificar la interpretación y ocultar asociaciones cortas de poco interés biológico, el usuario puede aplicar un filtro mediante el parámetro `--min-block-size`, graficando únicamente los bloques que superen cierto umbral de genes consecutivos.
+
+Una de las utilidades más prácticas de este módulo es la integración directa de datos genómicos poblacionales mediante **archivos VCF**. Superponer un VCF sobre los gráficos de sintenia permite ir más allá de la mera estructura física del cromosoma, mostrando también la densidad de mutaciones (SNPs) acumuladas por la población sobre dichos bloques conservados. Esto ayuda al investigador a identificar rápidamente zonas "calientes" (regiones genómicas altamente polimórficas) y zonas "frías" (regiones muy conservadas). Como resultado, BioCenicana genera múltiples salidas gráficas, como diagramas circulares (tipo *Circos*), cintas comparativas en 3D y mapas de calor (*heatmaps*) de densidad alélica, todos exportados como archivos HTML.
+
+A nivel de terminal, este análisis se ensambla proporcionando a la herramienta los insumos necesarios en un solo comando. El usuario ingresa las anotaciones de los genomas comparados mediante `--gff1` y `--gff2`, y el archivo de sintenia base con `--collinearity`. Para darle sentido biológico a las conexiones, se añaden las funciones de los genes con `--annot1` y `--annot2`, y finalmente los datos de mutaciones de la población con `--vcf`. El programa devuelve dos resultados principales: un archivo tabular (`-o`) con todas las métricas procesadas listas para análisis estadístico, y un visor HTML autónomo (`--viz`) con los gráficos.
+
+De manera complementaria a esta visión macroestructural, el módulo cuenta con la función `kaks-calc` para explorar la micro-evolución a nivel de secuencias. Su objetivo es medir la tasa de mutación dentro de los genes codificantes para inferir el tipo de selección natural que actúa sobre ellos. Se evalúa si un gen está bajo **"selección purificadora"** (cuando se penalizan biológicamente las mutaciones porque la función de la proteína es estrictamente vital) o bajo **"selección positiva"** (cuando se favorecen las mutaciones que permiten adaptación rápida, como ocurre con algunos genes de resistencia a patógenos). 
+
+Esta medición se realiza mediante el cálculo de la relación **Ka/Ks**: la proporción entre las tasas de sustitución que alteran el aminoácido (Ka) frente a las mutaciones sinónimas que no lo alteran (Ks), empleando el modelo de Nei-Gojobori (Nei & Gojobori, 1986). A nivel de ejecución, BioCenicana lee los genes en formato FASTA, realiza los alineamientos de codones paralelizando el cálculo con múltiples procesadores (`-t`) y genera un reporte tabular con los valores de significancia estadística.
+
+**Ejemplo de Ejecución:**
+```bash
+# Generación interactiva de gráficos de sintenia poblacional entre genomas de referencia
+# Integrando coordenadas (GFF), colinealidad (MCScanX), anotaciones funcionales (TSV) y mutaciones (VCF)
+java -jar target/biocenicana-1.0.jar comp-gen \
+  --gff1 "1940_vs_r570.gff" \
+  --gff2 "1940_vs_r570.gff" \
+  --collinearity "1940_vs_r570.collinearity" \
+  --annot1 "1940_annot_real.tsv" \
+  --annot2 "r570_annot_real.tsv" \
+  --vcf "cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf" \
+  -o "reporte_sintenia_poblacional.tsv" \
+  --viz "visor_heatmap_evolutivo.html"
+
+# Cálculo de la presión evolutiva (Ka/Ks) paralelizando la evaluación de codones (-t 8)
+java -jar biocenicana.jar kaks-calc -i codones_alineados.fasta -t 8 -o reporte_kaks.csv
+```
+
+### Disponibilidad de Datos y Reproducibilidad
+
+Todo el código fuente está disponible públicamente en https://github.com/jhtrujillo/biocenicana bajo la licencia MIT. El archivo JAR precompilado, los conjuntos de datos de simulación y los archivos VCF de ejemplo están incluidos en el repositorio. Los scripts personalizados utilizados para el análisis posterior se depositan en el directorio `scripts_python/`.
+
+---
+
+## Resultados
+
+### Características del Conjunto de Datos Tras el Control de Calidad
+
+El VCF crudo para el panel de 220 muestras fue sometido a un estricto control de calidad. Tras aplicar un umbral MAF de ≥ 0.05, una tasa máxima de datos faltantes de ≤ 20%, y seleccionar los principales marcadores más informativos, se retuvo un conjunto final de **~50,000 SNPs de alta calidad**. La distribución de la frecuencia alélica mostró el perfil esperado en forma de L característico de las poblaciones naturales, confirmando la eliminación efectiva de variantes raras o de ruido técnico.
+
+### Estructura Poblacional
+
+El PCA de las 220 accesiones reveló una clara subestructura. El agrupamiento por K-Means (K = 5) dividió el panel en 5 grupos distintos, donde el grupo más grande comprendía 193 accesiones, mientras que los grupos más pequeños contenían 7, 3, 8 y 9 accesiones, respectivamente. Esta partición fue en gran medida concordante con las asignaciones del modelo GMM (que también identificó 5 componentes óptimos), respaldando la robustez de la subestructura poblacional identificada. El modelo DBSCAN identificó un gran núcleo principal de 111 muestras y clasificó a las 109 restantes como ruido (Noise), lo que refleja la naturaleza compleja y continua de la mezcla genética (admixture) en este panel.
+
+La estimación de ancestría bajo K = 5 poblaciones reveló mezcla (admixture) en 19 accesiones (definidas como aquellas que tienen una proporción máxima de ascendencia única < 0.70), lo que es coherente con el origen híbrido interespecífico de los cultivares modernos de *Saccharum*. La matriz de parentesco de VanRaden mostró un rango de valores de relación, indicativo de las estrechas relaciones genéticas esperadas dentro de los programas de mejoramiento activos.
+
+### Reconstrucción Filogenética
+
+El árbol Neighbor-Joining reconstruido a partir del panel de 50,000 SNPs resolvió las 220 accesiones en grandes clados en concordancia general con los pedigrís de mejoramiento y las clasificaciones de especies conocidas. La codificación por colores de los nodos mediante la asignación a grupos de K-Means del PCA demostró que los clados filogenéticos eran altamente consistentes con las subpoblaciones definidas por el PCA, validando mutuamente ambos enfoques analíticos.
+
+El visor HTML interactivo permitió la exploración del árbol en tiempo real, permitiendo a los usuarios alternar entre vistas de cladograma y filograma (donde las longitudes de rama son proporcionales a la distancia genética), aplicar agrupamientos dinámicos mediante umbrales de distancia arbitrarios y buscar genotipos individuales por nombre.
+
+### Genómica Comparativa: CC01-1940 vs. R570
+
+El análisis de sintenia entre el genoma de CC01-1940 y el genoma de referencia de *S. officinarum* R570 identificó extensos bloques colineales. La visualización en cintas 3D destacó macro-inversiones cromosómicas, mientras que el mapa de calor de densidad de SNPs reveló "puntos calientes" (hotspots) altamente polimórficos que contrastaban con zonas frías ultra-conservadas probablemente sujetas a fuerte selección purificadora.
+
+---
+
+## Discusión
+
+BioCenicana aborda una necesidad crítica no satisfecha en la genómica de poliploides al proporcionar un conjunto de herramientas integrado, eficiente en memoria y fácil de usar, validado específicamente para *Saccharum* spp. El diseño del motor de transmisión (streaming engine) desacopla fundamentalmente el tiempo de procesamiento de las limitaciones de memoria, lo que permite el análisis de archivos VCF arbitrariamente grandes en hardware comercial estándar — un requisito clave para entornos de investigación con recursos limitados, comunes en países en desarrollo donde la caña de azúcar es un producto agrícola principal.
+
+La concordancia entre los clados filogenéticos y las subpoblaciones definidas por PCA proporciona una validación mutua de ambos enfoques analíticos y subraya la utilidad de cruzar resultados de métodos ortogonales. La capacidad de superponer directamente las asignaciones de clusters del PCA en el árbol filogenético — implementada a través de la opción `--pca` en el subcomando `snp-tree` — facilita la identificación rápida de subpoblaciones genómicamente distintas y puede orientar el diseño de paneles de mapeo de asociación asegurando una representación adecuada de la diversidad genética.
+
+El módulo de genómica comparativa extiende a BioCenicana más allá de los análisis a nivel de población para abordar preguntas evolutivas relevantes a la organización del genoma y el mejoramiento de cultivos. La identificación de inversiones cromosómicas, la conservación de bloques sinténicos y las regiones bajo selección positiva entre genomas de *Saccharum* (tales como CC01-1940 y R570) pueden informar la introgresión dirigida de alelos favorables desde parientes silvestres hacia fondos genéticos comerciales — una estrategia de creciente importancia dada la estrecha base genética de los cultivares de caña de azúcar élite.
+
+Varias limitaciones de la implementación actual merecen reconocimiento. La métrica de distancia genética utilizada para la reconstrucción filogenética es una distancia euclidiana simple sobre valores de dosis, la cual no modela explícitamente los patrones de herencia complejos de los loci polisómicos. Enfoques más rigurosos, como la estimación de máxima verosimilitud bajo un modelo polisómico (Clark et al., 2019), pueden arrojar estimaciones de distancia más precisas, particularmente para accesiones estrechamente emparentadas. Del mismo modo, el algoritmo de estimación de ancestría, si bien es efectivo para una partición amplia de la población, puede no capturar completamente la mezcla a fina escala presente en poblaciones de mejoramiento avanzadas. Versiones futuras de BioCenicana explorarán la integración con modelos estadísticos más sofisticados para la estimación de la verosimilitud del genotipo en poliploides.
+
+---
+
+## Conclusiones
+
+BioCenicana ofrece un flujo de trabajo de análisis genómico integrado y basado en transmisiones de datos, creado específicamente para especies poliploides. Aplicado a un panel de diversidad de 220 accesiones de *Saccharum*, realiza con éxito el filtrado de control de calidad, análisis de estructura poblacional, estimación de LD, reconstrucción filogenética con coloración de nodos basada en PCA y visualización genómica comparativa — todo desde una única interfaz de línea de comandos con resultados HTML interactivos. Los visores HTML fuera de línea, sin dependencias, hacen que los resultados sean inmediatamente interpretables por mejoradores de plantas sin formación bioinformática. BioCenicana representa un paso significativo hacia un análisis genómico accesible y escalable para cultivos poliploides complejos.
+
+---
+
+## Disponibilidad de Datos
+
+El código fuente, el archivo JAR precompilado y los conjuntos de datos de simulación están disponibles en: https://github.com/jhtrujillo/biocenicana (Licencia MIT). Los datos crudos de secuenciación serán depositados en el NCBI Sequence Read Archive (SRA) tras la aceptación del artículo [Acceso: pendiente]. El VCF filtrado y todos los archivos de salida de los análisis están disponibles por parte del autor para correspondencia bajo solicitud razonable.
+
+---
+
+## Contribuciones de los Autores
+
+J.H.T.M.: conceptualización, diseño e implementación del software, análisis formal, visualización, escritura (borrador original). [Co-autor]: [rol]. [Co-autor]: [rol]. Todos los autores revisaron y aprobaron el manuscrito final.
+
+---
+
+## Agradecimientos
+
+Los autores agradecen a los equipos de germoplasma y biología molecular de Cenicaña por proporcionar el material vegetal y los datos de genotipado. [Agencia financiadora y números de subvención.]
+
+---
+
+## Conflicto de Intereses
+
+Los autores declaran no tener conflictos de intereses.
+
+---
+
+## Referencias
+
+Bradbury, P.J., Zhang, Z., Kroon, D.E., Casstevens, T.M., Ramdoss, Y., & Buckler, E.S. (2007). TASSEL: Software for association mapping of complex traits in diverse samples. *Bioinformatics*, 23(19), 2633–2635. https://doi.org/10.1093/bioinformatics/btm308
+
+Clark, L.V., Lipka, A.E., & Sacks, E.J. (2019). polyRAD: Genotype calling with uncertainty from sequencing data in polyploids and diploids. *G3: Genes, Genomes, Genetics*, 9(3), 663–673. https://doi.org/10.1534/g3.118.200913
+
+D'Hont, A., Grivet, L., Feldmann, P., Rao, S., Berding, N., & Glaszmann, J.C. (1996). Characterisation of the double genome structure of modern sugarcane cultivars (*Saccharum* spp.) by molecular cytogenetics. *Molecular and General Genetics*, 250(4), 405–413. https://doi.org/10.1007/BF02174028
+
+Dempster, A.P., Laird, N.M., & Rubin, D.B. (1977). Maximum likelihood from incomplete data via the EM algorithm. *Journal of the Royal Statistical Society: Series B*, 39(1), 1–22.
+
+Ester, M., Kriegel, H.P., Sander, J., & Xu, X. (1996). A density-based algorithm for discovering clusters in large spatial databases with noise. *Proceedings of the 2nd International Conference on Knowledge Discovery and Data Mining (KDD)*, 226–231.
+
+FAO. (2022). *FAOSTAT: Crops and livestock products*. Food and Agriculture Organization of the United Nations. https://www.fao.org/faostat/
+
+Garcia, A.A.F., Mollinari, M., Marconi, T.G., Serang, O.R., Silva, R.R., Vieira, M.L.C., ... Souza, A.P. (2013). SNP genotyping allows an in-depth characterisation of the genome of sugarcane and other complex autopolyploids. *Scientific Reports*, 3, 3399. https://doi.org/10.1038/srep03399
+
+Garrison, E., & Marth, G. (2012). Haplotype-based variant detection from short-read sequencing. *arXiv preprint*, arXiv:1207.3907.
+
+Gerard, D., Ferrão, L.F.V., Garcia, A.A.F., & Stephens, M. (2018). Genotyping polyploids from messy sequencing data. *Genetics*, 210(3), 789–807. https://doi.org/10.1534/genetics.118.301468
+
+Grivet, L., & Arruda, P. (2001). Sugarcane genomics: depicting the complex genome of an important tropical crop. *Current Opinion in Plant Biology*, 5(2), 122–127. https://doi.org/10.1016/S1369-5266(02)00234-0
+
+Hill, W.G., & Robertson, A. (1968). Linkage disequilibrium in finite populations. *Theoretical and Applied Genetics*, 38(6), 226–231. https://doi.org/10.1007/BF01245622
+
+Lyons, E., Pedersen, B., Kane, J., Alam, M., Ming, R., Tang, H., ... Freeling, M. (2008). Finding and comparing syntenic regions among *Arabidopsis* and the outgroups papaya, poplar, and grape: CoGe with rosids. *Plant Physiology*, 148(4), 1772–1781. https://doi.org/10.1104/pp.108.124867
+
+MacQueen, J. (1967). Some methods for classification and analysis of multivariate observations. *Proceedings of the 5th Berkeley Symposium on Mathematical Statistics and Probability*, 1, 281–297.
+
+McKenna, A., Hanna, M., Banks, E., Sivachenko, A., Cibulskis, K., Kernytsky, A., ... DePristo, M.A. (2010). The Genome Analysis Toolkit: A MapReduce framework for analyzing next-generation DNA sequencing data. *Genome Research*, 20(9), 1297–1303. https://doi.org/10.1101/gr.107524.110
+
+Nei, M., & Gojobori, T. (1986). Simple methods for estimating the numbers of synonymous and nonsynonymous nucleotide substitutions. *Molecular Biology and Evolution*, 3(5), 418–426. https://doi.org/10.1093/oxfordjournals.molbev.a040410
+
+Pritchard, J.K., Stephens, M., & Donnelly, P. (2000). Inference of population structure using multilocus genotype data. *Genetics*, 155(2), 945–959.
+
+Purcell, S., Neale, B., Todd-Brown, K., Thomas, L., Ferreira, M.A.R., Bender, D., ... Sham, P.C. (2007). PLINK: A tool set for whole-genome association and population-based linkage analyses. *American Journal of Human Genetics*, 81(3), 559–575. https://doi.org/10.1086/519795
+
+Rosyara, U.R., De Jong, W.S., Douches, D.S., & Endelman, J.B. (2016). Software for genome-wide association studies in autopolyploids and its application to potato. *The Plant Genome*, 9(2), 1–10. https://doi.org/10.3835/plantgenome2015.08.0073
+
+Saitou, N., & Nei, M. (1987). The neighbor-joining method: A new method for reconstructing phylogenetic trees. *Molecular Biology and Evolution*, 4(4), 406–425. https://doi.org/10.1093/oxfordjournals.molbev.a040454
+
+VanRaden, P.M. (2008). Efficient methods to compute genomic predictions. *Journal of Dairy Science*, 91(11), 4414–4423. https://doi.org/10.3168/jds.2007-0980
+
+Wang, Y., Tang, H., DeBarry, J.D., Tan, X., Li, J., Wang, X., ... Paterson, A.H. (2012). MCScanX: A toolkit for detection and evolutionary analysis of gene synteny and collinearity. *Nucleic Acids Research*, 40(7), e49. https://doi.org/10.1093/nar/gkr1293
+
+Zhang, J., Zhang, X., Tang, H., Zhang, Q., Hua, X., Ma, X., ... Ming, R. (2018). Allele-defined genome of the autopolyploid sugarcane *Saccharum spontaneum* L. *Nature Genetics*, 50(11), 1565–1573. https://doi.org/10.1038/s41588-018-0237-2
+
+---
+
+*Manuscrito formateado siguiendo las directrices de la revista The Plant Genome (American Society of Agronomy).*
