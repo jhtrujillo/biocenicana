@@ -221,63 +221,7 @@ Finalmente, para la evaluación del Desequilibrio de Ligamiento (LD), se estruct
 
 ## Resultados
 
-### Eficiencia Computacional y Precisión del Motor de *Streaming*
-
-El desempeño operativo de BioCenicana fue evaluado frente a NGSEP (v5.1.0) utilizando el panel de 220 accesiones y 50,728 variantes iniciales, bajo un entorno estandarizado de 4 núcleos de procesamiento. La arquitectura de *streaming* secuencial de BioCenicana demostró una superioridad computacional significativa en todas las métricas de tiempo de ejecución (Tabla 1, Figura 1). Durante la fase de diagnóstico estadístico (`vcf-stats`), BioCenicana completó el análisis en 2.37 segundos, lo que representa una aceleración de 7.1x respecto a NGSEP (17.02 s), manteniendo una coincidencia exacta del 100% en el conteo de variantes y las proporciones de transiciones/transversiones (Ts/Tv). 
-
-Esta ventaja de diseño se amplificó drásticamente durante el filtrado activo (`vcf-filter`). Al aplicar umbrales idénticos (MAF ≥ 0.05, datos faltantes ≤ 20%, profundidad mínima ≥ 20X), BioCenicana procesó el conjunto de datos en 1.99 segundos, frente a los 144.91 segundos requeridos por NGSEP, logrando una aceleración de 72.8x. Más allá de la velocidad, se observó una divergencia biológica fundamental en la retención de marcadores: mientras NGSEP, bajo su modelo diploide por defecto, retuvo únicamente 9,202 variantes, BioCenicana, parametrizado para genomas decaploides (`--ploidy 10`), conservó 19,879 SNPs de alta calidad. Esta diferencia evidencia que la estimación de dosis alélica continua mediante máxima verosimilitud permite rescatar más de 10,000 polimorfismos que las herramientas estándar descartan erróneamente en especies polisómicas.
-
-> **Figura 1. Rendimiento Computacional (Benchmarking).** Comparación de los tiempos reales de ejecución (wall-clock time, en segundos) entre BioCenicana (Parallel) y NGSEP 5.1.0 para las fases de diagnóstico estadístico y filtrado de variantes, utilizando 4 núcleos de procesamiento. La escala logarítmica evidencia la aceleración de 72.8x lograda por la arquitectura de streaming.
-
-**Tabla 1. Comparación de rendimiento y precisión: BioCenicana vs. NGSEP 5.1.0.**
-*(Filtros estandarizados: MAF ≥ 0.05, Datos faltantes ≤ 20%, Profundidad ≥ 20X)*
-| Fase de Análisis | Métrica | BioCenicana (Parallel) | NGSEP 5.1.0 | Coincidencia |
-| :--- | :--- | :--- | :--- | :---: |
-| **Diagnóstico (`vcf-stats`)** | Tiempo de Ejecución (s) | **2.37** | 17.02 | ⚡ 7.1x |
-| | Variantes Totales | 50,728 | 50,728 | ✅ 100% |
-| | Transiciones (Ts) | 32,535 | 32,535 | ✅ 100% |
-| **Filtrado (`vcf-filter`)** | Tiempo de Ejecución (s) | **1.99** | 144.91 | 🚀 **72.8x** |
-| | Variantes Restantes | **19,879** | **9,202** | ⚠️ Diferencia Biológica |
-
-### Impacto de la Ploidía en la Estimación del Desequilibrio de Ligamiento (LD)
-
-El análisis del Desequilibrio de Ligamiento (LD) demostró empíricamente cómo la subestimación de la ploidía distorsiona la inferencia genómica (Tabla 2, Figura 3). El cálculo de la matriz de bloques haplotípicos con BioCenicana requirió solo 1.12 segundos. Al emplear el modelo nativo de dosis alélica continua ($10x$), BioCenicana detectó un valor máximo de asociación ($r^2$) de 0.4172 y determinó que el decaimiento a la mitad de su valor inicial ocurre rápidamente, alrededor de los 1,000 pares de bases (bp). Este rápido decaimiento del LD es consistente con el gran tamaño del genoma y las altas tasas de recombinación histórica en *Saccharum*.
-
-En contraste, la simulación con modelos rígidos basados en genotipos discretos o arquitecturas diploides (como PopLDdecay) resultó en una sobreestimación artificial de la fuerza y extensión del ligamiento. El modelo diploide arrojó un decaimiento significativamente más tardío (~6,000 bp). Estos hallazgos reafirman que la omisión de la herencia polisómica cuantitativa genera sesgos que podrían comprometer gravemente la resolución y el diseño de futuros estudios de asociación (GWAS).
-
-> **Figura 3. Curvas de Decaimiento del Desequilibrio de Ligamiento (LD).** Gráfico de dispersión ajustado contrastando el comportamiento del estadístico $r^2$ frente a la distancia física (pares de bases). Se compara el modelo de dosis continua ($10x$) procesado por BioCenicana (línea sólida) frente al modelo diploide ($2x$) de PopLDdecay (línea punteada), evidenciando el severo sesgo de sobreestimación del bloque haplotípico al asumir fenotipos discretos.
-
-**Tabla 2. Impacto del modelo de ploidía en la estimación del LD.**
-| Parámetro de Comparación | BioCenicana (Ploidía 10) | BioCenicana (Ploidía 2) | PopLDdecay (Diploide) |
-| :--- | :--- | :--- | :--- |
-| **Modelo Genético** | **Dosis Alélica Real** | Dosis Redondeada | Genotipos Discretos |
-| **$r^2$ Máximo Detectado** | **0.4172** | 0.3814 | 0.4468 |
-| **Distancia de Semi-decaimiento** | **~1,000 bp** | ~3,000 bp | ~6,000 bp |
-| **Precisión Biológica** | **Alta (Real)** | Media (Sesgada) | Baja (Sobreestimada) |
-
-### Inferencia de la Estructura Poblacional
-
-El módulo `pop-structure` resolvió la compleja arquitectura poblacional del panel en 2.35 segundos. El Análisis de Componentes Principales (PCA) separó de forma evidente a los individuos, capturando la varianza genética subyacente en sus tres primeros ejes (Figura 2A). Posteriormente, el agrupamiento K-Means identificó una partición óptima de $K=5$ subpoblaciones. La distribución reveló un núcleo denso y altamente conservado compuesto por 193 accesiones, que representa el estrecho acervo genético de la élite comercial de Cenicaña.
-
-Adicionalmente, el modelo de agrupamiento espacial por densidad (DBSCAN) confirmó la rigidez genética de este clúster primario, pero clasificó como "ruido" estadístico a los individuos periféricos (Figura 2B). Biológicamente, estos genotipos anómalos corresponden a materiales híbridos de transición o introducciones silvestres que portan introgresiones recientes, hallazgo que fue corroborado por el Modelo de Mezcla Gaussiana (GMM). A la par, el sistema generó eficientemente la matriz de parentesco (Kinship) de VanRaden, insumo crítico para la corrección de estructura en genética cuantitativa.
-
-> **Figura 2. Análisis de Estructura Poblacional.** (A) Proyección tridimensional de los tres primeros componentes principales (PCA), con los individuos coloreados según su asignación probabilística a los $K=5$ clústeres inferidos por K-Means. (B) Agrupamiento espacial basado en densidad (DBSCAN) destacando el núcleo genético fuertemente asociado (rojo) frente a genotipos híbridos transicionales clasificados como ruido (gris).
-
-### Reconstrucción Filogenética Evolutiva
-
-La historia evolutiva de las accesiones, inferida mediante el algoritmo *Neighbor-Joining*, mostró una topología altamente coherente con la estructura poblacional y los registros históricos de pedigrí (Figura 4). La integración nativa de los metadatos del PCA en el visor filogenético interactivo facilitó una validación cruzada visual contundente: el amplio núcleo comercial de 193 individuos formó clados monofiléticos robustos, indicando un ancestro común estrecho y una fuerte presión de selección direccional durante su domesticación reciente.
-
-En contraparte, las accesiones clasificadas como introgresiones o "ruido" por los modelos poblacionales se posicionaron en ramas basales o clados intermedios, validando su rol evolutivo como genotipos puente entre los cultivares modernos y las especies fundadoras silvestres. El soporte de remuestreo (*bootstrap*) avaló la fiabilidad estadística de estas divergencias ramificadas.
-
-> **Figura 4. Reconstrucción Filogenética y Validación Cruzada Poblacional.** Árbol *Neighbor-Joining* no enraizado de 220 accesiones de *Saccharum*. Las ramas terminales están coloreadas dinámicamente utilizando la asignación de clústeres ($K=5$) previamente derivada del modelo PCA, demostrando la alta concordancia topológica entre la distancia euclidiana y la estructura poblacional de componentes principales.
-
-### Macro-Sintenia y Dinámica Mutacional Comparativa
-
-La superposición de datos de genómica poblacional sobre la arquitectura cromosómica estructural ofreció una visión integral de la evolución de *Saccharum*. El análisis comparativo entre el híbrido moderno CC01-1940 y su especie ancestral *S. officinarum* R570, renderizado interactivamente mediante curvas de Bezier, expuso la alta conservación macro-sinténica, pero también desveló importantes reordenamientos estructurales (inversiones) (Figura 5).
-
-La innovación principal consistió en mapear la densidad poblacional de SNPs (extraída del VCF filtrado de 19,879 marcadores) directamente sobre los bloques sinténicos en forma de mapas de calor. Este abordaje permitió identificar físicamente extensas "zonas frías" pericentroméricas sometidas a fuerte selección purificadora, en contraste con "zonas calientes" hipermutables ubicadas en las regiones distales de los cromosomas. Esta diferenciación es de gran valor agronómico, ya que localiza con precisión las áreas genómicas susceptibles a introgresión dirigida.
-
-> **Figura 5. Análisis Macroestructural de Sintenia y Densidad de Mutaciones.** Diagrama tridimensional interactivo comparando los ensamblajes cromosómicos de CC01-1940 frente a la referencia *S. officinarum* R570. Las curvas de conexión (Bezier) indican bloques de genes sinténicos ortólogos. La coloración térmica sobre los ejes cromosómicos refleja la densidad poblacional de SNPs superpuesta directamente desde el archivo VCF, destacando regiones hipermutables (puntos calientes).
+<!-- Escribe la sección de Resultados aquí -->
 
 ---
 
