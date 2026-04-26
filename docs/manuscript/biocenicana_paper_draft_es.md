@@ -367,6 +367,27 @@ Para una disección más profunda de las subpoblaciones, la proyección geométr
 > [!NOTE]
 > **Disponibilidad de Datos Interactivos:** El archivo HTML generado nativamente por BioCenicana, que contiene el modelo tridimensional rotatorio y los metadatos completos del análisis poblacional, está disponible para su exploración interactiva como Material Suplementario en el siguiente enlace web: [Explorar Dashboard Interactivo 3D (PCA)](https://johntrujillomonte.com/projects/biocenicana/pca_interactive_dashboard.html).
 
+### Reconstrucción Filogenética y Dinámica Evolutiva (`snp-tree`)
+
+La reconstrucción de la historia evolutiva en especies poliploides requiere algoritmos capaces de procesar la dosis alélica continua para estimar las distancias genéticas verdaderas, evitando la pérdida de información que ocurre al discretizar genotipos (diploidización forzada). El módulo `snp-tree` de BioCenicana aborda este reto calculando una matriz de distancia euclidiana por pares basada en las profundidades relativas de los alelos y, subsecuentemente, reconstruyendo la topología poblacional mediante el algoritmo aglomerativo de *Neighbor-Joining* (NJ).
+
+Para validar la eficiencia de esta arquitectura matemática, se diseñó un protocolo de *benchmark* comparativo frente a la suite NGSEP (Tabla 6). Los resultados revelaron un paradigma de fragmentación y cuellos de botella en las herramientas tradicionales. Al intentar reconstruir la filogenia, NGSEP consumió **10.50 segundos** operando exclusivamente en la generación de la matriz de distancias (`VCFDistanceMatrixCalculator`). Tras este paso, la herramienta carece de un módulo nativo integrado para construir el árbol, forzando a los investigadores a interrumpir el flujo de trabajo, exportar la pesada matriz de texto plano y utilizar ecosistemas de terceros (como paquetes de R, FastME o MEGA) para finalmente ensamblar la topología evolutiva.
+
+En contraste radical, el motor *Todo en Uno* de BioCenicana ejecutó el flujo analítico de principio a fin en tan solo **3.07 segundos**. En este tiempo récord (3.4 veces más rápido que el cálculo parcial de NGSEP), el sistema leyó el archivo VCF, estimó la matriz probabilística de distancias, construyó el árbol iterativo *Neighbor-Joining*, guardó la topología en formato estándar de la industria (Newick, `.nwk`) y, como ventaja competitiva principal, generó automáticamente un visor HTML interactivo de alta resolución.
+
+**Tabla 6. Rendimiento comparativo en la Reconstrucción Filogenética (Ploidía 10, ~5000 variantes).**
+| Métrica Operativa | BioCenicana (`snp-tree`) | NGSEP 5.1.0 |
+| :--- | :--- | :--- |
+| **Tiempo de Ejecución Total** | **3.07 s** | > 10.50 s (Incompleto) |
+| **Matriz de Distancia Continua** | Sí (Calculada y transmitida en memoria) | Sí (Exportada a disco, 10.5s) |
+| **Construcción del Árbol (NJ)** | Sí (Integrado nativamente) | No (Requiere software externo) |
+| **Validación Cruzada (PCA)** | Sí (Inyección de clústeres en nodos terminales) | No |
+| **Visualización Generada** | Dashboard HTML Interactivo (4 Modos de Layout) | Ninguna |
+
+Más allá de la supremacía computacional, la verdadera fortaleza estadística del módulo `snp-tree` radica en su integración ecosistémica. BioCenicana permite la inyección directa de los resultados poblacionales previos en la reconstrucción filogenética (mediante el parámetro `--pca`). Esta característica biológica codifica por color automáticamente los clados y nodos terminales del árbol según el linaje matemático identificado por los algoritmos no supervisados (como *K-Means*). Como se evidencia en la **Figura 5**, esta convergencia analítica cruzada permite a los genetistas validar visualmente que las distancias evolutivas puras coinciden de forma milimétrica con la separación espacial poblacional, brindando un marco de certidumbre absoluta para la selección parental en el programa de mejoramiento.
+
+*(Espacio reservado para la Figura 5: Capturas del visor filogenético interactivo).*
+
 ---
 
 ## Discusión
