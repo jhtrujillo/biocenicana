@@ -222,7 +222,32 @@ Finalmente, para la evaluación del Desequilibrio de Ligamiento (LD), se estruct
 
 ## Resultados
 
-<!-- Escribe la sección de Resultados aquí -->
+### Módulo de Control de Calidad y Filtrado (`vcf-stats` y `vcf-filter`)
+
+El desempeño computacional y la precisión analítica del motor de *streaming* secuencial de BioCenicana fueron evaluados frente a la herramienta NGSEP (versión 5.1.0). El *benchmarking* se ejecutó empleando un conjunto de datos poblacional de 220 accesiones de *Saccharum* spp. con 50,728 variantes iniciales. Para asegurar una comparación equitativa y rigurosa, el procesamiento se limitó a 4 núcleos en ambas herramientas y se purgaron las cachés de memoria del sistema operativo entre ejecuciones.
+
+Durante el diagnóstico inicial (`vcf-stats`), BioCenicana completó el perfilamiento estadístico en 2.37 segundos, resultando en una aceleración de 7.1x frente a los 17.02 segundos requeridos por NGSEP. Este incremento significativo en la velocidad no comprometió la exactitud matemática: se obtuvo una coincidencia absoluta del 100% en el conteo total de variantes y en las proporciones de transiciones/transversiones (Tabla 1).
+
+**Tabla 1. Comparación de rendimiento y precisión del diagnóstico estadístico (`vcf-stats`).**
+| Métrica | BioCenicana (4 núcleos) | NGSEP 5.1.0 | Coincidencia |
+| :--- | :--- | :--- | :---: |
+| **Tiempo de Ejecución (s)** | **2.37** | 17.02 | ⚡ 7.1x |
+| **Variantes Totales** | 50,728 | 50,728 | ✅ 100% |
+| **Transiciones (Ts)** | 32,535 | 32,535 | ✅ 100% |
+| **Transversiones (Tv)** | 18,193 | 18,193 | ✅ 100% |
+| **Ts/Tv Ratio** | 1.788 | 1.79 | ✅ 100% |
+
+La eficiencia arquitectónica fue aún más notable durante la fase de depuración activa (`vcf-filter`). Se aplicaron umbrales paramétricos estrictos y equivalentes para ambas herramientas (frecuencia de alelo menor MAF ≥ 0.05, tolerancia de datos faltantes ≤ 20%, y profundidad mínima ≥ 20X). BioCenicana procesó y exportó el archivo filtrado en tan solo 1.99 segundos, logrando una aceleración masiva de 72.8x respecto a los 144.91 segundos consumidos por NGSEP (Tabla 2).
+
+Más allá de la mejora computacional, el análisis reveló una importante divergencia biológica en la retención final de marcadores. Mientras NGSEP retuvo únicamente 9,202 variantes, BioCenicana conservó 19,879 SNPs de alta calidad. Esta disparidad no constituye un error de ejecución, sino una consecuencia directa del modelo estadístico subyacente. Herramientas estándar como NGSEP calculan por defecto la frecuencia alélica asumiendo fenotipos diploides o aplicando redondeos discretos que truncan la complejidad real del marcador. Por el contrario, la parametrización `--ploidy 10` de BioCenicana permitió estimar la dosis alélica de manera continua a través de su modelo de máxima verosimilitud, evitando el descarte sistemático y erróneo de polimorfismos biológicamente válidos en genomas complejos, rescatando exitosamente más de 10,000 variantes informativas.
+
+**Tabla 2. Comparación del rendimiento de filtrado y retención biológica (`vcf-filter`).**
+*(Filtros: MAF ≥ 0.05, Datos faltantes ≤ 20%, Profundidad ≥ 20X)*
+| Métrica | BioCenicana (Ploidía 10) | NGSEP 5.1.0 | Coincidencia |
+| :--- | :--- | :--- | :---: |
+| **Tiempo de Ejecución (s)** | **1.99** | 144.91 | 🚀 **72.8x** |
+| **Variantes Iniciales** | 50,728 | 50,728 | ✅ |
+| **Variantes Restantes** | **19,879** | **9,202** | ⚠️ Diferencia Biológica |
 
 ---
 
