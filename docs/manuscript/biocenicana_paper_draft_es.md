@@ -409,6 +409,25 @@ Más allá de la supremacía computacional, la verdadera fortaleza estadística 
 > [!NOTE]
 > **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El visor interactivo original está disponible públicamente en [johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html](https://johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html). Este entorno web permite alternar entre estos 3 modos en tiempo real, hacer zoom interactivo y ajustar dinámicamente los umbrales de distancia para identificar y aislar clados específicos.
 
+### Desequilibrio de Ligamiento y Resolución Genómica (`ld`)
+
+La inferencia precisa del Desequilibrio de Ligamiento (LD) es uno de los cuellos de botella estadísticos más pronunciados en la genómica de especies autopoliploides. Las aproximaciones convencionales a menudo fuerzan la discretización de los genotipos (asignando estados absolutos como AA, AB o BB), un proceso de "diploidización" que ignora la incertidumbre de la secuenciación subyacente y altera las estimaciones de recombinación histórica. El módulo `ld` de BioCenicana soluciona esta limitación implementando un modelo que computa la correlación alélica ($r^2$) operando directamente sobre las probabilidades continuas de dosis (continuous dosage probabilities).
+
+Al retener la naturaleza estocástica de los genotipos, los resultados revelan un panorama genómico sorprendentemente distinto al reportado por herramientas tradicionales. Mientras que los modelos discretos suelen sobreestimar la extensión del bloque haplotípico en *Saccharum spp.* (reportando caídas a los ~6,000 pb), el análisis de dosis continua de BioCenicana demuestra un decaimiento del LD muchísimo más acelerado, cayendo rápidamente en los primeros **1,000 pb** (Figura 7). 
+
+Esta discrepancia no es un artefacto matemático, sino una representación biológica más fidedigna de los eventos de recombinación que han fracturado el genoma a lo largo de las generaciones. Este hallazgo tiene implicaciones críticas para el diseño de Estudios de Asociación de Genoma Completo (GWAS) en caña de azúcar: sugiere que la resolución del mapeo es sustancialmente mayor de lo anticipado, pero simultáneamente advierte que se requiere una densidad de marcadores (SNPs) mucho más alta para lograr saturar el genoma y capturar asociaciones causales con rasgos de importancia agronómica.
+
+**Figura 7. Decaimiento del Desequilibrio de Ligamiento (LD Decay).**
+
+<p align="center">
+  <img src="../assets/ld_decay.png" width="70%">
+  <br>
+  <small><b>Curva de Decaimiento del LD:</b> Reducción de la correlación alélica ($r^2$) en función de la distancia física inter-marcador (pb). La rápida caída subraya la alta resolución de mapeo y la necesidad de genotipado de alta densidad en poliploides.</small>
+</p>
+
+> [!NOTE]
+> **Exploración de LD Interactiva:** La visualización estática de la Figura 7 fue extraída del dashboard estadístico `ld_results_50k_decay.html` autogenerado por BioCenicana, el cual permite interactuar con la curva de decaimiento y consultar pares de marcadores específicos.
+
 ### Genómica Comparativa y Evolución Funcional (`comp-gen` y `kaks-calc`)
 
 El análisis evolutivo de los poliploides frecuentemente sufre de un desacople metodológico: por un lado, se infieren las variantes de nucleótido simple (SNPs) a nivel poblacional; por el otro, se identifican bloques de sintenia estructural a nivel macrogenómico. El módulo integrativo `comp-gen` de BioCenicana cierra esta brecha operativa al superponer, en un único ecosistema algorítmico, datos de colinealidad estructural (derivados de herramientas como McScanX o SynMap), mapas de anotación genómica (GFF3) y datos de diversidad poblacional profunda (VCF).
