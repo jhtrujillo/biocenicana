@@ -409,6 +409,23 @@ Más allá de la supremacía computacional, la verdadera fortaleza estadística 
 > [!NOTE]
 > **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El visor interactivo original está disponible públicamente en [johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html](https://johntrujillomonte.com/projects/biocenicana/biocenicana_tree.html). Este entorno web permite alternar entre estos 3 modos en tiempo real, hacer zoom interactivo y ajustar dinámicamente los umbrales de distancia para identificar y aislar clados específicos.
 
+### Genómica Comparativa y Evolución Funcional (`comp-gen` y `kaks-calc`)
+
+El análisis evolutivo de los poliploides frecuentemente sufre de un desacople metodológico: por un lado, se infieren las variantes de nucleótido simple (SNPs) a nivel poblacional; por el otro, se identifican bloques de sintenia estructural a nivel macrogenómico. El módulo integrativo `comp-gen` de BioCenicana cierra esta brecha operativa al superponer, en un único ecosistema algorítmico, datos de colinealidad estructural (derivados de herramientas como McScanX o SynMap), mapas de anotación genómica (GFF3) y datos de diversidad poblacional profunda (VCF).
+
+Esta fusión permite generar "Mapas de Calor Evolutivos" bidimensionales. Al anclar estadísticamente la densidad de polimorfismos (SNPs/Kbp) directamente sobre las coordenadas de los bloques genómicos conservados, la herramienta revela *zonas calientes* de mutación. En el contexto de la caña de azúcar, esta capacidad es crítica para discriminar si la divergencia fenotípica entre genotipos comerciales modernos (e.g., CC01-1940) e introgresiones silvestres ancestrales (e.g., *Saccharum spontaneum*) se debe a variaciones de copy number (CNV) estructural o a tasas aceleradas de mutación alélica en genes específicos de resistencia o adaptación.
+
+Para complementar la genómica estructural con una métrica pura de presión selectiva, BioCenicana incluye el submódulo `kaks-calc`. Basado en el modelo estocástico de Nei y Gojobori (1986), este motor computa nativamente las tasas de sustitución no sinónimas (Ka) y sinónimas (Ks) directamente a partir de las secuencias codificantes (CDS) alineadas por la matriz de colinealidad. La inyección de este ratio (ω = Ka/Ks) en el dashboard de sintenia permite a los investigadores visualizar interactivamente qué genes conservados dentro de un bloque estructural están experimentando evolución purificadora (ω < 1), evolución neutral (ω ≈ 1) o selección darwiniana positiva (ω > 1). 
+
+**Figura 6. Dashboard Interactivo de Sintenia y Densidad Evolutiva.**
+
+| ![Bloques de Sintenia](../assets/sintenia.png) | ![Heatmap Evolutivo y Ka/Ks](../assets/heatmap.png) |
+| :---: | :---: |
+| <small><b>(A) Alineamiento de Macro-Sintenia:</b> Visualización interactiva de las relaciones de ortología estructural entre cromosomas homólogos. Los bloques coloreados representan regiones de alta colinealidad genética.</small> | <small><b>(B) Dinámica Funcional (SNPs y Ka/Ks):</b> Integración espacial de la abundancia alélica. Los colores cálidos demarcan *hotspots* mutacionales, enriquecidos interactivamente con datos de presión de selección.</small> |
+
+> [!NOTE]
+> **Navegación Genómica de Alta Resolución:** Las visualizaciones de la Figura 6 son capturas estáticas extraídas del entorno `visor_sintenia.html`. Este módulo nativo, renderizado en HTML5, permite búsquedas interactivas por *GeneID*, exploración bajo demanda de los valores Ka/Ks en tooltips funcionales, y filtrado dinámico del ruido de fondo genómico sin necesidad de depender de ecosistemas bioinformáticos en la nube.
+
 ---
 
 ## Discusión
