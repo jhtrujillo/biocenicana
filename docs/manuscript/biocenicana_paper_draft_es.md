@@ -388,27 +388,11 @@ Más allá de la supremacía computacional, la verdadera fortaleza estadística 
 
 **Figura 5. Topologías Filogenéticas Interactivas y Proyección Poblacional.**
 
-<p align="center">
-  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
-    <img src="../assets/tree1.svg" width="100%"><br>
-    <small><b>(A) Filograma Radial:</b> Las longitudes de las ramas son proporcionales a las distancias genéticas euclidianas. Esta vista circular maximiza el uso del espacio visual para paneles de gran tamaño.</small>
-  </div>
-  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
-    <img src="../assets/ree2.svg" width="100%"><br>
-    <small><b>(B) Cladograma Circular:</b> Prioriza puramente la topología de ramificación, alineando las ramas para facilitar la identificación de la relación de ancestría común más reciente (MRCA).</small>
-  </div>
-</p>
-
-<p align="center">
-  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
-    <img src="../assets/ree3.svg" width="100%"><br>
-    <small><b>(C) Filograma Rectangular:</b> Formato clásico de publicación. Permite rastrear y escalar la divergencia genética exacta (eje X) desde el nodo raíz hasta cada genotipo contemporáneo.</small>
-  </div>
-  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
-    <img src="../assets/ree4.svg" width="100%"><br>
-    <small><b>(D) Cladograma Rectangular:</b> Alinea todos los nodos hoja a la misma profundidad, haciendo extremadamente clara la correspondencia de color inyectada desde los resultados del PCA poblacional.</small>
-  </div>
-</p>
+| ![Filograma Radial](../assets/tree1.svg) | ![Cladograma Circular](../assets/ree2.svg) |
+| :---: | :---: |
+| <small><b>(A) Filograma Radial:</b> Las longitudes de las ramas son proporcionales a las distancias genéticas euclidianas. Esta vista circular maximiza el uso del espacio visual para paneles de gran tamaño.</small> | <small><b>(B) Cladograma Circular:</b> Prioriza puramente la topología de ramificación, alineando las ramas para facilitar la identificación de la relación de ancestría común más reciente (MRCA).</small> |
+| ![Filograma Rectangular](../assets/ree3.svg) | ![Cladograma Rectangular](../assets/ree4.svg) |
+| <small><b>(C) Filograma Rectangular:</b> Formato clásico de publicación. Permite rastrear y escalar la divergencia genética exacta (eje X) desde el nodo raíz hasta cada genotipo contemporáneo.</small> | <small><b>(D) Cladograma Rectangular:</b> Alinea todos los nodos hoja a la misma profundidad, haciendo extremadamente clara la correspondencia de color inyectada desde los resultados del PCA poblacional.</small> |
 
 > [!NOTE]
 > **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El archivo interactivo original `biocenicana_tree.html` permite alternar entre estos 4 modos en tiempo real, hacer zoom y ajustar umbrales de distancia para cortar clados.
