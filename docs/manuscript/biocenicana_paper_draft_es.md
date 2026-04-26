@@ -454,7 +454,7 @@ Para complementar la genómica estructural con una métrica pura de presión sel
 
 **Figura 6. Dashboard Interactivo de Sintenia y Densidad Evolutiva.**
 
-| ![Bloques de Sintenia](../assets/sintenia.png) | ![Heatmap Evolutivo y Ka/Ks](../assets/heatmap.png) |
+| ![Bloques de Sintenia](../assets/comgenomic1.png) | ![Heatmap Evolutivo y Ka/Ks](../assets/comgenomic2.png) |
 | :---: | :---: |
 | <small><b>(A) Alineamiento de Macro-Sintenia:</b> Visualización interactiva de las relaciones de ortología estructural entre cromosomas homólogos. Los bloques coloreados representan regiones de alta colinealidad genética.</small> | <small><b>(B) Dinámica Funcional (SNPs y Ka/Ks):</b> Integración espacial de la abundancia alélica. Los colores cálidos demarcan *hotspots* mutacionales, enriquecidos interactivamente con datos de presión de selección.</small> |
 
