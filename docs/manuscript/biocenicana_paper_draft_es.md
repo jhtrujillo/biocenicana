@@ -386,7 +386,32 @@ En contraste radical, el motor *Todo en Uno* de BioCenicana ejecutó el flujo an
 
 Más allá de la supremacía computacional, la verdadera fortaleza estadística del módulo `snp-tree` radica en su integración ecosistémica. BioCenicana permite la inyección directa de los resultados poblacionales previos en la reconstrucción filogenética (mediante el parámetro `--pca`). Esta característica biológica codifica por color automáticamente los clados y nodos terminales del árbol según el linaje matemático identificado por los algoritmos no supervisados (como *K-Means*). Como se evidencia en la **Figura 5**, esta convergencia analítica cruzada permite a los genetistas validar visualmente que las distancias evolutivas puras coinciden de forma milimétrica con la separación espacial poblacional, brindando un marco de certidumbre absoluta para la selección parental en el programa de mejoramiento.
 
-*(Espacio reservado para la Figura 5: Capturas del visor filogenético interactivo).*
+**Figura 5. Topologías Filogenéticas Interactivas y Proyección Poblacional.**
+
+<p align="center">
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/tree1.svg" width="100%"><br>
+    <small><b>(A) Filograma Radial:</b> Las longitudes de las ramas son proporcionales a las distancias genéticas euclidianas. Esta vista circular maximiza el uso del espacio visual para paneles de gran tamaño.</small>
+  </div>
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/ree2.svg" width="100%"><br>
+    <small><b>(B) Cladograma Circular:</b> Prioriza puramente la topología de ramificación, alineando las ramas para facilitar la identificación de la relación de ancestría común más reciente (MRCA).</small>
+  </div>
+</p>
+
+<p align="center">
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/ree3.svg" width="100%"><br>
+    <small><b>(C) Filograma Rectangular:</b> Formato clásico de publicación. Permite rastrear y escalar la divergencia genética exacta (eje X) desde el nodo raíz hasta cada genotipo contemporáneo.</small>
+  </div>
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/ree4.svg" width="100%"><br>
+    <small><b>(D) Cladograma Rectangular:</b> Alinea todos los nodos hoja a la misma profundidad, haciendo extremadamente clara la correspondencia de color inyectada desde los resultados del PCA poblacional.</small>
+  </div>
+</p>
+
+> [!NOTE]
+> **Exploración Filogenética Dinámica:** Las imágenes estáticas (Figura 5) son extraídas del módulo nativo de BioCenicana. El archivo interactivo original `biocenicana_tree.html` permite alternar entre estos 4 modos en tiempo real, hacer zoom y ajustar umbrales de distancia para cortar clados.
 
 ---
 
