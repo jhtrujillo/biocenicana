@@ -454,14 +454,14 @@ Para complementar la genómica estructural con una métrica pura de presión sel
 
 **Figura 6. Dashboard Interactivo de Sintenia, Genómica Estructural y Dinámica Evolutiva.**
 
-| ![Pan-genoma](../assets/comgenomic4.png) | ![Filtro Base](../assets/comgenomic1.png) |
+| <img src="../assets/comgenomic4.png" height="250"> | <img src="../assets/comgenomic1.png" height="250"> |
 | :---: | :---: |
 | <small><b>(A) Macro-Sintenia Pan-genómica:</b> Mapeo masivo de genomas completos (>110k genes cruzados).</small> | <small><b>(B) Filtrado Estructural Dinámico:</b> Aislamiento de regiones sinténicas mediante selección de secuencias homólogas.</small> |
-| ![Filtro Estricto y Tooltips](../assets/comgenomic2.png) | ![Alineación de Subgenomas](../assets/comgenomic5.png) |
+| <img src="../assets/comgenomic2.png" height="250"> | <img src="../assets/comgenomic5.png" height="250"> |
 | <small><b>(C) Depuración de Ruido e Interactividad:</b> Aplicación de umbrales altos de conservación y extracción *on-demand* de funciones génicas.</small> | <small><b>(D) Arquitectura de Subgenomas:</b> Mapeo estructural focalizado de una línea comercial contra la referencia ancestral.</small> |
-| ![Heatmap Evolutivo](../assets/comgenomic3.png) | ![Correlación Evolutiva/Estructural](../assets/comgenomic6.png) |
+| <img src="../assets/comgenomic3.png" height="250"> | <img src="../assets/comgenomic6.png" height="250"> |
 | <small><b>(E) Mapa de Calor Evolutivo (SNPs):</b> Transición de la vista física a funcional, coloreando los bloques por su diversidad poblacional.</small> | <small><b>(F) Hotspots Mutacionales:</b> Visualización térmica sobre la estructura, identificando zonas de alta presión selectiva (rojo) y alta conservación (verde/azul).</small> |
-| ![Topología Circos](../assets/comgenomic7.png) | ![Aislamiento Circos](../assets/comgenomic8.png) |
+| <img src="../assets/comgenomic7.png" height="250"> | <img src="../assets/comgenomic8.png" height="250"> |
 | <small><b>(G) Topología Circular (Circos):</b> Alineamiento de un cromosoma comercial contra múltiples alelos homólogos, ideal para análisis poliploides.</small> | <small><b>(H) Aislamiento de Señales:</b> Interacción de foco (*hover*) para iluminar relaciones ortólogas específicas en redes densas.</small> |
 
 > [!NOTE]
