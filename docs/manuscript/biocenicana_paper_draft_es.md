@@ -231,11 +231,11 @@ Durante el diagnóstico inicial (`vcf-stats`), BioCenicana completó el perfilam
 **Tabla 1. Comparación de rendimiento y precisión del diagnóstico estadístico (`vcf-stats`).**
 | Métrica | BioCenicana (4 núcleos) | NGSEP 5.1.0 | Coincidencia |
 | :--- | :--- | :--- | :---: |
-| **Tiempo de Ejecución (s)** | **2.37** | 17.02 | ⚡ 7.1x |
-| **Variantes Totales** | 50,728 | 50,728 | ✅ 100% |
-| **Transiciones (Ts)** | 32,535 | 32,535 | ✅ 100% |
-| **Transversiones (Tv)** | 18,193 | 18,193 | ✅ 100% |
-| **Ts/Tv Ratio** | 1.788 | 1.79 | ✅ 100% |
+| **Tiempo de Ejecución (s)** | **2.37** | 17.02 | 7.1x |
+| **Variantes Totales** | 50,728 | 50,728 | 100% |
+| **Transiciones (Ts)** | 32,535 | 32,535 | 100% |
+| **Transversiones (Tv)** | 18,193 | 18,193 | 100% |
+| **Ts/Tv Ratio** | 1.788 | 1.79 | 100% |
 
 La eficiencia arquitectónica de BioCenicana se hizo aún más evidente durante la fase de depuración activa (`vcf-filter`). Al aplicar umbrales paramétricos estrictos (frecuencia de alelo menor MAF ≥ 0.05, tolerancia de datos faltantes ≤ 20%, y profundidad mínima ≥ 20X), el motor de procesamiento paralelo de BioCenicana procesó y exportó el archivo filtrado en tan solo 1.85 segundos. En contraposición, NGSEP requirió 121.97 segundos para completar la misma operación, lo que evidencia una aceleración masiva de 65x a favor de BioCenicana (Tabla 2). 
 
@@ -245,9 +245,25 @@ Es imperativo destacar que este drástico incremento en la velocidad de procesam
 *(Filtros: MAF ≥ 0.05, Datos faltantes ≤ 20%, Profundidad ≥ 20X)*
 | Métrica | BioCenicana (Parallel) | NGSEP 5.1.0 | Coincidencia |
 | :--- | :--- | :--- | :---: |
-| **Tiempo de Ejecución (s)** | **1.85** | 121.97 | 🚀 **65x** |
-| **Variantes Iniciales** | 50,728 | 50,728 | ✅ |
-| **Variantes Restantes** | **7,443** | **7,443** | ✅ 100% |
+| **Tiempo de Ejecución (s)** | **1.85** | 121.97 | **65x** |
+| **Variantes Iniciales** | 50,728 | 50,728 | 100% |
+| **Variantes Restantes** | **7,443** | **7,443** | 100% |
+
+### Impacto de la Ploidía en la Estimación del Desequilibrio de Ligamiento (LD)
+
+Para cuantificar el grado de distorsión que sufre la arquitectura genómica de *Saccharum* cuando se desestima su naturaleza polisómica, se estructuró un análisis comparativo calculando el decaimiento del Desequilibrio de Ligamiento (LD) bajo tres restricciones matemáticas distintas: el modelo de dosis continua (ploidía 10) de BioCenicana, un modelo de dosis discretizada (ploidía 2) de BioCenicana, y el modelo estándar de genotipos discretos diploides inherente a PopLDdecay.
+
+Los resultados (Tabla 3) demostraron que la subestimación de la ploidía genera un sesgo matemático y biológico severo. El motor nativo de BioCenicana, al emplear la dosis alélica real bajo un entorno decaploide, procesó la matriz en 1.12 segundos, detectando un valor de asociación máximo (r²) de 0.4172. Lo más destacable fue la identificación de un decaimiento rápido del bloque haplotípico a la mitad de su valor inicial, ocurriendo aproximadamente a los 1,000 pares de bases (bp). Este rápido decaimiento es biológicamente congruente con el gran tamaño del genoma y las altas tasas de recombinación histórica en el género *Saccharum*.
+
+Por el contrario, la simulación con herramientas rígidas basadas en arquitecturas diploides produjo una sobreestimación artificial de la fuerza y extensión del ligamiento. PopLDdecay, al forzar la herencia de genotipos discretos, arrojó un decaimiento significativamente más tardío (~6,000 bp), creando bloques de asociación artificiales seis veces más largos que la realidad biológica subyacente. Estos hallazgos reafirman que la omisión de la herencia cuantitativa compromete gravemente la resolución espacial necesaria para el diseño y confiabilidad de futuros estudios de asociación (GWAS).
+
+**Tabla 3. Análisis de perturbación de ploidía en el decaimiento del Desequilibrio de Ligamiento (LD).**
+| Parámetro | BioCenicana (Ploidía 10) | BioCenicana (Ploidía 2) | PopLDdecay (Diploide) |
+| :--- | :--- | :--- | :--- |
+| **Modelo Genético** | **Dosis Alélica Real** | Dosis Redondeada | Genotipos Discretos |
+| **Tiempo de Proceso** | 1.12 s | 1.13 s | **0.34 s** |
+| **r² Máximo** | **0.4172** | 0.3814 | 0.4468 |
+| **Semi-decaimiento** | **~1,000 bp** | ~3,000 bp | ~6,000 bp |
 
 ---
 
