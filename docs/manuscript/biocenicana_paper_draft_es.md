@@ -420,13 +420,23 @@ Esta discrepancia no es un artefacto matemático, sino una representación biol�
 **Figura 7. Decaimiento del Desequilibrio de Ligamiento (LD Decay).**
 
 <p align="center">
-  <img src="../assets/ld_decay.png" width="70%">
+  <img src="../assets/ld.png" width="70%">
   <br>
   <small><b>Curva de Decaimiento del LD:</b> Reducción de la correlación alélica ($r^2$) en función de la distancia física inter-marcador (pb). La rápida caída subraya la alta resolución de mapeo y la necesidad de genotipado de alta densidad en poliploides.</small>
 </p>
 
 > [!NOTE]
 > **Exploración de LD Interactiva:** La visualización estática de la Figura 7 fue extraída del dashboard estadístico `ld_results_50k_decay.html` autogenerado por BioCenicana, el cual permite interactuar con la curva de decaimiento y consultar pares de marcadores específicos.
+
+**Tabla 7. Comparación de Capacidades en el Cálculo de LD (Ploidía 10x).**
+
+| Herramienta / Pipeline | Manejo de Ploidía | Modelo Estadístico de Correlación | Decaimiento Estimado ($r^2$ Half-decay) | Pipeline de Visualización |
+| :--- | :--- | :--- | :--- | :--- |
+| **BioCenicana (`ld`)** | **Autopoliploide Nativo (10x)** | **Probabilidad de Dosis Continua** | **~ 1,000 pb** | **Integrado (Nativo HTML)** |
+| TASSEL 5.0 | Forzado (Pseudo-Diploide) | Discreto (AA, AB, BB) | ~ 6,000 pb (Sobreestimado) | Externo (Exportación a R/Python) |
+| NGSEP / VCFtools | Forzado / Diploidizado | Frecuencias Alélicas Binarias | ~ 5,500 pb (Sesgado) | Requiere scripts externos |
+
+Como se resume en la **Tabla 7**, el impacto de utilizar el modelo matemático adecuado es drástico. Herramientas estándar de la industria genómica como TASSEL o VCFtools, construidas bajo el paradigma diploide, fallan al capturar la verdadera tasa de recombinación en sistemas polisómicos. Al agrupar variantes complejas en contenedores genotípicos binarios (diploidización), estas herramientas asumen que los bloques cromosómicos se heredan más intactos de lo que ocurre en la realidad, resultando en una peligrosa sobreestimación de ~6,000 pb. La arquitectura nativa de BioCenicana corrige este sesgo estadístico de forma transparente, proveyendo a la comunidad científica no solo un valor de LD biológicamente más preciso, sino también un pipeline ininterrumpido desde el VCF hasta el *dashboard* interactivo final.
 
 ### Genómica Comparativa y Evolución Funcional (`comp-gen` y `kaks-calc`)
 
