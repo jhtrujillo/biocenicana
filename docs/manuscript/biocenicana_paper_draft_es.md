@@ -237,17 +237,17 @@ Durante el diagnóstico inicial (`vcf-stats`), BioCenicana completó el perfilam
 | **Transversiones (Tv)** | 18,193 | 18,193 | ✅ 100% |
 | **Ts/Tv Ratio** | 1.788 | 1.79 | ✅ 100% |
 
-La eficiencia arquitectónica fue aún más notable durante la fase de depuración activa (`vcf-filter`). Se aplicaron umbrales paramétricos estrictos y equivalentes para ambas herramientas (frecuencia de alelo menor MAF ≥ 0.05, tolerancia de datos faltantes ≤ 20%, y profundidad mínima ≥ 20X). BioCenicana procesó y exportó el archivo filtrado en tan solo 1.99 segundos, logrando una aceleración masiva de 72.8x respecto a los 144.91 segundos consumidos por NGSEP (Tabla 2).
+La eficiencia arquitectónica de BioCenicana se hizo aún más evidente durante la fase de depuración activa (`vcf-filter`). Al aplicar umbrales paramétricos estrictos (frecuencia de alelo menor MAF ≥ 0.05, tolerancia de datos faltantes ≤ 20%, y profundidad mínima ≥ 20X), el motor de procesamiento paralelo de BioCenicana procesó y exportó el archivo filtrado en tan solo 1.85 segundos. En contraposición, NGSEP requirió 121.97 segundos para completar la misma operación, lo que evidencia una aceleración masiva de 65x a favor de BioCenicana (Tabla 2). 
 
-Más allá de la mejora computacional, el análisis reveló una importante divergencia biológica en la retención final de marcadores. Mientras NGSEP retuvo únicamente 9,202 variantes, BioCenicana conservó 19,879 SNPs de alta calidad. Esta disparidad no constituye un error de ejecución, sino una consecuencia directa del modelo estadístico subyacente. Herramientas estándar como NGSEP calculan por defecto la frecuencia alélica asumiendo fenotipos diploides o aplicando redondeos discretos que truncan la complejidad real del marcador. Por el contrario, la parametrización `--ploidy 10` de BioCenicana permitió estimar la dosis alélica de manera continua a través de su modelo de máxima verosimilitud, evitando el descarte sistemático y erróneo de polimorfismos biológicamente válidos en genomas complejos, rescatando exitosamente más de 10,000 variantes informativas.
+Es imperativo destacar que este drástico incremento en la velocidad de procesamiento no alteró la precisión analítica del filtrado. Ambas herramientas, partiendo del conjunto inicial de 50,728 variantes, retuvieron de manera idéntica 7,443 SNPs de alta calidad. Esto demuestra que la arquitectura de *streaming* paralelo de BioCenicana es capaz de sortear los característicos cuellos de botella de entrada/salida (I/O) y consumo de memoria RAM asociados a la genómica de poblaciones, garantizando simultáneamente una fidelidad y coincidencia de resultados del 100% frente a estándares consolidados de la industria.
 
-**Tabla 2. Comparación del rendimiento de filtrado y retención biológica (`vcf-filter`).**
+**Tabla 2. Comparación del rendimiento de filtrado (`vcf-filter`).**
 *(Filtros: MAF ≥ 0.05, Datos faltantes ≤ 20%, Profundidad ≥ 20X)*
-| Métrica | BioCenicana (Ploidía 10) | NGSEP 5.1.0 | Coincidencia |
+| Métrica | BioCenicana (Parallel) | NGSEP 5.1.0 | Coincidencia |
 | :--- | :--- | :--- | :---: |
-| **Tiempo de Ejecución (s)** | **1.99** | 144.91 | 🚀 **72.8x** |
+| **Tiempo de Ejecución (s)** | **1.85** | 121.97 | 🚀 **65x** |
 | **Variantes Iniciales** | 50,728 | 50,728 | ✅ |
-| **Variantes Restantes** | **19,879** | **9,202** | ⚠️ Diferencia Biológica |
+| **Variantes Restantes** | **7,443** | **7,443** | ✅ 100% |
 
 ---
 
