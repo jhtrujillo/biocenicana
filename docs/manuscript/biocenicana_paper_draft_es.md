@@ -294,6 +294,22 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 | **Proporciones Ancestría** | Sí (Matriz Q1-Q3 Admixture) | No | Selección de híbridos y cuantificación de introgresiones silvestres. |
 | **Formato de Exportación** | CSV Estructurado y Visor HTML | Texto plano numérico | Interpretación visual e inmediata sin programación adicional en R. |
 
+<br>
+
+**Figura 3. Resultados Visuales de Inferencia Poblacional (Generados por BioCenicana).** 
+*(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship) que demuestra la estructura de covarianza genómica.*
+
+<p align="center">
+  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105834.png" width="45%" title="Scree Plot">
+  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105822.png" width="45%" title="WCSS vs K">
+</p>
+<p align="center">
+  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105817.png" width="90%" title="Dendrogram">
+</p>
+<p align="center">
+  <img src="/Users/jhontrujillo/.gemini/antigravity/brain/36e4bf68-43b3-4e07-a391-8f7c3910f9c0/media__1777223105871.png" width="90%" title="Kinship Matrix">
+</p>
+
 ---
 
 ## Discusión
