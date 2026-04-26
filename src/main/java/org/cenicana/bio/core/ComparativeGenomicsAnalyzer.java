@@ -22,7 +22,7 @@ public class ComparativeGenomicsAnalyzer {
     public void runAnalysis(String gff1, String gff2, String collinearity,
                             String cds1, String cds2, String prot1, String prot2,
                             String outputTsv, String vizOutput,
-                            String annotFile1, String annotFile2) throws IOException {
+                            String annotFile1, String annotFile2, String vcfFile) throws IOException {
         
         System.out.println("[Phase 1/4] Loading GFF files...");
         GffParser gffParser = new GffParser();
@@ -110,15 +110,71 @@ public class ComparativeGenomicsAnalyzer {
 
         System.out.println("[Done] Integrated report saved to: " + outputTsv);
 
+        Map<String, Double> blockDiv = new HashMap<>();
         if (vizOutput != null) {
+            if (vcfFile != null && !vcfFile.isBlank()) {
+                System.out.println("[Phase 4b/5] Calculando abundancia de marcadores en regiones colineales (VCF)...");
+                Map<String, double[]> bStats = new HashMap<>(); // [start, end, snpCount]
+                for (SyntenicBlock block : blocks) {
+                    long minStart1 = Long.MAX_VALUE, maxEnd1 = 0;
+                    long minStart2 = Long.MAX_VALUE, maxEnd2 = 0;
+                    String chr1 = null, chr2 = null;
+                    for (SyntenicPair pair : block.getPairs()) {
+                        Gene g1 = findFuzzy(genes1, pair.getGeneId1());
+                        Gene g2 = findFuzzy(genes2, pair.getGeneId2());
+                        if (g1 != null) {
+                            chr1 = g1.getChromosome();
+                            minStart1 = Math.min(minStart1, g1.getStart());
+                            maxEnd1 = Math.max(maxEnd1, g1.getEnd());
+                        }
+                        if (g2 != null) {
+                            chr2 = g2.getChromosome();
+                            minStart2 = Math.min(minStart2, g2.getStart());
+                            maxEnd2 = Math.max(maxEnd2, g2.getEnd());
+                        }
+                    }
+                    if (chr1 != null) bStats.put(block.getBlockId() + "___g1___" + chr1, new double[]{minStart1, maxEnd1, 0});
+                    if (chr2 != null) bStats.put(block.getBlockId() + "___g2___" + chr2, new double[]{minStart2, maxEnd2, 0});
+                }
+                
+                try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(java.nio.file.Paths.get(vcfFile))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        if (line.startsWith("#") || line.trim().isEmpty()) continue;
+                        String[] parts = line.split("\t", 3);
+                        if (parts.length < 2) continue;
+                        String vcfChr = normalizeChromosome(parts[0]);
+                        long pos;
+                        try { pos = Long.parseLong(parts[1]); } catch (Exception e) { continue; }
+                        
+                        for (Map.Entry<String, double[]> e : bStats.entrySet()) {
+                            String blockChr = normalizeChromosome(e.getKey().split("___")[2]);
+                            if (blockChr.equals(vcfChr)) {
+                                double[] vals = e.getValue();
+                                if (pos >= vals[0] && pos <= vals[1]) vals[2]++;
+                            }
+                        }
+                    }
+                }
+                for (Map.Entry<String, double[]> e : bStats.entrySet()) {
+                    String bId = e.getKey().split("___")[0];
+                    double[] vals = e.getValue();
+                    if (vals[2] > 0) {
+                        double sizeKb = Math.max(1, (vals[1] - vals[0]) / 1000.0);
+                        blockDiv.put(bId, blockDiv.getOrDefault(bId, 0.0) + (vals[2] / sizeKb));
+                    }
+                }
+            }
+
             System.out.println("[Viz] Generating interactive visualization...");
-            generateVisualization(blocks, genes1, genes2, annot1, annot2, vizOutput);
+            generateVisualization(blocks, genes1, genes2, annot1, annot2, blockDiv, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
     }
 
     private void generateVisualization(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
                                        Map<String, String> annot1, Map<String, String> annot2,
+                                       Map<String, Double> blockDiv,
                                        String outputPath) throws IOException {
         StringBuilder dataJson = new StringBuilder("[");
         boolean first = true;
@@ -131,8 +187,9 @@ public class ComparativeGenomicsAnalyzer {
                     // Resolve description: first from dedicated annot map, then from gene attributes
                     String desc1 = annot1.getOrDefault(g1.getId(), g1.getDescription()).replace("\"", "'");
                     String desc2 = annot2.getOrDefault(g2.getId(), g2.getDescription()).replace("\"", "'");
-                    dataJson.append(String.format("{\"b\":\"%s\",\"o\":\"%s\",\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
-                            block.getBlockId(), block.getOrientation(),
+                    double div = blockDiv.getOrDefault(block.getBlockId(), 0.0);
+                    dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
+                            block.getBlockId(), block.getOrientation(), div,
                             g1.getId(), g1.getChromosome(), g1.getStart(), g1.getEnd(), desc1,
                             g2.getId(), g2.getChromosome(), g2.getStart(), g2.getEnd(), desc2));
                     first = false;
@@ -171,5 +228,14 @@ public class ComparativeGenomicsAnalyzer {
             if (key.contains(id) || id.contains(key)) return map.get(key);
         }
         return null;
+    }
+    
+    private String normalizeChromosome(String chr) {
+        if (chr == null) return "";
+        String s = chr.toLowerCase().replaceAll("[^a-z0-9]", "");
+        s = s.replace("1940", "").replace("r570", "").replace("cc01", "");
+        s = s.replace("chromosome", "").replace("chr", "").replace("contig", "").replace("scaffold", "");
+        s = s.replaceFirst("^0+(?!$)", "");
+        return s;
     }
 }

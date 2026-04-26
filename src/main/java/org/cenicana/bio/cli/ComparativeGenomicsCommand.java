@@ -47,10 +47,13 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--annot2"}, description = "[Optional] Functional annotation file for Genome 2. Can be a standard GFF3 (extracts from column 9 attributes like 'description' or 'Note') or a TSV file (GeneID \\t Description). Derived from tools like MAKER, Helixer, or Blast2GO.")
     private String annot2;
 
+    @Option(names = {"--vcf"}, description = "[Optional] VCF file mapped to Genome 2 (e.g., CC-01-1940) to calculate population diversity (SNP density) per syntenic block and generate an Evolutionary Heatmap.")
+    private String vcf;
+
     @Override
     public Integer call() throws Exception {
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf);
         return 0;
     }
 }
