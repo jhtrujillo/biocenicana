@@ -297,42 +297,67 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 <br>
 
 **Figura 3. Inferencia de Clústeres Genéticos y Matrices de Parentesco.** 
-*(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship). (E) Matriz de Distancia Genética Euclidiana por Pares.*
 
 <p align="center">
-  <img src="../assets/ExplainedVariance.png" width="45%" alt="Scree Plot" title="Scree Plot">
-  <img src="../assets/ElbowMethod.png" width="45%" alt="WCSS vs K" title="WCSS vs K">
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/ExplainedVariance.png" width="100%"><br>
+    <small><b>(A) Varianza Explicada (Scree Plot):</b> Cuantifica el porcentaje de variabilidad genética capturada por cada componente. Un declive pronunciado (PC1 y PC2) evidencia una fuerte estructuración basal.</small>
+  </div>
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/ElbowMethod.png" width="100%"><br>
+    <small><b>(B) Método del Codo (WCSS vs K):</b> Minimiza la varianza intra-clúster. El punto de inflexión ("codo") determina empíricamente que la población se divide de manera óptima en <b>K=3</b> subgrupos distintos.</small>
+  </div>
 </p>
+
 <p align="center">
-  <img src="../assets/Dendrogram.png" width="90%" alt="Dendrogram" title="Dendrogram">
+  <div style="text-align: center;">
+    <img src="../assets/Dendrogram.png" width="90%"><br>
+    <small><b>(C) Dendrograma Jerárquico:</b> Reconstrucción aglomerativa que revela visualmente las distancias evolutivas y la bifurcación histórica de los linajes parentales en la población.</small>
+  </div>
 </p>
+
 <p align="center">
-  <img src="../assets/Kinship.png" width="45%" alt="Kinship Matrix" title="Kinship Matrix">
-  <img src="../assets/GeneticDistanceMatrixHeatmap.png" width="45%" alt="Euclidean Distance" title="Euclidean Distance">
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/Kinship.png" width="100%"><br>
+    <small><b>(D) Matriz Kinship (VanRaden):</b> Estructura de covarianza genómica. Los bloques rojos/amarillos indican alta relación familiar. Es el insumo crítico para corregir falsos positivos en GWAS.</small>
+  </div>
+  <div style="display: inline-block; width: 48%; vertical-align: top; text-align: center;">
+    <img src="../assets/GeneticDistanceMatrixHeatmap.png" width="100%"><br>
+    <small><b>(E) Matriz Euclidiana:</b> A diferencia de la Kinship (covarianza), esta matriz ilustra la separación matemática absoluta entre cada par de individuos del panel.</small>
+  </div>
 </p>
 
 <br>
 
 **Figura 4. Proyección de Estructura Poblacional Espacial y Ancestría.**
-*(A) Análisis de Componentes Principales (PCA en 2D). (B) Secuencia de rotación del espacio tridimensional (PC1, PC2, PC3) capturando la segregación volumétrica de los tres clústeres. (C) Proporciones de Ancestría (Admixture) revelando la contribución genómica de los linajes fundadores en cada accesión.*
 
 <p align="center">
-  <img src="../assets/ClusterVisualizationPCA.png" width="90%" alt="PCA Clusters 2D" title="PCA Clusters 2D">
+  <div style="text-align: center;">
+    <img src="../assets/ClusterVisualizationPCA.png" width="90%"><br>
+    <small><b>(A) Componentes Principales (PCA en 2D):</b> Proyección espacial de distancias genéticas. Cada punto es un individuo; los colores representan los 3 clústeres inferidos, validando la separación de los linajes.</small>
+  </div>
 </p>
+
 <p align="center">
-  <img src="../assets/pac3d1.png" width="23%">
-  <img src="../assets/pac3d2.png" width="23%">
-  <img src="../assets/pac3d3.png" width="23%">
-  <img src="../assets/pac3d4.png" width="23%">
+  <div style="text-align: center;">
+    <small><b>(B) Secuencia de Rotación Tridimensional (PC1, PC2, PC3):</b> Captura volumétrica iterativa que demuestra que la segregación de los clústeres genéticos se mantiene robusta en el espacio 3D, sin superposición artificial plana.</small><br><br>
+    <img src="../assets/pac3d1.png" width="24%">
+    <img src="../assets/pac3d2.png" width="24%">
+    <img src="../assets/pac3d3.png" width="24%">
+    <img src="../assets/pac3d4.png" width="24%">
+    <br>
+    <img src="../assets/pac3d5.png" width="24%">
+    <img src="../assets/pac3d6.png" width="24%">
+    <img src="../assets/pac3d7.png" width="24%">
+    <img src="../assets/pac3d8.png" width="24%">
+  </div>
 </p>
+
 <p align="center">
-  <img src="../assets/pac3d5.png" width="23%">
-  <img src="../assets/pac3d6.png" width="23%">
-  <img src="../assets/pac3d7.png" width="23%">
-  <img src="../assets/pac3d8.png" width="23%">
-</p>
-<p align="center">
-  <img src="../assets/Ancestry.png" width="90%" alt="Ancestry Proportions" title="Ancestry Proportions">
+  <div style="text-align: center;">
+    <img src="../assets/Ancestry.png" width="90%"><br>
+    <small><b>(C) Proporciones de Ancestría (Admixture):</b> Cada barra vertical es un individuo. Los colores cuantifican qué porcentaje de su genoma proviene de cada uno de los 3 ancestros fundadores, permitiendo medir introgresiones.</small>
+  </div>
 </p>
 
 ---
