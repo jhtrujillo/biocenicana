@@ -216,13 +216,8 @@ Para garantizar una comparación técnica justa e imparcial, el diseño experime
 
 La validación algorítmica se evaluó bajo dos dimensiones críticas. La primera fue la **Precisión Aritmética**. Se configuraron los mismos umbrales biológicos exactos en BioCenicana y NGSEP (frecuencia MAF ≥ 0.05 y datos faltantes ≤ 20%) para verificar rigurosamente que el conteo final de variantes retenidas, la frecuencia alélica poblacional y las tasas de transiciones/transversiones (Ts/Tv) resultaran estadísticamente idénticas. Esto aseguró que las mejoras en velocidad documentadas no fueran producto de atajos algorítmicos. La segunda dimensión fue el **Rendimiento Computacional**, diseñada para contrastar la agilidad del motor secuencial (*streaming engine*) de BioCenicana frente a la gestión de memoria RAM en bloque característica de las herramientas tradicionales.
 
-Finalmente, para la evaluación del Desequilibrio de Ligamiento (LD), se estructuró un análisis de "perturbación de ploidía". Utilizando exactamente los mismos genotipos filtrados, se calcularon las matrices de covarianza haplotípica bajo tres restricciones matemáticas distintas:
+Finalmente, para la evaluación del Desequilibrio de Ligamiento (LD), se estructuró un análisis de "perturbación de ploidía". Utilizando exactamente los mismos genotipos filtrados, se calcularon las matrices de covarianza haplotípica bajo tres restricciones matemáticas distintas: (1) el modelo nativo de dosis continua de BioCenicana asumiendo un entorno decaploide (10x); (2) un modelo de dosis discretizada, donde los valores probabilísticos de la máxima verosimilitud fueron redondeados a números enteros para simular herramientas de ploidía rígida; y (3) el modelo diploide (2x) inherente a PopLDdecay. Este diseño metodológico permitió aislar y cuantificar matemáticamente el grado de distorsión que sufre la arquitectura genómica de la caña de azúcar cuando las herramientas bioinformáticas desestiman su naturaleza polisómica cuantitativa.
 
-1. **El modelo nativo de dosis continua** de BioCenicana asumiendo un entorno decaploide (10x).
-2. **Un modelo de dosis discretizada**, donde los valores probabilísticos de la máxima verosimilitud fueron redondeados a números enteros para simular herramientas de ploidía rígida.
-3. **El modelo diploide** (2x) inherente a PopLDdecay.
-
-Este diseño metodológico permitió aislar y cuantificar matemáticamente el grado de distorsión que sufre la arquitectura genómica de la caña de azúcar cuando las herramientas bioinformáticas desestiman su naturaleza polisómica cuantitativa.
 ---
 
 ## Resultados
