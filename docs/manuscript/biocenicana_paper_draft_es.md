@@ -300,15 +300,15 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 *(A) Varianza explicada por Componente Principal. (B) Identificación del agrupamiento óptimo ($K=3$) mediante el método del codo (WCSS vs K). (C) Dendrograma de agrupamiento jerárquico. (D) Matriz de Parentesco Genómico de VanRaden (Kinship). (E) Matriz de Distancia Genética Euclidiana por Pares.*
 
 <p align="center">
-  <img src="../assets/pca_variance.png" width="45%" alt="Scree Plot" title="Scree Plot">
-  <img src="../assets/wcss_k.png" width="45%" alt="WCSS vs K" title="WCSS vs K">
+  <img src="../assets/ExplainedVariance.png" width="45%" alt="Scree Plot" title="Scree Plot">
+  <img src="../assets/ElbowMethod.png" width="45%" alt="WCSS vs K" title="WCSS vs K">
 </p>
 <p align="center">
-  <img src="../assets/dendrogram.png" width="90%" alt="Dendrogram" title="Dendrogram">
+  <img src="../assets/Dendrogram.png" width="90%" alt="Dendrogram" title="Dendrogram">
 </p>
 <p align="center">
-  <img src="../assets/kinship_heatmap.png" width="45%" alt="Kinship Matrix" title="Kinship Matrix">
-  <img src="../assets/distance_heatmap.png" width="45%" alt="Euclidean Distance" title="Euclidean Distance">
+  <img src="../assets/Kinship.png" width="45%" alt="Kinship Matrix" title="Kinship Matrix">
+  <img src="../assets/GeneticDistanceMatrixHeatmap.png" width="45%" alt="Euclidean Distance" title="Euclidean Distance">
 </p>
 
 ---
