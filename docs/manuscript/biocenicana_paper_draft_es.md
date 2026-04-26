@@ -313,11 +313,23 @@ Más allá del rendimiento computacional, la verdadera ventaja de BioCenicana ra
 
 <br>
 
-**Figura 4. Proyección de Estructura Poblacional y Ancestría.**
-*(A) Análisis de Componentes Principales (PCA) mostrando la separación espacial de los tres clústeres genéticos ($K=3$). (B) Proporciones de Ancestría (Admixture) revelando la contribución genómica de los linajes fundadores en cada accesión.*
+**Figura 4. Proyección de Estructura Poblacional Espacial y Ancestría.**
+*(A) Análisis de Componentes Principales (PCA en 2D). (B) Secuencia de rotación del espacio tridimensional (PC1, PC2, PC3) capturando la segregación volumétrica de los tres clústeres. (C) Proporciones de Ancestría (Admixture) revelando la contribución genómica de los linajes fundadores en cada accesión.*
 
 <p align="center">
-  <img src="../assets/ClusterVisualizationPCA.png" width="90%" alt="PCA Clusters" title="PCA Clusters">
+  <img src="../assets/ClusterVisualizationPCA.png" width="90%" alt="PCA Clusters 2D" title="PCA Clusters 2D">
+</p>
+<p align="center">
+  <img src="../assets/pac3d1.png" width="23%">
+  <img src="../assets/pac3d2.png" width="23%">
+  <img src="../assets/pac3d3.png" width="23%">
+  <img src="../assets/pac3d4.png" width="23%">
+</p>
+<p align="center">
+  <img src="../assets/pac3d5.png" width="23%">
+  <img src="../assets/pac3d6.png" width="23%">
+  <img src="../assets/pac3d7.png" width="23%">
+  <img src="../assets/pac3d8.png" width="23%">
 </p>
 <p align="center">
   <img src="../assets/Ancestry.png" width="90%" alt="Ancestry Proportions" title="Ancestry Proportions">
