@@ -47,7 +47,7 @@ public class GffParser {
                     Map<String, String> attributes = parseAttributes(attributesStr);
                     id = attributes.getOrDefault("ID", attributes.getOrDefault("Name", "unknown_" + genes.size()));
                     // Strip common prefixes
-                    id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");旋
+                    id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
                     Gene gene = new Gene(id, chromosome, start, end, strand, type);
                     for (Map.Entry<String, String> entry : attributes.entrySet()) {
                         gene.addAttribute(entry.getKey(), entry.getValue());
