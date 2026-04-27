@@ -1,27 +1,93 @@
-# Guía Maestra: Análisis de Genómica Comparativa con BioCenicana
+# Guía Completa: Genómica Comparativa con BioCenicana
+## Caso de estudio: *Saccharum hybrid* R570 vs CC 01-1940
 
-Esta guía utiliza datos reales del proyecto BioCenicana (Cultivar R570 vs CC 01-1940) para demostrar el flujo de trabajo completo del módulo `comp-gen`.
-
-## 1. Descripción del Dataset de Prueba
-Para este tutorial utilizaremos los archivos ubicados en `benchmarks/`:
-
-| Componente | Ruta del Archivo |
-| :--- | :--- |
-| **GFF3 (R570)** | `benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3` |
-| **GFF3 (1940)** | `benchmarks/genomas/1940/CC-01-1940.gff3` |
-| **Colinealidad** | `benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity` |
-| **CDS (R570)** | `benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna` |
-| **CDS (1940)** | `benchmarks/genomas/1940/CC-01-1940.cds.fna` |
-| **Variantes (VCF)** | `benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf` |
+Esta guía lleva al usuario desde cero hasta un análisis genómico comparativo multicapa,
+usando datos reales de caña de azúcar disponibles en el directorio `benchmarks/`.
 
 ---
 
-## 2. Ejecución del Análisis Completo
+## 0. Preparación: Compilar y Empaquetar el JAR
 
-El siguiente comando integra todas las capas analíticas: sintenia, filogenia, variantes estructurales y funciones GO.
+Este paso solo se necesita hacer **una vez** (o cada vez que el código cambia).
 
 ```bash
-mvn exec:java -Dexec.mainClass="org.cenicana.bio.Main" -Dexec.args="comp-gen \
+mvn package -q
+```
+
+A partir de aquí, todos los comandos usan:
+
+```bash
+java -jar target/biocenicana.jar <subcomando> [opciones]
+```
+
+Puedes verificar que todo funciona con:
+
+```bash
+java -jar target/biocenicana.jar --help
+```
+
+---
+
+## 1. Archivos de Entrada
+
+| Componente | Ruta |
+| :--- | :--- |
+| **GFF3 — R570** | `benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3` |
+| **GFF3 — 1940** | `benchmarks/genomas/1940/CC-01-1940.gff3` |
+| **Colinealidad (McScanX)** | `benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity` |
+| **CDS — R570** | `benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna` |
+| **CDS — 1940** | `benchmarks/genomas/1940/CC-01-1940.cds.fna` |
+| **VCF — 1940** | `benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf` |
+
+---
+
+## Paso 1 — Sintenia y Diversidad Genómica
+
+Identifica los bloques sinténicos entre R570 y 1940, y calcula la densidad de SNPs por bloque usando el VCF real.
+
+```bash
+java -jar target/biocenicana.jar comp-gen \
+  --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --gff2 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --collinearity benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity \
+  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --viz results/paso1_sintenia_diversidad.html
+```
+
+**Resultados:**
+- `results/paso1_sintenia_diversidad.html` — Dashboard interactivo con mapa de calor de diversidad.
+- `comp_gen_report.tsv` — Reporte tabular con todos los pares de genes sinténicos.
+
+---
+
+## Paso 2 — Anotación Funcional y Enriquecimiento GO
+
+Conecta cada bloque sinténico con sus funciones biológicas. Identifica qué procesos biológicos están enriquecidos en cada bloque (Test Exacto de Fisher, p < 0.05).
+
+```bash
+java -jar target/biocenicana.jar comp-gen \
+  --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --gff2 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --collinearity benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity \
+  --annot1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --annot2 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --viz results/paso2_anotaciones_go.html
+```
+
+**Resultados:**
+- `results/paso2_anotaciones_go.html` — Al pasar el cursor sobre cada bloque, el tooltip muestra la función de cada gen y los términos GO enriquecidos.
+
+---
+
+## Paso 3 — Detección de WGD y Exportación de Ortólogos para Filogenia
+
+Integra las secuencias CDS para:
+1. Calcular **Ks** (sustituciones sinónimas) y detectar eventos de duplicación del genoma (WGD).
+2. Identificar pares de ortólogos estrictos 1:1, alinearlos (Needleman-Wunsch) y exportar la **super-matriz filogenética**.
+
+```bash
+java -jar target/biocenicana.jar comp-gen \
   --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
   --gff2 benchmarks/genomas/1940/CC-01-1940.gff3 \
   --collinearity benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity \
@@ -31,52 +97,51 @@ mvn exec:java -Dexec.mainClass="org.cenicana.bio.Main" -Dexec.args="comp-gen \
   --annot2 benchmarks/genomas/1940/CC-01-1940.gff3 \
   --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
   --export-orthologs results/supermatrix_1940_r570.fasta \
-  --viz results/dashboard_interactivo.html"
+  --viz results/paso3_wgd_filogenia.html
 ```
 
----
-
-## 3. Funciones Analíticas Detalladas
-
-### A. Detección de Eventos de Duplicación (WGD)
-Al incluir los archivos CDS, BioCenicana calcula automáticamente los valores de **Ks (Sustituciones Sinónimas)** para cada par de genes.
-- **Resultado:** En el dashboard interactivo, verás un histograma de frecuencias de Ks.
-- **Uso:** Los picos en valores bajos de Ks indican duplicaciones recientes, mientras que picos en valores altos indican eventos ancestrales de poliploidización.
-
-### B. Exportación de Super-Matriz de Ortólogos
-La opción `--export-orthologs` identifica genes que mantienen una relación 1:1 estricta dentro de los bloques sinténicos.
-- **Proceso:** El sistema alinea cada par usando el algoritmo Needleman-Wunsch y concatena los alineamientos.
-- **Resultado:** Un archivo FASTA (`supermatrix_1940_r570.fasta`) listo para inferencia filogenética.
-
-### C. Integración de Variantes Estructurales (SVs)
-Si posees un archivo VCF con variantes estructurales (obtenido mediante herramientas como Delly o Lumpy), puedes usar `--sv`.
-- **Detección:** El sistema busca solapamientos espaciales entre los bloques de sintenia y las coordenadas de los SVs.
-- **Visualización:** Los bloques afectados se marcan con una advertencia `⚠ SV Detected` y un estilo visual diferenciado (bordes punteados).
-
-### D. Enriquecimiento Funcional (GO)
-Usando los atributos del GFF3 o un archivo de anotación separado, BioCenicana realiza un **Test Exacto de Fisher** por cada bloque.
-- **Propósito:** Identificar si un bloque sinténico contiene una sobre-representación de genes relacionados con una función biológica específica (ej. "respuesta a estrés hídrico").
-- **Visualización:** Aparece en el tooltip al pasar el cursor sobre cualquier bloque en el explorador.
+**Resultados:**
+- `results/paso3_wgd_filogenia.html` — Dashboard con histograma de distribución Ks integrado.
+- `results/supermatrix_1940_r570.fasta` — Super-matriz FASTA lista para usar en IQ-TREE o RAxML.
 
 ---
 
-## 4. Guía de Navegación del Dashboard
+## Paso 4 — Dashboard Final Integrado (Todas las Capas)
 
-El archivo `dashboard_interactivo.html` permite tres modos de visualización:
+Consolida todos los análisis anteriores en un único explorador interactivo.
 
-1.  **Vista de Cintas (Ribbons):** Ideal para ver la correspondencia directa entre cromosomas. El color de las cintas puede representar el ID del bloque o el valor de Ka/Ks (presión de selección).
-2.  **Dotplot 2D:** Esencial para identificar inversiones a gran escala y translocaciones complejas entre los dos cultivares de caña.
-3.  **Vista Circos:** Proporciona un resumen global de todas las relaciones sinténicas en un formato circular compacto.
+```bash
+java -jar target/biocenicana.jar comp-gen \
+  --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --gff2 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --collinearity benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity \
+  --cds1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna \
+  --cds2 benchmarks/genomas/1940/CC-01-1940.cds.fna \
+  --annot1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --annot2 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --export-orthologs results/supermatrix_1940_r570.fasta \
+  --viz results/dashboard_final.html
+```
 
-### Filtros en el Panel Lateral:
-- **Block Size:** Filtra bloques pequeños para limpiar el ruido.
-- **Orientation:** Separa bloques colineales de bloques invertidos.
-- **Diversity Mode:** Cambia el color de los bloques para mostrar la densidad de SNPs detectada en el VCF.
+**Resultados finales:**
+- `results/dashboard_final.html` — Explorador completo: Ribbons, Dotplot 2D, Vista Circos, filtros de diversidad/Ka/Ks, enriquecimiento GO y detección de SVs.
+- `results/supermatrix_1940_r570.fasta` — Insumo para análisis filogenético.
+- `comp_gen_report.tsv` — Reporte TSV con todas las métricas integradas.
 
 ---
 
-## 5. Solución de Problemas Comunes
+## Guía del Dashboard Interactivo
 
-- **Error de Memoria:** Si los archivos BLAST/Collinearity son muy grandes, aumenta la memoria de Maven con `MAVEN_OPTS="-Xmx8G"`.
-- **Cromosomas no encontrados:** Asegúrate de que los nombres de los cromosomas en el archivo de colinealidad coincidan exactamente con los del GFF.
-- **Alineamiento Lento:** La exportación de ortólogos puede tardar varios minutos si hay miles de pares 1:1; el sistema mostrará el progreso en la consola.
+| Modo de Vista | Uso Principal |
+| :--- | :--- |
+| **Ribbons** | Ver la correspondencia directa entre cromosomas |
+| **Dotplot 2D** | Identificar inversiones y translocaciones a gran escala |
+| **Circos** | Resumen global de toda la comparación genómica |
+
+| Filtro | Función |
+| :--- | :--- |
+| **Block Size** | Elimina bloques pequeños (ruido) |
+| **Diversity Mode** | Colorea bloques por densidad de SNPs |
+| **Ka/Ks Mode** | Muestra presión de selección: azul = purificadora, rojo = positiva |
+| **Búsqueda de Gen** | Localiza cualquier gen y ve su contexto sinténico |
