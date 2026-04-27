@@ -59,8 +59,14 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--sv"}, description = "[Optional] VCF file containing Structural Variants (SVs) to identify syntenic block disruptions.")
     private String svFile;
 
+    @Option(names = {"-t", "--threads"}, description = "Number of threads to use for parallel processing (default: available cores).")
+    private Integer threads;
+
     @Override
     public Integer call() throws Exception {
+        if (threads != null) {
+            System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", threads.toString());
+        }
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
         analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile);
         return 0;
