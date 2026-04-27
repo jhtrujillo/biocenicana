@@ -134,6 +134,11 @@ public class ComparativeGenomicsAnalyzer {
             }
         }
 
+        // --- ORTHOLOG EXPORT & GO ENRICHMENT ---
+        if (exportOrthologs != null && !exportOrthologs.isBlank()) {
+            exportOrthologsForPhylogeny(blocks, genes1, genes2, base1, base2, seqCds1, seqCds2, go1, go2, exportOrthologs);
+        }
+
         System.out.println("[Done] Integrated report saved to: " + outputTsv);
 
         Map<String, Double> blockDiv = new HashMap<>();
@@ -264,57 +269,10 @@ public class ComparativeGenomicsAnalyzer {
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
-        if (exportOrthologs != null && !exportOrthologs.isBlank()) {
-            System.out.println("[Phase 4c/5] Exporting 1:1 Orthologs Super-Matrix...");
-            exportOneToOneOrthologs(blocks, genes1, genes2, base1, base2, seqCds1, seqCds2, exportOrthologs);
-        }
+        // Ortholog export already handled in Phase 4
     }
 
-    private void exportOneToOneOrthologs(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
-                                         Map<String, Gene> base1, Map<String, Gene> base2,
-                                         Map<String, String> seqs1, Map<String, String> seqs2, String outputPath) throws IOException {
-        System.out.println("  - Starting parallel alignment of orthologs...");
-        KaKsCalculator aligner = new KaKsCalculator();
-        
-        // Collect all valid 1:1 pairs first
-        List<String[]> pairsToAlign = new ArrayList<>();
-        for (SyntenicBlock block : blocks) {
-            for (SyntenicPair pair : block.getPairs()) {
-                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
-                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
-                if (g1 != null && g2 != null) {
-                    String s1 = seqs1.get(g1.getId());
-                    String s2 = seqs2.get(g2.getId());
-                    if (s1 != null && s2 != null && !s1.isBlank() && !s2.isBlank()) {
-                        pairsToAlign.add(new String[]{s1, s2});
-                    }
-                }
-            }
-        }
-
-        // Parallel alignment
-        List<String[]> alignedPairs = pairsToAlign.parallelStream()
-                .map(p -> aligner.align(p[0], p[1]))
-                .collect(java.util.stream.Collectors.toList());
-
-        if (!alignedPairs.isEmpty()) {
-            StringBuilder super1 = new StringBuilder();
-            StringBuilder super2 = new StringBuilder();
-            for (String[] aligned : alignedPairs) {
-                super1.append(aligned[0]);
-                super2.append(aligned[1]);
-            }
-            try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
-                pw.println(">Genome1_SuperMatrix_n" + alignedPairs.size());
-                pw.println(super1.toString());
-                pw.println(">Genome2_SuperMatrix_n" + alignedPairs.size());
-                pw.println(super2.toString());
-            }
-            System.out.println("  - Exported " + alignedPairs.size() + " 1:1 orthologs to super-matrix: " + outputPath);
-        } else {
-            System.out.println("  - No 1:1 orthologs with available sequences found for export.");
-        }
-    }
+    // Deprecated old method, unified logic in exportOrthologsForPhylogeny
 
     private void generateVisualization(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
                                        Map<String, Gene> base1, Map<String, Gene> base2,
@@ -512,6 +470,74 @@ public class ComparativeGenomicsAnalyzer {
         // Remove leading zeros
         s = s.replaceFirst("^0+(?!$)", "");
         return s.toLowerCase();
+    }
+
+    private void exportOrthologsForPhylogeny(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
+                                            Map<String, Gene> base1, Map<String, Gene> base2,
+                                            Map<String, String> seqs1, Map<String, String> seqs2,
+                                            Map<String, List<String>> go1, Map<String, List<String>> go2,
+                                            String exportDir) throws IOException {
+        System.out.println("[Phylogeny] Exporting 1:1 orthologs & Super-Matrix to: " + exportDir);
+        java.nio.file.Files.createDirectories(java.nio.file.Paths.get(exportDir));
+        
+        KaKsCalculator aligner = new KaKsCalculator();
+        List<String[]> pairsToAlign = new ArrayList<>();
+        Map<String, List<String>> orthologGoSet = new HashMap<>();
+
+        for (SyntenicBlock block : blocks) {
+            for (SyntenicPair pair : block.getPairs()) {
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
+                if (g1 != null && g2 != null) {
+                    String s1 = seqs1.get(g1.getId());
+                    String s2 = seqs2.get(g2.getId());
+                    if (s1 != null && s2 != null && s1.length() > 300) {
+                        String outName = String.format("%s_%s.fasta", g1.getId(), g2.getId());
+                        try (PrintWriter pw = new PrintWriter(new FileWriter(new java.io.File(exportDir, outName)))) {
+                            pw.printf(">%s%n%s%n", g1.getId(), s1);
+                            pw.printf(">%s%n%s%n", g2.getId(), s2);
+                        }
+                        pairsToAlign.add(new String[]{s1, s2});
+                        if (go1.containsKey(g1.getId())) orthologGoSet.put(g1.getId(), go1.get(g1.getId()));
+                        if (go2.containsKey(g2.getId())) orthologGoSet.put(g2.getId(), go2.get(g2.getId()));
+                    }
+                }
+            }
+            if (pairsToAlign.size() > 5000) break;
+        }
+        System.out.println("  - Exported " + pairsToAlign.size() + " individual ortholog fasta files.");
+
+        // --- SUPER-MATRIX ---
+        if (!pairsToAlign.isEmpty()) {
+            System.out.println("  - Aligning orthologs for Super-Matrix...");
+            List<String[]> alignedPairs = pairsToAlign.parallelStream().map(p -> aligner.align(p[0], p[1])).collect(java.util.stream.Collectors.toList());
+            StringBuilder super1 = new StringBuilder(), super2 = new StringBuilder();
+            for (String[] al : alignedPairs) { super1.append(al[0]); super2.append(al[1]); }
+            String smPath = new java.io.File(exportDir, "supermatrix_orthologs.fasta").getAbsolutePath();
+            try (PrintWriter pw = new PrintWriter(new FileWriter(smPath))) {
+                pw.println(">CC_01_1940_SuperMatrix\n" + super1.toString());
+                pw.println(">R570_SuperMatrix\n" + super2.toString());
+            }
+            System.out.println("  - Super-Matrix saved to: " + smPath);
+        }
+
+        // --- GO ENRICHMENT ---
+        if (!orthologGoSet.isEmpty()) {
+            System.out.println("[Functional] Calculating GO Enrichment for orthologs...");
+            GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
+            Map<String, List<String>> bg = new HashMap<>(go1); bg.putAll(go2);
+            List<GoEnrichmentCalculator.EnrichmentResult> res = goCalc.calculate(orthologGoSet, bg);
+            String goOut = new java.io.File(exportDir, "ortholog_go_enrichment.tsv").getAbsolutePath();
+            try (PrintWriter pw = new PrintWriter(new FileWriter(goOut))) {
+                pw.println("GO_Term\tCategory\tDescription\tStudy_Count\tBackground_Count\tpValue\tAdjusted_pValue");
+                for (GoEnrichmentCalculator.EnrichmentResult r : res) {
+                    if (r.getPValue() < 0.05) {
+                        pw.printf(Locale.US, "%s\t%s\t%s\t%d\t%d\t%.2e\t%.2e%n", r.getGoId(), r.getCategory(), r.getDescription(), r.getStudyCount(), r.getBgCount(), r.getPValue(), r.getAdjPValue());
+                    }
+                }
+            }
+            System.out.println("  - GO Enrichment report saved to: " + goOut);
+        }
     }
 
     private static class VcfRegion {

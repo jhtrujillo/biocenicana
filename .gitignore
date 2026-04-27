@@ -71,3 +71,7 @@ example_vcfs/large_synthetic.vcf
 *.html
 !src/**/*.html
 /example_vcfs/large_synthetic_filtered.vcf
+
+# Resultados de análisis
+results/
+results/

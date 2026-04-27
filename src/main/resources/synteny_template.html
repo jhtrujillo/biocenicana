@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8">
   <title>BioCenicana | Advanced Synteny Explorer</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -348,12 +349,60 @@
     </div>
   </div>
 </div>
+<div id="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div id="modal-content" style="background:white; width:90%; max-width:600px; border-radius:16px; padding:30px; box-shadow:var(--shadow-lg); position:relative; max-height:80vh; overflow-y:auto;">
+    <button onclick="closeModal()" style="position:absolute; top:15px; right:15px; border:none; background:none; font-size:24px; cursor:pointer; color:#94a3b8;">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
 <div id="tooltip" class="tooltip"></div>
 <script>
 const allData = /*DATA_JSON*/;
 const G1_NAME = "/*G1_NAME*/";
 const G2_NAME = "/*G2_NAME*/";
 const W=1000,H=500,M=80,BH=25;
+
+// --- Scientific Dictionary ---
+const DICTIONARY = {
+    'syntenic_genes': { title: '🧬 Genes en Sintenia', text: 'Número total de genes que conservan el mismo orden relativo. Indica cercanía evolutiva.' },
+    'syntenic_blocks': { title: '📦 Bloques Sinténicos', text: 'Segmentos cromosómicos conservados. Muchos bloques cortos indican fragmentación.' },
+    'inverted': { title: '🔄 Inversiones', text: 'ADN girado 180°. Comunes en caña de azúcar, actúan como barreras genéticas.' },
+    'wgd': { title: '⏱ WGD Analysis (Ks)', text: 'El pico en la distribución de Ks mide eventos de duplicación genómica ancestral.' },
+    'kaks': { title: '⚖️ Selección Ka/Ks', text: 'Verde (&lt;1): Conservación funcional. Rojo (&gt;1): Adaptación rápida.' }
+};
+
+function showHelp(key) {
+    const info = DICTIONARY[key];
+    if(!info) return;
+    d3.select("#modal-body").html(`
+        <h2 style="color:var(--primary); margin-top:0;">${info.title}</h2>
+        <div style="line-height:1.6; color:#334155;">${info.text}</div>
+        <button onclick="closeModal()" class="btn btn-primary" style="margin-top:20px; width:100%;">Cerrar</button>
+    `);
+    d3.select("#modal-overlay").style("display","flex");
+}
+
+function closeModal() { d3.select("#modal-overlay").style("display","none"); }
+
+function zoomWGD() {
+    const validKs = data.filter(d => d.kk && d.kk.ks > 0.01 && d.kk.ks < 3.0).map(d => d.kk.ks);
+    if(!validKs.length) return;
+    d3.select("#modal-body").html(`
+        <h2 style="margin-top:0;">⏱ Distribución Ks (WGD)</h2>
+        <div id="wgd-zoom-chart" style="width:100%; height:300px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
+        <div style="margin-top:15px;">${DICTIONARY['wgd'].text}</div>
+    `);
+    const margin = {top: 20, right: 30, bottom: 40, left: 50}, width = 540 - margin.left - margin.right, height = 300 - margin.top - margin.bottom;
+    const svg = d3.select("#wgd-zoom-chart").append("svg").attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    const x = d3.scaleLinear().domain([0, 3.0]).range([0, width]);
+    const bins = d3.bin().domain(x.domain()).thresholds(60)(validKs);
+    const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).range([height, 0]);
+    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+    svg.append("g").call(d3.axisLeft(y));
+    svg.selectAll("rect").data(bins).enter().append("rect").attr("x", d => x(d.x0) + 1).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.length)).attr("height", d => height - y(d.length)).attr("fill", "#f59e0b").attr("opacity", 0.8);
+    d3.select("#modal-overlay").style("display","flex");
+}
 const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
 const invColor="#f97316";
 
@@ -423,19 +472,23 @@ function renderGlobalStats(){
           const h = (b.length / maxFreq) * 30;
           svgBars += `<rect x="${i*2}" y="${30-h}" width="1.5" height="${h}" fill="#f59e0b"></rect>`;
       });
-      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:help;" title="Ks Distribution (Synonymous substitutions)&#10;Peaks indicate historical Whole Genome Duplications (WGD)">
+      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:zoom-in;" onclick="zoomWGD()">
         <svg width="120" height="30" style="margin-top:2px; margin-bottom:2px; box-shadow:none; border:none; border-radius:0; background:transparent;">
           ${svgBars}
         </svg>
         <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
       </div>`;
+  } else {
+      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:help;" onclick="showHelp('wgd')">
+        <div style="font-size:10px; color:#94a3b8; height:30px; display:flex; align-items:center; justify-content:center;">No Ks data</div>
+        <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
+      </div>`;
   }
 
   d3.select("#global-stats").html(`
-    <div class="gstat"><div class="gstat-val">${nGenes.toLocaleString()}</div><div class="gstat-lbl">🧬 Syntenic Genes</div></div>
-    <div class="gstat"><div class="gstat-val">${nBlocks.toLocaleString()}</div><div class="gstat-lbl">📦 Syntenic Blocks</div></div>
-    <div class="gstat"><div class="gstat-val" style="color:#10b981">${nBlocks-nInv}</div><div class="gstat-lbl">⬆️ Collinear</div></div>
-    <div class="gstat"><div class="gstat-val" style="color:#ef4444">${nInv}</div><div class="gstat-lbl">🔄 Inverted (${pctInv}%)</div></div>
+    <div class="gstat" onclick="showHelp('syntenic_genes')"><div class="gstat-val">${nGenes.toLocaleString()}</div><div class="gstat-lbl">🧬 Syntenic Genes</div></div>
+    <div class="gstat" onclick="showHelp('syntenic_blocks')"><div class="gstat-val">${nBlocks.toLocaleString()}</div><div class="gstat-lbl">📦 Syntenic Blocks</div></div>
+    <div class="gstat" onclick="showHelp('inverted')"><div class="gstat-val" style="color:#ef4444">${nInv}</div><div class="gstat-lbl">🔄 Inverted (${pctInv}%)</div></div>
     ${wgdHtml}
   `);
 }
