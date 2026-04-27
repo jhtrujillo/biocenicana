@@ -85,10 +85,13 @@ public class ComparativeGenomicsAnalyzer {
         List<SyntenicBlock> blocks = colParser.parse(collinearity);
         System.out.println("  - Found " + blocks.size() + " syntenic blocks.");
 
-        Set<String> pairedG1 = new HashSet<>();
-        Set<String> pairedG2 = new HashSet<>();
+        Map<String, Gene> base1 = createBaseIdMap(genes1);
+        Map<String, Gene> base2 = createBaseIdMap(genes2);
 
         System.out.println("[Phase 4/4] Integrating and Identifying Orphans...");
+        Set<String> pairedG1 = new HashSet<>();
+        Set<String> pairedG2 = new HashSet<>();
+        
         try (PrintWriter pw = new PrintWriter(new FileWriter(outputTsv))) {
             // Header
             pw.println("Block_ID\tStatus\tGene1_ID\tChr1\tStart1\tEnd1\tStrand1\tGene2_ID\tChr2\tStart2\tEnd2\tStrand2\tE_Value\tCDS1_Len\tCDS2_Len\tProt1_Len\tProt2_Len");
@@ -98,11 +101,8 @@ public class ComparativeGenomicsAnalyzer {
                     String g1IdOrig = pair.getGeneId1();
                     String g2IdOrig = pair.getGeneId2();
                     
-                    Gene g1 = genes1.get(g1IdOrig);
-                    if (g1 == null) g1 = findFuzzy(genes1, g1IdOrig);
-                    
-                    Gene g2 = genes2.get(g2IdOrig);
-                    if (g2 == null) g2 = findFuzzy(genes2, g2IdOrig);
+                    Gene g1 = fastFind(g1IdOrig, genes1, base1);
+                    Gene g2 = fastFind(g2IdOrig, genes2, base2);
                     
                     if (g1 != null) pairedG1.add(g1.getId());
                     if (g2 != null) pairedG2.add(g2.getId());
@@ -156,8 +156,8 @@ public class ComparativeGenomicsAnalyzer {
                     long minStart2 = Long.MAX_VALUE, maxEnd2 = 0;
                     String chr1 = null, chr2 = null;
                     for (SyntenicPair pair : block.getPairs()) {
-                        Gene g1 = findFuzzy(genes1, pair.getGeneId1());
-                        Gene g2 = findFuzzy(genes2, pair.getGeneId2());
+                        Gene g1 = fastFind(pair.getGeneId1(), genes1, base1);
+                        Gene g2 = fastFind(pair.getGeneId2(), genes2, base2);
                         if (g1 != null) {
                             chr1 = g1.getChromosome();
                             minStart1 = Math.min(minStart1, g1.getStart());
@@ -236,8 +236,8 @@ public class ComparativeGenomicsAnalyzer {
                     long min2 = Long.MAX_VALUE, max2 = 0;
                     
                     for (SyntenicPair pair : block.getPairs()) {
-                        Gene g1 = findFuzzy(genes1, pair.getGeneId1());
-                        Gene g2 = findFuzzy(genes2, pair.getGeneId2());
+                        Gene g1 = fastFind(pair.getGeneId1(), genes1, base1);
+                        Gene g2 = fastFind(pair.getGeneId2(), genes2, base2);
                         if (g1 != null) {
                             chr1 = g1.getChromosome();
                             min1 = Math.min(min1, g1.getStart());
@@ -265,17 +265,18 @@ public class ComparativeGenomicsAnalyzer {
             }
 
             System.out.println("[Viz] Generating interactive visualization...");
-            generateVisualization(blocks, genes1, genes2, annot1, annot2, go1, go2, blockDiv, kaksData, vizOutput);
+            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
         if (exportOrthologs != null && !exportOrthologs.isBlank()) {
             System.out.println("[Phase 4c/5] Exporting 1:1 Orthologs Super-Matrix...");
-            exportOneToOneOrthologs(blocks, genes1, genes2, seqCds1, seqCds2, exportOrthologs);
+            exportOneToOneOrthologs(blocks, genes1, genes2, base1, base2, seqCds1, seqCds2, exportOrthologs);
         }
     }
 
     private void exportOneToOneOrthologs(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
+                                         Map<String, Gene> base1, Map<String, Gene> base2,
                                          Map<String, String> seqs1, Map<String, String> seqs2, String outputPath) throws IOException {
         System.out.println("  - Starting parallel alignment of orthologs...");
         KaKsCalculator aligner = new KaKsCalculator();
@@ -284,8 +285,8 @@ public class ComparativeGenomicsAnalyzer {
         List<String[]> pairsToAlign = new ArrayList<>();
         for (SyntenicBlock block : blocks) {
             for (SyntenicPair pair : block.getPairs()) {
-                Gene g1 = findFuzzy(map1, pair.getGeneId1());
-                Gene g2 = findFuzzy(map2, pair.getGeneId2());
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
                 if (g1 != null && g2 != null) {
                     String s1 = seqs1.get(g1.getId());
                     String s2 = seqs2.get(g2.getId());
@@ -321,6 +322,7 @@ public class ComparativeGenomicsAnalyzer {
     }
 
     private void generateVisualization(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
+                                       Map<String, Gene> base1, Map<String, Gene> base2,
                                        Map<String, String> annot1, Map<String, String> annot2,
                                        Map<String, List<String>> go1, Map<String, List<String>> go2,
                                        Map<String, Double> blockDiv,
@@ -335,9 +337,9 @@ public class ComparativeGenomicsAnalyzer {
         blocks.parallelStream().forEach(block -> {
             Map<String, List<String>> studyGo = new HashMap<>();
             for (SyntenicPair pair : block.getPairs()) {
-                Gene g1 = findFuzzy(map1, pair.getGeneId1());
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
                 if (g1 != null && go1.containsKey(g1.getId())) studyGo.put(g1.getId(), go1.get(g1.getId()));
-                Gene g2 = findFuzzy(map2, pair.getGeneId2());
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
                 if (g2 != null && go2.containsKey(g2.getId())) studyGo.put(g2.getId(), go2.get(g2.getId()));
             }
             if (!studyGo.isEmpty()) {
@@ -361,8 +363,8 @@ public class ComparativeGenomicsAnalyzer {
             goJson.append("]");
 
             for (SyntenicPair pair : block.getPairs()) {
-                Gene g1 = findFuzzy(map1, pair.getGeneId1());
-                Gene g2 = findFuzzy(map2, pair.getGeneId2());
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
                 if (g1 != null && g2 != null) {
                     if (!first) dataJson.append(",");
                     // Resolve description: first from dedicated annot map, then from gene attributes
@@ -405,23 +407,36 @@ public class ComparativeGenomicsAnalyzer {
         return map;
     }
 
-    private Gene findFuzzy(Map<String, Gene> map, String id) {
-        if (map.containsKey(id)) return map.get(id);
-        
-        // Match with common suffixes/prefixes removed
-        String strippedId = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
-        if (map.containsKey(strippedId)) return map.get(strippedId);
-        if (map.containsKey(strippedId + ".1")) return map.get(strippedId + ".1");
-        if (map.containsKey(strippedId + "-T1")) return map.get(strippedId + "-T1");
-
-        // Safe fallback for base ID match (avoiding 'gene1' matching 'gene10')
-        for (String key : map.keySet()) {
-            String strippedKey = key.replaceFirst("^(gene:|mRNA:|transcript:)", "");
-            if (strippedKey.equals(strippedId) || 
-                strippedKey.startsWith(strippedId + ".") || strippedKey.startsWith(strippedId + "-") ||
-                strippedId.startsWith(strippedKey + ".") || strippedId.startsWith(strippedKey + "-")) {
-                return map.get(key);
+    private Map<String, Gene> createBaseIdMap(Map<String, Gene> originalMap) {
+        Map<String, Gene> baseMap = new HashMap<>(originalMap.size());
+        for (Gene g : originalMap.values()) {
+            String stripped = stripPrefix(g.getId());
+            baseMap.putIfAbsent(stripped, g);
+            // Also index by ID without version suffix if possible (e.g., Soffi.1 -> Soffi)
+            int lastDot = stripped.lastIndexOf('.');
+            if (lastDot > 0) {
+                baseMap.putIfAbsent(stripped.substring(0, lastDot), g);
             }
+        }
+        return baseMap;
+    }
+
+    private String stripPrefix(String id) {
+        if (id == null) return "";
+        return id.replaceFirst("(?i)^(gene:|mrna:|transcript:)", "");
+    }
+
+    private Gene fastFind(String id, Map<String, Gene> fullMap, Map<String, Gene> baseMap) {
+        if (fullMap.containsKey(id)) return fullMap.get(id);
+        String stripped = stripPrefix(id);
+        if (fullMap.containsKey(stripped)) return fullMap.get(stripped);
+        if (baseMap.containsKey(stripped)) return baseMap.get(stripped);
+        
+        // Try removing suffix
+        int lastDot = stripped.lastIndexOf('.');
+        if (lastDot > 0) {
+            String noVer = stripped.substring(0, lastDot);
+            if (baseMap.containsKey(noVer)) return baseMap.get(noVer);
         }
         return null;
     }
