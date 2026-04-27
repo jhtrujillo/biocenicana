@@ -12,7 +12,7 @@ Para este tutorial utilizaremos los archivos ubicados en `benchmarks/`:
 | **Colinealidad** | `benchmarks/genomica_comparativa/1940_vs_r570/mcscanx/1940_vs_r570.collinearity` |
 | **CDS (R570)** | `benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna` |
 | **CDS (1940)** | `benchmarks/genomas/1940/CC-01-1940.cds.fna` |
-| **Variantes (VCF)** | `benchmarks/vcfs/maize/maize.vcf` (Para pruebas de densidad de SNPs) |
+| **Variantes (VCF)** | `benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf` |
 
 ---
 
@@ -29,7 +29,7 @@ mvn exec:java -Dexec.mainClass="org.cenicana.bio.Main" -Dexec.args="comp-gen \
   --cds2 benchmarks/genomas/1940/CC-01-1940.cds.fna \
   --annot1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
   --annot2 benchmarks/genomas/1940/CC-01-1940.gff3 \
-  --vcf benchmarks/vcfs/maize/maize.vcf \
+  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
   --export-orthologs results/supermatrix_1940_r570.fasta \
   --viz results/dashboard_interactivo.html"
 ```
