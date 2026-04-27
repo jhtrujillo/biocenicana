@@ -308,7 +308,6 @@
         <button class="btn btn-sm" id="btn-view-circos" onclick="setView('circos')">Circular (Circos)</button>
       </div>
     </div>
-    <!-- Sequence selector -->
     <div class="panel">
       <h4>&#128197; Sequence Selector</h4>
       <input type="text" class="search-input" id="chr-list-search" placeholder="Filter sequences..." oninput="filterChrList(this.value)" style="margin-bottom:8px;">
@@ -319,10 +318,6 @@
       <div id="selector" class="sel-list"></div>
     </div>
     <button class="btn btn-primary" onclick="applySelection()" style="padding:12px;justify-content:center;">&#128260; Apply &amp; Update View</button>
-    <div id="quick-help" class="panel" style="background:#f0f9ff; border-color:#bae6fd; font-size:11px; color:#0369a1;">
-      <h4 style="color:#0369a1; margin-bottom:5px;">&#128214; Manual del Usuario</h4>
-      <p style="margin:0;">Haz clic en las <strong>tarjetas de estadísticas</strong> o en las <strong>leyendas</strong> para ver la interpretación biológica de tus resultados.</p>
-    </div>
   </div>
 </div>
 
@@ -490,6 +485,11 @@ function renderGlobalStats(){
         <svg width="120" height="30" style="margin-top:2px; margin-bottom:2px; box-shadow:none; border:none; border-radius:0; background:transparent;">
           ${svgBars}
         </svg>
+        <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
+      </div>`;
+  } else {
+      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:help;" onclick="showHelp('wgd')">
+        <div style="font-size:10px; color:#94a3b8; height:30px; display:flex; align-items:center; justify-content:center;">No data available</div>
         <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
       </div>`;
   }
