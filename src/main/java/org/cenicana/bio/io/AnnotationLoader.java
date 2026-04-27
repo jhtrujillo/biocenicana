@@ -3,7 +3,9 @@ package org.cenicana.bio.io;
 import java.io.*;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,6 +22,57 @@ public class AnnotationLoader {
             return loadFromGff3(filePath);
         }
         return loadFromTsv(filePath);
+    }
+
+    /** Loads GO terms: returns Map<GeneID, List<GO_IDs>> */
+    public Map<String, List<String>> loadGoTerms(String filePath) throws IOException {
+        if (filePath == null || filePath.isBlank()) return new HashMap<>();
+        Map<String, List<String>> map = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("#") || line.isBlank()) continue;
+                String[] p = line.split("\t");
+                
+                String id = null;
+                String rawGo = null;
+
+                if (p.length >= 9 && (filePath.toLowerCase().endsWith(".gff") || filePath.toLowerCase().endsWith(".gff3"))) {
+                    // GFF3 mode
+                    String type = p[2].toLowerCase();
+                    if (!type.equals("gene") && !type.equals("mrna")) continue;
+                    Map<String, String> attrs = parseAttrs(p[8]);
+                    id = attrs.getOrDefault("ID", attrs.getOrDefault("Name", null));
+                    if (id != null) {
+                        id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
+                        // Common GO attributes in GFF3: Ontoloty_term, GO, or inside Dbxref
+                        rawGo = firstNonEmpty(attrs, "Ontology_term", "GO", "go", "Dbxref");
+                    }
+                } else if (p.length >= 3) {
+                    // TSV mode: ID \t Desc \t GO1,GO2...
+                    id = p[0].trim();
+                    rawGo = p[2].trim();
+                }
+
+                if (id != null && rawGo != null) {
+                    List<String> terms = extractGoIds(rawGo);
+                    if (!terms.isEmpty()) {
+                        map.computeIfAbsent(id, k -> new ArrayList<>()).addAll(terms);
+                    }
+                }
+            }
+        }
+        return map;
+    }
+
+    private List<String> extractGoIds(String s) {
+        List<String> list = new ArrayList<>();
+        // Match GO:XXXXXXX patterns
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("GO:\\d+").matcher(s);
+        while (m.find()) {
+            list.add(m.group());
+        }
+        return list;
     }
 
     /** Parse GFF3: extract ID and description/Note from column 9. */

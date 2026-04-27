@@ -4,6 +4,7 @@ import org.cenicana.bio.io.AnnotationLoader;
 import org.cenicana.bio.io.CollinearityParser;
 import org.cenicana.bio.io.FastaReader;
 import org.cenicana.bio.io.GffParser;
+import org.cenicana.bio.io.SvParser;
 import org.cenicana.bio.model.Gene;
 import org.cenicana.bio.model.SyntenicBlock;
 import org.cenicana.bio.model.SyntenicPair;
@@ -23,7 +24,7 @@ public class ComparativeGenomicsAnalyzer {
                             String cds1, String cds2, String prot1, String prot2,
                             String outputTsv, String vizOutput,
                             String annotFile1, String annotFile2, String vcfFile,
-                            String kaksFile) throws IOException {
+                            String kaksFile, String exportOrthologs, String svFile) throws IOException {
         
         System.out.println("[Phase 1/4] Loading GFF files...");
         GffParser gffParser = new GffParser();
@@ -38,6 +39,12 @@ public class ComparativeGenomicsAnalyzer {
         Map<String, String> annot2 = annotLoader.load(annotFile2);
         System.out.println("  - Annot1: " + annot1.size() + " entries.");
         System.out.println("  - Annot2: " + annot2.size() + " entries.");
+
+        System.out.println("[Phase 1d/4] Loading GO Terms...");
+        Map<String, List<String>> go1 = annotLoader.loadGoTerms(annotFile1);
+        Map<String, List<String>> go2 = annotLoader.loadGoTerms(annotFile2);
+        System.out.println("  - GO1: " + go1.size() + " genes with GO.");
+        System.out.println("  - GO2: " + go2.size() + " genes with GO.");
 
         System.out.println("[Phase 1c/4] Loading Ka/Ks Selection Data...");
         Map<String, double[]> kaksData = new HashMap<>(); // Key: G1:G2, Value: [Ka, Ks, Ka/Ks]
@@ -212,20 +219,129 @@ public class ComparativeGenomicsAnalyzer {
                 }
             }
 
+            // Phase 4d: Structural Variant (SV) Intersection
+            if (svFile != null && !svFile.isBlank()) {
+                System.out.println("[Phase 4d/5] Intersecting syntenic blocks with Structural Variants (SVs)...");
+                SvParser svParser = new SvParser();
+                List<SvParser.SvRegion> svs = svParser.parse(svFile);
+                System.out.println("  - Loaded " + svs.size() + " SV regions.");
+                
+                for (SyntenicBlock block : blocks) {
+                    // Get bounding box for the block on both genomes
+                    String chr1 = null, chr2 = null;
+                    long min1 = Long.MAX_VALUE, max1 = 0;
+                    long min2 = Long.MAX_VALUE, max2 = 0;
+                    
+                    for (SyntenicPair pair : block.getPairs()) {
+                        Gene g1 = findFuzzy(genes1, pair.getGeneId1());
+                        Gene g2 = findFuzzy(genes2, pair.getGeneId2());
+                        if (g1 != null) {
+                            chr1 = g1.getChromosome();
+                            min1 = Math.min(min1, g1.getStart());
+                            max1 = Math.max(max1, g1.getEnd());
+                        }
+                        if (g2 != null) {
+                            chr2 = g2.getChromosome();
+                            min2 = Math.min(min2, g2.getStart());
+                            max2 = Math.max(max2, g2.getEnd());
+                        }
+                    }
+                    
+                    for (SvParser.SvRegion sv : svs) {
+                        boolean match1 = chr1 != null && normalizeChromosome(chr1).equals(normalizeChromosome(sv.chromosome)) 
+                                         && sv.start <= max1 && sv.end >= min1;
+                        boolean match2 = chr2 != null && normalizeChromosome(chr2).equals(normalizeChromosome(sv.chromosome)) 
+                                         && sv.start <= max2 && sv.end >= min2;
+                        
+                        if (match1 || match2) {
+                            block.setHasSV(true);
+                            break;
+                        }
+                    }
+                }
+            }
+
             System.out.println("[Viz] Generating interactive visualization...");
-            generateVisualization(blocks, genes1, genes2, annot1, annot2, blockDiv, kaksData, vizOutput);
+            generateVisualization(blocks, genes1, genes2, annot1, annot2, go1, go2, blockDiv, kaksData, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
+        }
+
+        if (exportOrthologs != null && !exportOrthologs.isBlank()) {
+            System.out.println("[Phase 4c/5] Exporting 1:1 Orthologs Super-Matrix...");
+            exportOneToOneOrthologs(blocks, genes1, genes2, seqCds1, seqCds2, exportOrthologs);
+        }
+    }
+
+    private void exportOneToOneOrthologs(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
+                                         Map<String, String> seqs1, Map<String, String> seqs2, String outputPath) throws IOException {
+        StringBuilder super1 = new StringBuilder();
+        StringBuilder super2 = new StringBuilder();
+        KaKsCalculator aligner = new KaKsCalculator();
+        int count = 0;
+
+        for (SyntenicBlock block : blocks) {
+            for (SyntenicPair pair : block.getPairs()) {
+                Gene g1 = findFuzzy(map1, pair.getGeneId1());
+                Gene g2 = findFuzzy(map2, pair.getGeneId2());
+                if (g1 != null && g2 != null) {
+                    String s1 = seqs1.get(g1.getId());
+                    String s2 = seqs2.get(g2.getId());
+                    
+                    if (s1 != null && s2 != null && !s1.isBlank() && !s2.isBlank()) {
+                        String[] aligned = aligner.align(s1, s2);
+                        super1.append(aligned[0]);
+                        super2.append(aligned[1]);
+                        count++;
+                    }
+                }
+            }
+        }
+
+        if (count > 0) {
+            try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
+                pw.println(">Genome1_SuperMatrix_n" + count);
+                pw.println(super1.toString());
+                pw.println(">Genome2_SuperMatrix_n" + count);
+                pw.println(super2.toString());
+            }
+            System.out.println("  - Exported " + count + " 1:1 orthologs to super-matrix: " + outputPath);
+        } else {
+            System.out.println("  - No 1:1 orthologs with available sequences found for export.");
         }
     }
 
     private void generateVisualization(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
                                        Map<String, String> annot1, Map<String, String> annot2,
+                                       Map<String, List<String>> go1, Map<String, List<String>> go2,
                                        Map<String, Double> blockDiv,
                                        Map<String, double[]> kaksData,
                                        String outputPath) throws IOException {
+        GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
         StringBuilder dataJson = new StringBuilder("[");
         boolean first = true;
         for (SyntenicBlock block : blocks) {
+            // Calculate GO Enrichment for this block
+            Map<String, List<String>> studyGo = new HashMap<>();
+            for (SyntenicPair pair : block.getPairs()) {
+                Gene g1 = findFuzzy(map1, pair.getGeneId1());
+                if (g1 != null && go1.containsKey(g1.getId())) studyGo.put(g1.getId(), go1.get(g1.getId()));
+                Gene g2 = findFuzzy(map2, pair.getGeneId2());
+                if (g2 != null && go2.containsKey(g2.getId())) studyGo.put(g2.getId(), go2.get(g2.getId()));
+            }
+            
+            // Combine background GO
+            Map<String, List<String>> bgGo = new HashMap<>(go1);
+            bgGo.putAll(go2);
+            
+            List<GoEnrichmentCalculator.EnrichmentResult> enriched = goCalc.calculate(studyGo, bgGo);
+            StringBuilder goJson = new StringBuilder("[");
+            for (int i = 0; i < Math.min(enriched.size(), 5); i++) {
+                GoEnrichmentCalculator.EnrichmentResult r = enriched.get(i);
+                if (i > 0) goJson.append(",");
+                goJson.append(String.format(java.util.Locale.US, "{\"id\":\"%s\",\"p\":%.4f,\"c\":%d}", r.goId, r.pValue, r.studyCount));
+            }
+            goJson.append("]");
+
             for (SyntenicPair pair : block.getPairs()) {
                 Gene g1 = findFuzzy(map1, pair.getGeneId1());
                 Gene g2 = findFuzzy(map2, pair.getGeneId2());
@@ -238,8 +354,8 @@ public class ComparativeGenomicsAnalyzer {
                     double[] kk = kaksData.getOrDefault(g1.getId() + ":" + g2.getId(), null);
                     String kkJson = kk == null ? "\"kk\":null" : String.format(java.util.Locale.US, "\"kk\":{\"ka\":%.4f,\"ks\":%.4f,\"r\":%.4f}", kk[0], kk[1], kk[2]);
                     
-                    dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,%s,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
-                            block.getBlockId(), block.getOrientation(), div, kkJson,
+                    dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,%s,\"sv\":%b,\"go\":%s,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
+                            block.getBlockId(), block.getOrientation(), div, kkJson, block.hasSV(), goJson.toString(),
                             g1.getId(), g1.getChromosome(), g1.getStart(), g1.getEnd(), desc1,
                             g2.getId(), g2.getChromosome(), g2.getStart(), g2.getEnd(), desc2));
                     first = false;
@@ -273,20 +389,34 @@ public class ComparativeGenomicsAnalyzer {
 
     private Gene findFuzzy(Map<String, Gene> map, String id) {
         if (map.containsKey(id)) return map.get(id);
-        // Try common variations like id.1 or transcript:id
+        
+        // Match with common suffixes/prefixes removed
+        String strippedId = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
+        if (map.containsKey(strippedId)) return map.get(strippedId);
+        if (map.containsKey(strippedId + ".1")) return map.get(strippedId + ".1");
+        if (map.containsKey(strippedId + "-T1")) return map.get(strippedId + "-T1");
+
+        // Safe fallback for base ID match (avoiding 'gene1' matching 'gene10')
         for (String key : map.keySet()) {
-            if (key.contains(id) || id.contains(key)) return map.get(key);
+            String strippedKey = key.replaceFirst("^(gene:|mRNA:|transcript:)", "");
+            if (strippedKey.equals(strippedId) || 
+                strippedKey.startsWith(strippedId + ".") || strippedKey.startsWith(strippedId + "-") ||
+                strippedId.startsWith(strippedKey + ".") || strippedId.startsWith(strippedKey + "-")) {
+                return map.get(key);
+            }
         }
         return null;
     }
     
     private String normalizeChromosome(String chr) {
         if (chr == null) return "";
-        String s = chr.toLowerCase().replaceAll("[^a-z0-9]", "");
-        s = s.replace("1940", "").replace("r570", "").replace("cc01", "");
-        s = s.replace("chromosome", "").replace("chr", "").replace("contig", "").replace("scaffold", "");
+        // Remove common prefixes ignoring case
+        String s = chr.replaceAll("(?i)^(chromosome|chr|contig|scaffold)_?", "");
+        // Keep only alphanumeric characters to handle variants like "1A", "01", etc.
+        s = s.replaceAll("[^a-zA-Z0-9]", "");
+        // Remove leading zeros
         s = s.replaceFirst("^0+(?!$)", "");
-        return s;
+        return s.toLowerCase();
     }
 
     private static class VcfRegion {

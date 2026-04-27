@@ -227,6 +227,13 @@
     }
     .tag-inv { background: #ef4444; color: #fff; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); }
     .tag-plus { background: #10b981; color: #fff; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
+    .tag-sv { background: #7c3aed; color: #fff; box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2); }
+
+    .ribbon-sv { 
+      stroke-dasharray: 4 2;
+      stroke-width: 1.5px !important;
+      stroke: #4c1d95 !important;
+    }
 
     .legend-item { display: flex; align-items: center; gap: 10px; font-size: 11px; padding: 5px 0; color: var(--text-muted); }
     .legend-swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.05); }
@@ -301,6 +308,7 @@
         <div class="legend-item"><div class="legend-swatch" style="background:#f97316;opacity:.7;"></div><span>Inverted block</span></div>
         <div class="legend-item"><div class="legend-swatch" style="background:linear-gradient(90deg,#6366f1,#06b6d4);opacity:.7;"></div><span>Collinear block (color = block ID)</span></div>
         <div class="legend-item"><div class="legend-swatch" style="background:#fbbf24;border:2px solid #f59e0b;"></div><span>Gene search highlight</span></div>
+        <div class="legend-item"><div class="legend-swatch" style="border:1.5px dashed #4c1d95;background:rgba(124,58,237,0.2);"></div><span>Block with SV disruption</span></div>
       </div>
       <div id="legend-heat" style="display:none;">
         <span style="font-size:10px;color:#64748b;display:block;margin-bottom:4px;font-weight:600;">Population Diversity (SNPs/Kbp)</span>
@@ -393,11 +401,31 @@ function renderGlobalStats(){
   const nInv=[...blocks.values()].filter(g=>g[0].o==="minus").length;
   const pctInv=nBlocks?Math.round(100*nInv/nBlocks):0;
   const pctCov=nGenes;
+  
+  const validKs = data.filter(d => d.kk && d.kk.ks > 0.01 && d.kk.ks < 3.0).map(d => d.kk.ks);
+  let wgdHtml = "";
+  if(validKs.length > 0) {
+      const bins = d3.bin().domain([0, 3.0]).thresholds(60)(validKs);
+      const maxFreq = d3.max(bins, b => b.length) || 1;
+      let svgBars = "";
+      bins.forEach((b, i) => {
+          const h = (b.length / maxFreq) * 30;
+          svgBars += `<rect x="${i*2}" y="${30-h}" width="1.5" height="${h}" fill="#f59e0b"></rect>`;
+      });
+      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:help;" title="Ks Distribution (Synonymous substitutions)&#10;Peaks indicate historical Whole Genome Duplications (WGD)">
+        <svg width="120" height="30" style="margin-top:2px; margin-bottom:2px; box-shadow:none; border:none; border-radius:0; background:transparent;">
+          ${svgBars}
+        </svg>
+        <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
+      </div>`;
+  }
+
   d3.select("#global-stats").html(`
     <div class="gstat"><div class="gstat-val">${nGenes.toLocaleString()}</div><div class="gstat-lbl">🧬 Syntenic Genes</div></div>
     <div class="gstat"><div class="gstat-val">${nBlocks.toLocaleString()}</div><div class="gstat-lbl">📦 Syntenic Blocks</div></div>
     <div class="gstat"><div class="gstat-val" style="color:#10b981">${nBlocks-nInv}</div><div class="gstat-lbl">⬆️ Collinear</div></div>
     <div class="gstat"><div class="gstat-val" style="color:#ef4444">${nInv}</div><div class="gstat-lbl">🔄 Inverted (${pctInv}%)</div></div>
+    ${wgdHtml}
   `);
 }
 
@@ -565,10 +593,11 @@ function render(){
         col = kaksColorScale(val);
     }
 
-    svg.append("path").attr("d",p).attr("class","ribbon").attr("data-c1",c1).attr("data-c2",c2).attr("data-b",bId).attr("fill",col).attr("stroke",col)
+    svg.append("path").attr("d",p).attr("class","ribbon" + (genes[0].sv ? " ribbon-sv" : "")).attr("data-c1",c1).attr("data-c2",c2).attr("data-b",bId).attr("fill",col).attr("stroke",col)
       .on("mouseover",(e)=>{
         let h=`<strong>Block #${bId}</strong><br>Genes: ${genes.length}<br>${c1} &harr; ${c2}<br>`;
         h+=ori==="minus"?`<span class="tag tag-inv">Inverted</span>`:`<span class="tag tag-plus">Collinear</span>`;
+        if(genes[0].sv) h += ` <span class="tag tag-sv">⚠ SV Detected</span>`;
         if(genes[0].div !== undefined && colorMode === 'heat') {
             h += `<div style="margin-top:6px;font-size:10px;color:#f8fafc;background:rgba(255,255,255,0.1);padding:4px;border-radius:4px;">🧬 <strong>Diversity:</strong> ${genes[0].div.toFixed(2)} SNPs/Kbp</div>`;
         }
@@ -586,6 +615,13 @@ function render(){
         let fArr = Array.from(funcs).slice(0, 3);
         if(fArr.length > 0) {
             h += `<div style="margin-top:5px;font-size:9px;color:#cbd5e1;"><strong>Functions:</strong><br>${fArr.map(f=>"- "+f).join("<br>")}</div>`;
+        }
+
+        if(genes[0].go && genes[0].go.length > 0) {
+            h += `<div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);">
+                    <div style="font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:3px;text-transform:uppercase;">Enriched GO Terms</div>
+                    ${genes[0].go.map(g => `<div style="font-size:9px;margin-bottom:2px;"><span style="color:#818cf8;">${g.id}</span> <span style="color:#64748b;font-size:8px;">(p=${g.p.toFixed(3)})</span></div>`).join("")}
+                  </div>`;
         }
         
         tip.style("opacity",1).html(h).style("left",(e.clientX+12)+"px").style("top",(e.clientY-10)+"px");
@@ -631,13 +667,15 @@ function render(){
 
           svg.append("line")
             .attr("x1",xs).attr("y1",ys).attr("x2",xe).attr("y2",ye)
-            .attr("stroke",col).attr("stroke-width",3).attr("stroke-opacity",0.8)
+            .attr("stroke",col).attr("stroke-width",genes[0].sv ? 4 : 3).attr("stroke-opacity",0.8)
+            .attr("stroke-dasharray", genes[0].sv ? "4 2" : null)
             .attr("stroke-linecap","round").attr("class","ribbon")
             .attr("data-c1",c1).attr("data-c2",c2).attr("data-b",bId)
             .on("mouseover",(e)=>{
               d3.select(e.target).attr("stroke-width",6).attr("stroke-opacity",1);
               let h=`<strong>Block #${bId}</strong><br>Genes: ${genes.length}<br>${c1} &harr; ${c2}<br>`;
               h+=ori==="minus"?`<span class="tag tag-inv">Inverted</span>`:`<span class="tag tag-plus">Collinear</span>`;
+              if(genes[0].sv) h += ` <span class="tag tag-sv">⚠ SV Detected</span>`;
               if(genes[0].div !== undefined && colorMode === 'heat') {
                   h += `<div style="margin-top:6px;font-size:10px;color:#f8fafc;background:rgba(255,255,255,0.1);padding:4px;border-radius:4px;">🧬 <strong>Diversity:</strong> ${genes[0].div.toFixed(2)} SNPs/Kbp</div>`;
               }
@@ -771,13 +809,19 @@ function render(){
           g.append("path")
             .attr("d", p.toString())
             .attr("class", "circos-ribbon")
+            .attr("class", "circos-ribbon" + (d.sv ? " ribbon-sv" : ""))
             .attr("data-c1", d.c1).attr("data-c2", d.c2).attr("data-b", bId)
             .attr("fill", col)
             .attr("fill-opacity", 0.4)
-            .attr("stroke", d3.rgb(col).darker())
-            .attr("stroke-width", 0.5)
+            .attr("stroke", d.sv ? "#4c1d95" : d3.rgb(col).darker())
+            .attr("stroke-width", d.sv ? 1.5 : 0.5)
             .on("mouseover", (e) => {
-                tip.style("opacity", 1).html(`<strong>Block #${bId}</strong><br>${d.c1} &harr; ${d.c2}<br>Genes: ${genes.length}`)
+                let h = `<strong>Block #${bId}</strong><br>${d.c1} &harr; ${d.c2}<br>Genes: ${genes.length}<br>`;
+                h += d.sv ? `<span class="tag tag-sv">⚠ SV Detected</span>` : "";
+                if(d.go && d.go.length > 0) {
+                    h += `<div style="margin-top:6px;font-size:8px;color:#94a3b8;"><strong>Top GO:</strong> ${d.go.map(g=>g.id).join(", ")}</div>`;
+                }
+                tip.style("opacity", 1).html(h)
                    .style("left", (e.clientX + 10) + "px").style("top", (e.clientY - 10) + "px");
             })
             .on("mouseout", () => tip.style("opacity", 0));

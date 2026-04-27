@@ -53,10 +53,16 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--kaks"}, description = "[Optional] Ka/Ks result file (TSV: Gene1 \\t Gene2 \\t Ka \\t Ks \\t Ka/Ks). Used to visualize evolutionary selection pressure.")
     private String kaks;
 
+    @Option(names = {"--export-orthologs"}, description = "[Optional] Prefix for exporting 1:1 ortholog FASTA files (concatenated super-matrix).")
+    private String exportOrthologs;
+
+    @Option(names = {"--sv"}, description = "[Optional] VCF file containing Structural Variants (SVs) to identify syntenic block disruptions.")
+    private String svFile;
+
     @Override
     public Integer call() throws Exception {
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile);
         return 0;
     }
 }

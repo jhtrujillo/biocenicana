@@ -1,7 +1,0 @@
-##fileformat=VCFv4.2
-##source=NGSEP
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=BSDP,Number=.,Type=Integer,Description="Allele depths for the alternate and reference alleles">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1	Sample2	Sample3
-##BioCenicana_VCFFilter="minMaf=0.3,maxMissingness=1.0,minHwePValue=0.0,onlyBiallelicSnps=false,ploidy=10"
-Chr1	1000	.	A	G	.	.	.	GT:BSDP	0/1:15,35	1/1:50,0	0/0:0,40

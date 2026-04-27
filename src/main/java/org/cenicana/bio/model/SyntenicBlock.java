@@ -13,6 +13,7 @@ public class SyntenicBlock {
     private double eValue;
     private String orientation = "plus";
     private List<SyntenicPair> pairs;
+    private boolean hasSV = false;
 
     public SyntenicBlock(String blockId) {
         this.blockId = blockId;
@@ -29,6 +30,8 @@ public class SyntenicBlock {
     public String getOrientation() { return orientation; }
     public void setOrientation(String orientation) { this.orientation = orientation; }
     public List<SyntenicPair> getPairs() { return pairs; }
+    public boolean hasSV() { return hasSV; }
+    public void setHasSV(boolean hasSV) { this.hasSV = hasSV; }
 
     public void addPair(SyntenicPair pair) {
         this.pairs.add(pair);
