@@ -277,11 +277,11 @@ public class ComparativeGenomicsAnalyzer {
 
     private void exportOneToOneOrthologs(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
                                          Map<String, String> seqs1, Map<String, String> seqs2, String outputPath) throws IOException {
-        StringBuilder super1 = new StringBuilder();
-        StringBuilder super2 = new StringBuilder();
+        System.out.println("  - Starting parallel alignment of orthologs...");
         KaKsCalculator aligner = new KaKsCalculator();
-        int count = 0;
-
+        
+        // Collect all valid 1:1 pairs first
+        List<String[]> pairsToAlign = new ArrayList<>();
         for (SyntenicBlock block : blocks) {
             for (SyntenicPair pair : block.getPairs()) {
                 Gene g1 = findFuzzy(map1, pair.getGeneId1());
@@ -289,25 +289,32 @@ public class ComparativeGenomicsAnalyzer {
                 if (g1 != null && g2 != null) {
                     String s1 = seqs1.get(g1.getId());
                     String s2 = seqs2.get(g2.getId());
-                    
                     if (s1 != null && s2 != null && !s1.isBlank() && !s2.isBlank()) {
-                        String[] aligned = aligner.align(s1, s2);
-                        super1.append(aligned[0]);
-                        super2.append(aligned[1]);
-                        count++;
+                        pairsToAlign.add(new String[]{s1, s2});
                     }
                 }
             }
         }
 
-        if (count > 0) {
+        // Parallel alignment
+        List<String[]> alignedPairs = pairsToAlign.parallelStream()
+                .map(p -> aligner.align(p[0], p[1]))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (!alignedPairs.isEmpty()) {
+            StringBuilder super1 = new StringBuilder();
+            StringBuilder super2 = new StringBuilder();
+            for (String[] aligned : alignedPairs) {
+                super1.append(aligned[0]);
+                super2.append(aligned[1]);
+            }
             try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
-                pw.println(">Genome1_SuperMatrix_n" + count);
+                pw.println(">Genome1_SuperMatrix_n" + alignedPairs.size());
                 pw.println(super1.toString());
-                pw.println(">Genome2_SuperMatrix_n" + count);
+                pw.println(">Genome2_SuperMatrix_n" + alignedPairs.size());
                 pw.println(super2.toString());
             }
-            System.out.println("  - Exported " + count + " 1:1 orthologs to super-matrix: " + outputPath);
+            System.out.println("  - Exported " + alignedPairs.size() + " 1:1 orthologs to super-matrix: " + outputPath);
         } else {
             System.out.println("  - No 1:1 orthologs with available sequences found for export.");
         }
@@ -320,10 +327,12 @@ public class ComparativeGenomicsAnalyzer {
                                        Map<String, double[]> kaksData,
                                        String outputPath) throws IOException {
         GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
-        StringBuilder dataJson = new StringBuilder("[");
-        boolean first = true;
-        for (SyntenicBlock block : blocks) {
-            // Calculate GO Enrichment for this block
+        
+        // --- PARALLEL GO ENRICHMENT FOR ALL BLOCKS ---
+        System.out.println("  - Calculating functional enrichment for " + blocks.size() + " blocks in parallel...");
+        Map<String, List<GoEnrichmentCalculator.EnrichmentResult>> blockEnrichment = new java.util.concurrent.ConcurrentHashMap<>();
+        
+        blocks.parallelStream().forEach(block -> {
             Map<String, List<String>> studyGo = new HashMap<>();
             for (SyntenicPair pair : block.getPairs()) {
                 Gene g1 = findFuzzy(map1, pair.getGeneId1());
@@ -331,12 +340,18 @@ public class ComparativeGenomicsAnalyzer {
                 Gene g2 = findFuzzy(map2, pair.getGeneId2());
                 if (g2 != null && go2.containsKey(g2.getId())) studyGo.put(g2.getId(), go2.get(g2.getId()));
             }
-            
-            // Combine background GO
-            Map<String, List<String>> bgGo = new HashMap<>(go1);
-            bgGo.putAll(go2);
-            
-            List<GoEnrichmentCalculator.EnrichmentResult> enriched = goCalc.calculate(studyGo, bgGo);
+            if (!studyGo.isEmpty()) {
+                Map<String, List<String>> bgGo = new HashMap<>(go1);
+                bgGo.putAll(go2);
+                List<GoEnrichmentCalculator.EnrichmentResult> enriched = goCalc.calculate(studyGo, bgGo);
+                blockEnrichment.put(block.getBlockId(), enriched);
+            }
+        });
+
+        StringBuilder dataJson = new StringBuilder("[");
+        boolean first = true;
+        for (SyntenicBlock block : blocks) {
+            List<GoEnrichmentCalculator.EnrichmentResult> enriched = blockEnrichment.getOrDefault(block.getBlockId(), Collections.emptyList());
             StringBuilder goJson = new StringBuilder("[");
             for (int i = 0; i < Math.min(enriched.size(), 5); i++) {
                 GoEnrichmentCalculator.EnrichmentResult r = enriched.get(i);

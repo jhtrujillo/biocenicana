@@ -34,19 +34,16 @@ public class GoEnrichmentCalculator {
         Map<String, Integer> studyCounts = countGo(studyGenes);
         Map<String, Integer> backgroundCounts = countGo(backgroundGenes);
 
-        List<EnrichmentResult> results = new ArrayList<>();
-        for (String goId : studyCounts.keySet()) {
-            int k = studyCounts.get(goId); // Genes with GO in study
-            int K = backgroundCounts.getOrDefault(goId, k); // Genes with GO in background
-
-            // Simple hypergeometric approximation for p-value (right-tailed)
-            // Using a basic sum of probabilities for k, k+1, ..., n
+        // Parallel processing of GO terms
+        List<EnrichmentResult> results = java.util.Collections.synchronizedList(new ArrayList<>());
+        studyCounts.keySet().parallelStream().forEach(goId -> {
+            int k = studyCounts.get(goId);
+            int K = backgroundCounts.getOrDefault(goId, k);
             double pValue = calculateHypergeometricPValue(N, K, n, k);
-            
             if (pValue < 0.05) {
                 results.add(new EnrichmentResult(goId, k, K, pValue));
             }
-        }
+        });
 
         results.sort(Comparator.comparingDouble(r -> r.pValue));
         return results;
