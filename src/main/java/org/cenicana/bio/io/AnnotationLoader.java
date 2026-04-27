@@ -42,10 +42,16 @@ public class AnnotationLoader {
                     String type = p[2].toLowerCase();
                     if (!type.equals("gene") && !type.equals("mrna")) continue;
                     Map<String, String> attrs = parseAttrs(p[8]);
-                    id = attrs.getOrDefault("ID", attrs.getOrDefault("Name", null));
+                    if (type.equals("mrna")) {
+                        // For mRNA: use Parent gene ID as key (strip isoform suffix)
+                        id = attrs.get("Parent");
+                        if (id != null) id = id.replaceFirst("^(gene:)", "");
+                    }
+                    if (id == null) {
+                        id = attrs.getOrDefault("ID", attrs.getOrDefault("Name", null));
+                        if (id != null) id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
+                    }
                     if (id != null) {
-                        id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
-                        // Common GO attributes in GFF3: Ontoloty_term, GO, or inside Dbxref
                         rawGo = firstNonEmpty(attrs, "Ontology_term", "GO", "go", "Dbxref");
                     }
                 } else if (p.length >= 3) {
@@ -87,10 +93,16 @@ public class AnnotationLoader {
                 String type = p[2].toLowerCase();
                 if (!type.equals("gene") && !type.equals("mrna")) continue;
                 Map<String, String> attrs = parseAttrs(p[8]);
-                String id = attrs.getOrDefault("ID", attrs.getOrDefault("Name", null));
+                String id;
+                if (type.equals("mrna")) {
+                    // Use Parent gene ID so annotation key matches the gene loader
+                    id = attrs.get("Parent");
+                    if (id != null) id = id.replaceFirst("^(gene:)", "");
+                } else {
+                    id = attrs.getOrDefault("ID", attrs.getOrDefault("Name", null));
+                    if (id != null) id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
+                }
                 if (id == null) continue;
-                // Strip common prefixes like "gene:" or "mRNA:"
-                id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
                 String desc = firstNonEmpty(attrs,
                         "description", "Description", "Note", "note", "product", "function");
                 if (desc != null && !desc.isBlank()) {
