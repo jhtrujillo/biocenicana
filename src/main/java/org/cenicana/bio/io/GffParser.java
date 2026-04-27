@@ -38,13 +38,16 @@ public class GffParser {
                 if (parts.length >= 9) {
                     // Standard GFF3
                     type = parts[2];
+                    // Only load top-level gene features for synteny analysis
+                    if (!type.equalsIgnoreCase("gene") && !type.equalsIgnoreCase("mRNA")) continue;
                     start = Long.parseLong(parts[3]);
                     end = Long.parseLong(parts[4]);
                     strand = parts[6];
                     String attributesStr = parts[8];
                     Map<String, String> attributes = parseAttributes(attributesStr);
                     id = attributes.getOrDefault("ID", attributes.getOrDefault("Name", "unknown_" + genes.size()));
-                    
+                    // Strip common prefixes
+                    id = id.replaceFirst("^(gene:|mRNA:|transcript:)", "");
                     Gene gene = new Gene(id, chromosome, start, end, strand, type);
                     for (Map.Entry<String, String> entry : attributes.entrySet()) {
                         gene.addAttribute(entry.getKey(), entry.getValue());
