@@ -49,28 +49,6 @@ public class ComparativeGenomicsAnalyzer {
         System.out.println("  - GO1: " + go1.size() + " genes with GO.");
         System.out.println("  - GO2: " + go2.size() + " genes with GO.");
 
-        System.out.println("[Phase 1c/4] Loading Ka/Ks Selection Data...");
-        Map<String, double[]> kaksData = new HashMap<>(); // Key: G1:G2, Value: [Ka, Ks, Ka/Ks]
-        if (kaksFile != null && !kaksFile.isBlank()) {
-            try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(java.nio.file.Paths.get(kaksFile))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    if (line.trim().isEmpty() || line.startsWith("#")) continue;
-                    String[] p = line.split("\t");
-                    if (p.length >= 5) {
-                        try {
-                            String key = p[0] + ":" + p[1];
-                            double ka = Double.parseDouble(p[2]);
-                            double ks = Double.parseDouble(p[3]);
-                            double ratio = Double.parseDouble(p[4]);
-                            kaksData.put(key, new double[]{ka, ks, ratio});
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
-            System.out.println("  - Loaded Ka/Ks for " + kaksData.size() + " gene pairs.");
-        }
-        
         System.out.println("[Phase 2/4] Loading Sequence Data (FASTA)...");
         FastaReader fastaReader = new FastaReader();
         Map<String, String> seqCds1 = cds1 != null ? fastaReader.read(cds1) : Collections.emptyMap();
@@ -87,6 +65,21 @@ public class ComparativeGenomicsAnalyzer {
 
         Map<String, Gene> base1 = createBaseIdMap(genes1);
         Map<String, Gene> base2 = createBaseIdMap(genes2);
+
+        // --- KA/KS CALCULATION / LOADING ---
+        Map<String, double[]> kaksData;
+        if (kaksFile == null || kaksFile.isBlank()) {
+            if (!seqCds1.isEmpty() && !seqCds2.isEmpty()) {
+                System.out.println("[Phase 3b/4] Calculating Ka/Ks Selection Pressure (Parallel)...");
+                kaksData = calculateKaksParallel(blocks, genes1, genes2, base1, base2, seqCds1, seqCds2);
+                saveKaksReport(kaksData, "results/auto_kaks_report.tsv");
+            } else {
+                kaksData = Collections.emptyMap();
+            }
+        } else {
+            System.out.println("[Phase 1c/4] Loading existing Ka/Ks Data...");
+            kaksData = loadKaksFile(kaksFile);
+        }
 
         System.out.println("[Phase 4/4] Integrating and Identifying Orphans...");
         Set<String> pairedG1 = new HashSet<>();
@@ -405,6 +398,69 @@ public class ComparativeGenomicsAnalyzer {
             map.put(g.getId(), g);
         }
         return map;
+    }
+
+    private Map<String, double[]> calculateKaksParallel(List<SyntenicBlock> blocks, Map<String, Gene> map1, Map<String, Gene> map2,
+                                                       Map<String, Gene> base1, Map<String, Gene> base2,
+                                                       Map<String, String> seqs1, Map<String, String> seqs2) {
+        System.out.println("  - Aligning and calculating Ka/Ks for all syntenic pairs...");
+        KaKsCalculator calculator = new KaKsCalculator();
+        Map<String, double[]> results = new java.util.concurrent.ConcurrentHashMap<>();
+
+        blocks.parallelStream().forEach(block -> {
+            for (SyntenicPair pair : block.getPairs()) {
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
+                if (g1 != null && g2 != null) {
+                    String s1 = seqs1.get(g1.getId());
+                    String s2 = seqs2.get(g2.getId());
+                    if (s1 != null && s2 != null && !s1.isBlank() && !s2.isBlank()) {
+                        try {
+                            String[] aligned = calculator.align(s1, s2);
+                            KaKsCalculator.Result res = calculator.calculate(aligned[0], aligned[1]);
+                            results.put(pair.getGeneId1() + ":" + pair.getGeneId2(), new double[]{res.ka, res.ks, res.ratio});
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+        });
+        System.out.println("  - Completed Ka/Ks for " + results.size() + " pairs.");
+        return results;
+    }
+
+    private void saveKaksReport(Map<String, double[]> data, String path) throws IOException {
+        java.nio.file.Files.createDirectories(java.nio.file.Paths.get("results"));
+        try (PrintWriter pw = new PrintWriter(new FileWriter(path))) {
+            pw.println("#Gene1\tGene2\tKa\tKs\tKa/Ks");
+            for (Map.Entry<String, double[]> entry : data.entrySet()) {
+                String[] ids = entry.getKey().split(":");
+                double[] vals = entry.getValue();
+                pw.printf(Locale.US, "%s\t%s\t%.6f\t%.6f\t%.6f%n", ids[0], ids[1], vals[0], vals[1], vals[2]);
+            }
+        }
+    }
+
+    private Map<String, double[]> loadKaksFile(String path) {
+        Map<String, double[]> data = new HashMap<>();
+        try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(java.nio.file.Paths.get(path))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty() || line.startsWith("#")) continue;
+                String[] p = line.split("\t");
+                if (p.length >= 5) {
+                    try {
+                        String key = p[0] + ":" + p[1];
+                        double ka = Double.parseDouble(p[2]);
+                        double ks = Double.parseDouble(p[3]);
+                        double ratio = Double.parseDouble(p[4]);
+                        data.put(key, new double[]{ka, ks, ratio});
+                    } catch (Exception ignored) {}
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("  - Error loading Ka/Ks file: " + e.getMessage());
+        }
+        return data;
     }
 
     private Map<String, Gene> createBaseIdMap(Map<String, Gene> originalMap) {
