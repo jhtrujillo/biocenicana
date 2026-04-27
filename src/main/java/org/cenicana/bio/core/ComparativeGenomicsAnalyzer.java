@@ -35,14 +35,17 @@ public class ComparativeGenomicsAnalyzer {
 
         System.out.println("[Phase 1b/4] Loading Functional Annotations...");
         AnnotationLoader annotLoader = new AnnotationLoader();
-        Map<String, String> annot1 = annotLoader.load(annotFile1);
-        Map<String, String> annot2 = annotLoader.load(annotFile2);
+        String aFile1 = (annotFile1 != null && !annotFile1.isBlank()) ? annotFile1 : gff1;
+        String aFile2 = (annotFile2 != null && !annotFile2.isBlank()) ? annotFile2 : gff2;
+
+        Map<String, String> annot1 = annotLoader.load(aFile1);
+        Map<String, String> annot2 = annotLoader.load(aFile2);
         System.out.println("  - Annot1: " + annot1.size() + " entries.");
         System.out.println("  - Annot2: " + annot2.size() + " entries.");
 
         System.out.println("[Phase 1d/4] Loading GO Terms...");
-        Map<String, List<String>> go1 = annotLoader.loadGoTerms(annotFile1);
-        Map<String, List<String>> go2 = annotLoader.loadGoTerms(annotFile2);
+        Map<String, List<String>> go1 = annotLoader.loadGoTerms(aFile1);
+        Map<String, List<String>> go2 = annotLoader.loadGoTerms(aFile2);
         System.out.println("  - GO1: " + go1.size() + " genes with GO.");
         System.out.println("  - GO2: " + go2.size() + " genes with GO.");
 
