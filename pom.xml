@@ -30,7 +30,7 @@
     </dependencies>
 
     <build>
-        <finalName>biocenicana-1.0</finalName>
+        <finalName>biocenicana</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
