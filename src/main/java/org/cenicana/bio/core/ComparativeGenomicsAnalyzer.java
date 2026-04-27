@@ -529,10 +529,10 @@ public class ComparativeGenomicsAnalyzer {
             List<GoEnrichmentCalculator.EnrichmentResult> res = goCalc.calculate(orthologGoSet, bg);
             String goOut = new java.io.File(exportDir, "ortholog_go_enrichment.tsv").getAbsolutePath();
             try (PrintWriter pw = new PrintWriter(new FileWriter(goOut))) {
-                pw.println("GO_Term\tCategory\tDescription\tStudy_Count\tBackground_Count\tpValue\tAdjusted_pValue");
+                pw.println("GO_Term\tStudy_Count\tBackground_Count\tpValue");
                 for (GoEnrichmentCalculator.EnrichmentResult r : res) {
-                    if (r.getPValue() < 0.05) {
-                        pw.printf(Locale.US, "%s\t%s\t%s\t%d\t%d\t%.2e\t%.2e%n", r.getGoId(), r.getCategory(), r.getDescription(), r.getStudyCount(), r.getBgCount(), r.getPValue(), r.getAdjPValue());
+                    if (r.pValue < 0.05) {
+                        pw.printf(Locale.US, "%s\t%d\t%d\t%.2e%n", r.goId, r.studyCount, r.backgroundCount, r.pValue);
                     }
                 }
             }
