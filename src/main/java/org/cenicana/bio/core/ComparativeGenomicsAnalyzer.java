@@ -258,7 +258,9 @@ public class ComparativeGenomicsAnalyzer {
             }
 
             System.out.println("[Viz] Generating interactive visualization...");
-            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, vizOutput);
+            String n1 = gff1.toLowerCase().contains("1940") ? "CC 01-1940" : (gff1.toLowerCase().contains("r570") ? "R570" : "Genome 1");
+            String n2 = gff2.toLowerCase().contains("1940") ? "CC 01-1940" : (gff2.toLowerCase().contains("r570") ? "R570" : "Genome 2");
+            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, n1, n2, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
@@ -320,6 +322,7 @@ public class ComparativeGenomicsAnalyzer {
                                        Map<String, List<String>> go1, Map<String, List<String>> go2,
                                        Map<String, Double> blockDiv,
                                        Map<String, double[]> kaksData,
+                                       String n1, String n2,
                                        String outputPath) throws IOException {
         GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
         
@@ -384,7 +387,10 @@ public class ComparativeGenomicsAnalyzer {
             if (is == null) throw new IOException("Template not found: synteny_template.html");
             template = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }
-        String html = template.replace("/*DATA_JSON*/", dataJson.toString());
+
+        String html = template.replace("/*DATA_JSON*/", dataJson.toString())
+                              .replace("/*G1_NAME*/", n1)
+                              .replace("/*G2_NAME*/", n2);
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputPath))) {
             writer.print(html);

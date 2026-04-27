@@ -337,11 +337,22 @@
         </div>
       </div>
     </div>
+    <!-- Evolutionary Info -->
+    <div class="panel" style="background:#f0f9ff; border-color:#bae6fd;">
+      <h4 style="color:#0369a1;">&#129516; What is Ka/Ks?</h4>
+      <p style="font-size:10px; color:#0369a1; line-height:1.4; margin:0;">
+        The <strong>Ka/Ks ratio</strong> measures evolutionary pressure:
+        <br>• <strong>&lt; 1 (Purifying):</strong> Conservation. Vital genes that don't change.
+        <br>• <strong>&gt; 1 (Positive):</strong> Adaptation. Genes evolving fast to solve new challenges.
+      </p>
+    </div>
   </div>
 </div>
 <div id="tooltip" class="tooltip"></div>
 <script>
 const allData = /*DATA_JSON*/;
+const G1_NAME = "/*G1_NAME*/";
+const G2_NAME = "/*G2_NAME*/";
 const W=1000,H=500,M=80,BH=25;
 const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
 const invColor="#f97316";
@@ -453,7 +464,7 @@ function focusChr(chr,gen){
   });
   const topFuncs = Object.entries(funcs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f,n])=>`<div class="stat-target" title="${f}"><span>${f.length>22?f.substring(0,19)+'...':f}</span><strong>${n}</strong></div>`).join("");
 
-  const gl=gen===1?"R570":"CC 01-1940";
+  const gl=gen===1?G1_NAME:G2_NAME;
   d3.select("#stats-panel").html(`
     <h4>&#128200; ${chr}</h4>
     <div class="stat-row"><span class="stat-label">Genome</span><span class="stat-value">${gl}</span></div>
@@ -536,8 +547,8 @@ function render(){
     const y1=100,y2=360;
 
     // Genome labels
-    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text("R570");
-    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text("CC 01-1940");
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text(G1_NAME);
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text(G2_NAME);
 
   // Coverage bars (density) for genome 1
   s1.forEach(c=>{
@@ -643,8 +654,8 @@ function render(){
       svg.append("rect").attr("x",0).attr("y",0).attr("width",W).attr("height",H).attr("fill","none").attr("stroke","#cbd5e1").attr("stroke-width",2);
       
       // Labels
-      svg.append("text").attr("x",W/2).attr("y",-40).attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 1 (R570)");
-      svg.append("text").attr("x",-H/2).attr("y",-70).attr("transform","rotate(-90)").attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 2 (CC 01-1940)");
+      svg.append("text").attr("x",W/2).attr("y",-40).attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 1 (" + G1_NAME + ")");
+      svg.append("text").attr("x",-H/2).attr("y",-70).attr("transform","rotate(-90)").attr("text-anchor","middle").attr("font-weight","bold").attr("fill","#334155").text("Genome 2 (" + G2_NAME + ")");
 
       // Lines
       d3.group(data,d=>d.b).forEach((genes,bId)=>{
