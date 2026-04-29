@@ -367,6 +367,14 @@ const G2_NAME = "/*G2_NAME*/";
 const WGD_PEAKS = /*WGD_PEAKS_JSON*/;
 const TREE_NEWICK = "/*TREE_NEWICK*/";
 let SUBST_RATE = /*SUBST_RATE*/; // Substitutions/site/year
+const PRESETS = {
+    "Saccharum": 6.96e-9,
+    "Arabidopsis": 7.0e-9,
+    "Human": 1.2e-9,
+    "Populus": 2.5e-9,
+    "Drosophila": 1.5e-8,
+    "Custom": 0
+};
 const W=1000,H=500,M=80,BH=25;
 
 // --- Scientific Dictionary ---
@@ -396,6 +404,33 @@ function zoomWGD() {
     if(!validKs.length) { showHelp('wgd'); return; }
 
     const renderWgdModal = (rate) => {
+        const generateBioSummary = (peaks) => {
+            if (!peaks || peaks.length === 0) return "No se detectaron picos claros de duplicación en este set de datos.";
+            
+            let html = `<div style="font-size:11px; color:#1e293b; line-height:1.4; display:flex; flex-direction:column; gap:6px;">`;
+            
+            // Sort peaks by Ks to explain chronologically
+            const sorted = [...peaks].sort((a,b) => a.ks - b.ks);
+            
+            sorted.forEach((p, i) => {
+                const mya = (p.ks / (2.0 * rate)) / 1_000_000.0;
+                let desc = "";
+                if (p.ks < 0.1) {
+                    desc = `Este pico extremadamente reciente (Ks < 0.1) suele representar <strong>variación intra-específica</strong> o eventos de duplicación muy tardíos (posiblemente relacionados con la domesticación o poliploidía reciente).`;
+                } else if (p.ks < 0.3) {
+                    desc = `Un pico en este rango (~${mya.toFixed(0)} Mya) es característico de eventos de <strong>especiación reciente</strong> o la duplicación del genoma base en el linaje <i>Andropogoneae</i>.`;
+                } else if (p.ks < 0.9) {
+                    desc = `Representa un evento de <strong>duplicación ancestral</strong> (WGD) o una divergencia antigua entre linajes basales.`;
+                } else {
+                    desc = `Indica remanentes de eventos de duplicación muy antiguos o ruido de fondo en el alineamiento.`;
+                }
+                html += `<div><span style="color:#ef4444;font-weight:bold;">Pico #${i+1} (${mya.toFixed(1)} Mya):</span> ${desc}</div>`;
+            });
+            
+            html += `</div>`;
+            return html;
+        };
+
         const peakAnnotations = WGD_PEAKS && WGD_PEAKS.length > 0
             ? WGD_PEAKS.map(p => {
                 const mya = (p.ks / (2.0 * rate)) / 1_000_000.0;
@@ -409,19 +444,39 @@ function zoomWGD() {
         d3.select("#modal-body").html(`
             <h2 style="margin-top:0;">⏱ Distribución Ks — Análisis WGD</h2>
             <div id="wgd-zoom-chart" style="width:100%; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
-            <div style="margin-top:12px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;display:flex;flex-direction:column;gap:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="margin-top:12px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                 <div style="font-size:11px;font-weight:700;color:#92400e;">🔴 Picos Detectados</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:10px;color:#9a3412;">Rate (r):</span>
-                  <input type="number" id="subst-rate-input" step="0.1e-9" style="width:100px;font-size:10px;padding:2px 4px;border:1px solid #fdba74;border-radius:4px;" value="${rate}">
-                  <span style="font-size:9px;color:#9a3412;">subs/site/yr</span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:10px;color:#9a3412;">Organism:</span>
+                    <select id="organism-preset" style="font-size:10px;padding:2px 4px;border:1px solid #fdba74;border-radius:4px;background:white;">
+                      ${Object.keys(PRESETS).map(o => `<option value="${PRESETS[o]}" ${Math.abs(PRESETS[o] - rate) < 1e-12 ? 'selected' : ''}>${o}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:10px;color:#9a3412;">Rate (r):</span>
+                    <input type="number" id="subst-rate-input" step="0.1e-9" style="width:100px;font-size:10px;padding:2px 4px;border:1px solid #fdba74;border-radius:4px;" value="${rate}">
+                    <span style="font-size:9px;color:#9a3412;">subs/site/yr</span>
+                  </div>
                 </div>
               </div>
               <div style="font-size:11px;color:#78350f;display:flex;flex-wrap:wrap;gap:4px;">${peakAnnotations}</div>
+              <div style="border-top:1px solid #fed7aa; padding-top:8px; margin-top:4px;">
+                <div style="font-size:10px; font-weight:700; color:#c2410c; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.025em;">Interpretación Biológica</div>
+                ${generateBioSummary(WGD_PEAKS)}
+              </div>
             </div>
             <div style="margin-top:12px;font-size:11px;color:#64748b;line-height:1.5;">${DICTIONARY['wgd'].text}</div>
         `);
+
+        d3.select("#organism-preset").on("change", function() {
+            const val = parseFloat(this.value);
+            if (val > 0) {
+                SUBST_RATE = val;
+                renderWgdModal(val);
+            }
+        });
 
         d3.select("#subst-rate-input").on("change", function() {
             const newRate = parseFloat(this.value);
