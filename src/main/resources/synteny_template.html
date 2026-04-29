@@ -335,9 +335,9 @@
           <span>>2.0 (Positive)</span>
         </div>
         <div style="margin-top:10px;font-size:9.5px;color:#64748b;line-height:1.4;background:#f8fafc;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">
-          <div style="margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>Green (<1):</strong> Purifying selection. Highly conserved protein function.</div>
-          <div style="margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>White (~1):</strong> Neutral evolution.</div>
-          <div><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>Red (>1):</strong> Positive selection. Rapidly evolving or adaptive genes.</div>
+          <div style="margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;background:#10b981;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>Verde (<1):</strong> Es selección purificadora (genes estables).</div>
+          <div style="margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;background:#ffffff;border:1px solid #cbd5e1;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>Blanco (~1):</strong> Es evolución neutral (el gen cambia pero no afecta la función).</div>
+          <div><span style="display:inline-block;width:8px;height:8px;background:#ef4444;border-radius:50%;margin-right:4px;vertical-align:middle;"></span><strong>Rojo (>1):</strong> Es selección positiva (genes adaptándose rápido).</div>
         </div>
       </div>
     </div>
@@ -745,7 +745,10 @@ function render(){
   d3.select("#max-div-label").text(maxDiv.toFixed(2));
 
   const maxKaKs = d3.max(data, d => d.kk ? d.kk.r : 0) || 2;
-  const kaksColorScale = d3.scaleDiverging(t => d3.interpolateRdYlGn(1-t)).domain([0, 1, Math.max(2, maxKaKs)]);
+  const kaksColorScale = d3.scaleLinear()
+      .domain([0, 1, Math.max(2, maxKaKs)])
+      .range(["#10b981", "#ffffff", "#ef4444"])
+      .interpolate(d3.interpolateRgb);
 
   const x1=d3.scaleLinear().domain([0,o1]).range([0,W]);
   const x2=d3.scaleLinear().domain([0,o2]).range([0,W]);
