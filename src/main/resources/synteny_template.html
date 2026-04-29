@@ -341,14 +341,21 @@
         </div>
       </div>
     </div>
-    <!-- Evolutionary Info -->
-    <div class="panel" style="background:#f0f9ff; border-color:#bae6fd;">
-      <h4 style="color:#0369a1;">&#129516; What is Ka/Ks?</h4>
-      <p style="font-size:10px; color:#0369a1; line-height:1.4; margin:0;">
-        The <strong>Ka/Ks ratio</strong> measures evolutionary pressure:
-        <br>• <strong>&lt; 1 (Purifying):</strong> Conservation. Vital genes that don't change.
         <br>• <strong>&gt; 1 (Positive):</strong> Adaptation. Genes evolving fast to solve new challenges.
       </p>
+    </div>
+    <!-- AI Insights Panel -->
+    <div class="panel" style="background:#f5f3ff; border-color:#ddd6fe; border-left:4px solid #8b5cf6; padding:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <h4 style="color:#6d28d9; display:flex; align-items:center; gap:6px; margin:0; font-size:12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
+          AI Insights
+        </h4>
+        <button class="btn" onclick="askAI()" style="background:#8b5cf6; color:white; border:none; padding:4px 8px; font-size:10px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow: 0 2px 4px rgba(139, 92, 246, 0.2);">
+          <span>✨</span> Analizar
+        </button>
+      </div>
+      <p style="font-size:9px; color:#5b21b6; margin:0; opacity:0.8;">Interpretación biológica automática de la vista actual.</p>
     </div>
   </div>
 </div>
@@ -1220,6 +1227,78 @@ function showPhyloTree() {
 
     d3.select("#phylo-summary").html(summaryHtml);
 
+    d3.select("#modal-overlay").style("display", "flex");
+}
+
+function askAI() {
+    const visibleData = data; // 'data' is already filtered by current view
+    if (visibleData.length === 0) {
+        alert("No hay datos visibles para analizar. Selecciona algunos cromosomas primero.");
+        return;
+    }
+
+    const bCount = new Set(visibleData.map(d => d.b)).size;
+    const avgKaKs = d3.mean(visibleData, d => d.kk ? d.kk.r : null) || 1;
+    const avgDiv = d3.mean(visibleData, d => d.div || 0) || 0;
+    const invCount = new Set(visibleData.filter(d => d.o === 'minus').map(d => d.b)).size;
+    const svCount = new Set(visibleData.filter(d => d.sv).map(d => d.b)).size;
+    
+    const lowKaKsPct = (visibleData.filter(d => d.kk && d.kk.r < 0.5).length / visibleData.length * 100).toFixed(0);
+    const posKaKs = visibleData.filter(d => d.kk && d.kk.r > 1.2).length;
+
+    // Analyze GO terms
+    const goCounts = {};
+    visibleData.forEach(d => {
+        if(d.go) d.go.forEach(g => { goCounts[g.id] = (goCounts[g.id] || 0) + 1; });
+    });
+    const topGO = Object.entries(goCounts).sort((a,b) => b[1] - a[1]).slice(0, 3);
+
+    let report = `
+        <div style="font-family:system-ui, -apple-system, sans-serif; color: #1e293b;">
+            <div style="background:#8b5cf6; color:white; padding:15px; border-radius:12px 12px 0 0; margin:-20px -20px 20px -20px;">
+                <h2 style="margin:0; font-size:18px; display:flex; align-items:center; gap:10px;">
+                    &#10024; BioCenicana AI Interpretation
+                </h2>
+                <p style="margin:5px 0 0 0; font-size:12px; opacity:0.9;">Reporte multi-ómico para ${G1_NAME} vs ${G2_NAME}</p>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-bottom:20px;">
+                <div style="background:#f3f4f6; padding:8px; border-radius:8px; text-align:center;">
+                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Colinealidad</div>
+                    <div style="font-size:13px; font-weight:800; color:#1e293b;">${(100 - (invCount/bCount*100)).toFixed(1)}%</div>
+                </div>
+                <div style="background:#f3f4f6; padding:8px; border-radius:8px; text-align:center;">
+                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Presión Ka/Ks</div>
+                    <div style="font-size:13px; font-weight:800; color:#1e293b;">${avgKaKs.toFixed(2)}</div>
+                </div>
+                <div style="background:#f3f4f6; padding:8px; border-radius:8px; text-align:center;">
+                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Variabilidad</div>
+                    <div style="font-size:13px; font-weight:800; color:#1e293b;">${avgDiv.toFixed(1)} <small style="font-size:8px;font-weight:400;">S/Kb</small></div>
+                </div>
+            </div>
+
+            <h3 style="font-size:14px; border-bottom:1px solid #e2e8f0; padding-bottom:5px; color:#475569;">Interpretación del Análisis</h3>
+            <ul style="font-size:12px; line-height:1.6; color:#334155; padding-left:20px;">
+                <li><strong>Diversidad Genómica:</strong> La densidad de SNPs es de <strong>${avgDiv.toFixed(2)} por Kbp</strong>. ${avgDiv > 10 ? 'Esta es una región de <strong>alta diversidad</strong> poblacional, lo que sugiere que ha acumulado variaciones que podrían estar vinculadas a rasgos de interés genético.' : 'Se observa una <strong>variabilidad moderada</strong>, indicando una región estructuralmente estable en la población analizada.'}</li>
+                
+                <li><strong>Funcionalidad Biológica:</strong> Los procesos más frecuentes en esta vista son: ${topGO.length > 0 ? topGO.map(g => `<span style="color:#818cf8;font-weight:600;">${g[0]}</span>`).join(", ") : 'No se detectaron términos GO enriquecidos en los bloques actuales'}. ${topGO.length > 0 ? 'Esto sugiere que los bloques seleccionados están especializados en estas rutas biológicas.' : ''}</li>
+
+                <li><strong>Conservación Génica:</strong> El ${lowKaKsPct}% de los genes están bajo purificación fuerte. ${posKaKs > 0 ? `Se detectan <strong>${posKaKs} genes adaptativos</strong> que están evolucionando rápidamente.` : 'No hay señales de evolución acelerada.'}</li>
+            </ul>
+
+            <div style="background:#f5f3ff; border:1px solid #ddd6fe; padding:12px; border-radius:8px; margin-top:20px;">
+                <h4 style="margin:0 0 5px 0; font-size:13px; color:#6d28d9;">Conclusión del Asistente</h4>
+                <p style="margin:0; font-size:11px; color:#5b21b6; line-height:1.5;">
+                    La integración de datos muestra que esta región cromosómica es 
+                    ${avgDiv > 15 ? 'un <strong>punto caliente de diversidad</strong>' : 'evolutivamente conservada'}. 
+                    ${topGO.length > 0 ? `La presencia de términos como <strong>${topGO[0][0]}</strong> sugiere un rol activo en la fisiología de la planta.` : ''}
+                    ${invCount > 0 ? 'Las inversiones detectadas sugieren que la arquitectura del genoma está en proceso de diversificación entre estas dos variedades.' : 'La perfecta colinealidad indica que el orden de los genes se ha mantenido intacto desde su ancestro común.'}
+                </p>
+            </div>
+        </div>
+    `;
+
+    d3.select("#modal-body").html(report);
     d3.select("#modal-overlay").style("display", "flex");
 }
 
