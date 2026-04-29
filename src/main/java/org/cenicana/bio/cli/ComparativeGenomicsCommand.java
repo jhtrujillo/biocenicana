@@ -59,6 +59,15 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"--sv"}, description = "[Optional] VCF file containing Structural Variants (SVs) to identify syntenic block disruptions.")
     private String svFile;
 
+    @Option(names = {"--name1"}, description = "Custom name for Genome 1 (default: G1).", defaultValue = "G1")
+    private String name1;
+
+    @Option(names = {"--name2"}, description = "Custom name for Genome 2 (default: G2).", defaultValue = "G2")
+    private String name2;
+
+    @Option(names = {"--name3"}, description = "Custom name for Genome 3 (default: G3).", defaultValue = "G3")
+    private String name3;
+
     @Option(names = {"-t", "--threads"}, description = "Number of threads to use for parallel processing (default: available cores).")
     private Integer threads;
 
@@ -91,7 +100,7 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
         }
 
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile, rate);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile, rate, name1, name2, name3);
         return 0;
     }
 }

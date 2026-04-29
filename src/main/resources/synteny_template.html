@@ -249,6 +249,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
       Export SVG Report
     </button>
+    <button class="btn btn-sm" onclick="flipGenomes()" style="background:#0ea5e9; color:white; border:none; margin-left:8px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+      Flip Genomes
+    </button>
     <button class="btn btn-sm" onclick="askAI()" style="background:#8b5cf6; color:white; border:none; margin-left:8px; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.2);">
       <span style="margin-right:4px;">✨</span> AI Insights
     </button>
@@ -362,6 +366,7 @@
 const allData = /*DATA_JSON*/;
 const G1_NAME = "/*G1_NAME*/";
 const G2_NAME = "/*G2_NAME*/";
+const G3_NAME = "/*G3_NAME*/";
 const WGD_PEAKS = /*WGD_PEAKS_JSON*/;
 const TREE_NEWICK = "/*TREE_NEWICK*/";
 let SUBST_RATE = /*SUBST_RATE*/; // Substitutions/site/year
@@ -374,6 +379,12 @@ const PRESETS = {
     "Custom": 0
 };
 const W=1000,H=500,M=80,BH=25;
+let isFlipped = false;
+
+function flipGenomes() {
+    isFlipped = !isFlipped;
+    render();
+}
 
 // --- Scientific Dictionary ---
 const DICTIONARY = {
@@ -777,11 +788,15 @@ function render(){
   const tip=d3.select("#tooltip");
 
   if(viewMode === 'ribbons') {
-    const y1=100,y2=360;
+    let y1 = isFlipped ? 360 : 100;
+    let y2 = isFlipped ? 100 : 360;
+    
+    const gn1 = isFlipped ? G2_NAME : G1_NAME;
+    const gn2 = isFlipped ? G1_NAME : G2_NAME;
 
     // Genome labels
-    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y1-40).text(G1_NAME);
-    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",y2+BH+35).text(G2_NAME);
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",Math.min(y1,y2)-40).text(gn1);
+    svg.append("text").attr("class","genome-title").attr("x",0).attr("y",Math.max(y1,y2)+BH+35).text(gn2);
 
   // Coverage bars (density) for genome 1
   s1.forEach(c=>{
@@ -791,14 +806,16 @@ function render(){
     const maxBin=d3.max(bins,b=>b.length)||1;
     bins.forEach(b=>{
       const bh=Math.max(1,BH*(b.length/maxBin)*0.6);
-      svg.append("rect").attr("x",xScale(b.x0)).attr("y",y1+BH).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
+      let by = (y1 < y2) ? (y1 + BH) : (y1 - bh);
+      svg.append("rect").attr("x",xScale(b.x0)).attr("y",by).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
     });
   });
 
   // Chromosome bars genome 1
   s1.forEach(c=>{
     svg.append("rect").attr("class","genome-bar").attr("x",x1(offs1[c])).attr("y",y1).attr("width",x1(c1M[c])).attr("height",BH).attr("rx",4).on("click",()=>focusChr(c,1));
-    svg.append("text").attr("class","chr-label").attr("x",x1(offs1[c]+c1M[c]/2)).attr("y",y1-8).attr("text-anchor","middle").text(c);
+    let ty = (y1 < y2) ? (y1 - 8) : (y1 + BH + 14);
+    svg.append("text").attr("class","chr-label").attr("x",x1(offs1[c]+c1M[c]/2)).attr("y",ty).attr("text-anchor","middle").text(c);
   });
 
   // Coverage bars genome 2
@@ -809,14 +826,16 @@ function render(){
     const maxBin=d3.max(bins,b=>b.length)||1;
     bins.forEach(b=>{
       const bh=Math.max(1,BH*(b.length/maxBin)*0.6);
-      svg.append("rect").attr("x",xScale(b.x0)).attr("y",y2-bh).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
+      let by = (y2 < y1) ? (y2 + BH) : (y2 - bh);
+      svg.append("rect").attr("x",xScale(b.x0)).attr("y",by).attr("width",Math.max(0,xScale(b.x1)-xScale(b.x0)-1)).attr("height",bh).attr("fill","#3b82f6").attr("opacity",.25).attr("rx",1);
     });
   });
 
   // Chromosome bars genome 2
   s2.forEach(c=>{
     svg.append("rect").attr("class","genome-bar").attr("x",x2(offs2[c])).attr("y",y2).attr("width",x2(c2M[c])).attr("height",BH).attr("rx",4).on("click",()=>focusChr(c,2));
-    svg.append("text").attr("class","chr-label").attr("x",x2(offs2[c]+c2M[c]/2)).attr("y",y2+BH+14).attr("text-anchor","middle").text(c);
+    let ty = (y2 < y1) ? (y2 - 8) : (y2 + BH + 14);
+    svg.append("text").attr("class","chr-label").attr("x",x2(offs2[c]+c2M[c]/2)).attr("y",ty).attr("text-anchor","middle").text(c);
   });
 
   // Ribbons
@@ -826,9 +845,13 @@ function render(){
     const xS1=x1(offs1[c1]+d3.min(genes,d=>d.s1)),xE1=x1(offs1[c1]+d3.max(genes,d=>d.e1));
     const xS2=x2(offs2[c2]+d3.min(genes,d=>d.s2)),xE2=x2(offs2[c2]+d3.max(genes,d=>d.e2));
     const p=d3.path();
-    p.moveTo(xS1,y1+BH);p.lineTo(xE1,y1+BH);
-    p.bezierCurveTo(xE1,(y1+y2)/2,xE2,(y1+y2)/2,xE2,y2);
-    p.lineTo(xS2,y2);p.bezierCurveTo(xS2,(y1+y2)/2,xS1,(y1+y2)/2,xS1,y1+BH);
+    // Connect from Y1 to Y2
+    const ya = (y1 < y2) ? (y1 + BH) : y1;
+    const yb = (y2 < y1) ? (y2 + BH) : y2;
+    
+    p.moveTo(xS1, ya); p.lineTo(xE1, ya);
+    p.bezierCurveTo(xE1, (ya+yb)/2, xE2, (ya+yb)/2, xE2, yb);
+    p.lineTo(xS2, yb); p.bezierCurveTo(xS2, (ya+yb)/2, xS1, (ya+yb)/2, xS1, ya);
     p.closePath();
     let col=ori==="minus"?invColor:colorScale(bId);
     if(colorMode === 'heat') col = divColorScale(genes[0].div || 0);

@@ -25,7 +25,7 @@ public class ComparativeGenomicsAnalyzer {
                             String outputTsv, String vizOutput,
                             String annotFile1, String annotFile2, String vcfFile,
                             String kaksFile, String exportOrthologs, String svFile,
-                            double substitutionRate) throws IOException {
+                            double substitutionRate, String name1, String name2, String name3) throws IOException {
         
         System.out.println("[Phase 1/4] Loading GFF files...");
         GffParser gffParser = new GffParser();
@@ -263,9 +263,7 @@ public class ComparativeGenomicsAnalyzer {
                 }
             }
 
-            System.out.println("[Viz] Generating interactive visualization...");
-            String n1 = gff1.toLowerCase().contains("1940") ? "CC 01-1940" : (gff1.toLowerCase().contains("r570") ? "R570" : "Genome 1");
-            String n2 = gff2.toLowerCase().contains("1940") ? "CC 01-1940" : (gff2.toLowerCase().contains("r570") ? "R570" : "Genome 2");
+            System.out.println("[Viz] Generating interactive visualization for " + name1 + " vs " + name2 + "...");
 
             // --- WGD PEAK DETECTION ---
             System.out.println("[Phase 4e/5] Detecting WGD peaks in Ks distribution...");
@@ -275,7 +273,7 @@ public class ComparativeGenomicsAnalyzer {
             System.out.println("[Phase 4f/5] Building chromosome-level phylogenetic tree from Ks distances...");
             String treeNewick = buildChromosomePhylogeny(blocks, genes1, genes2, base1, base2, kaksData);
 
-            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, wgdPeaksJson, treeNewick, substitutionRate, n1, n2, vizOutput);
+            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, wgdPeaksJson, treeNewick, substitutionRate, name1, name2, name3, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
@@ -292,7 +290,7 @@ public class ComparativeGenomicsAnalyzer {
                                        Map<String, double[]> kaksData,
                                        String wgdPeaksJson, String treeNewick,
                                        double substitutionRate,
-                                       String n1, String n2,
+                                       String n1, String n2, String n3,
                                        String outputPath) throws IOException {
         GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
         
@@ -361,6 +359,7 @@ public class ComparativeGenomicsAnalyzer {
         String html = template.replace("/*DATA_JSON*/", dataJson.toString())
                               .replace("/*G1_NAME*/", n1)
                               .replace("/*G2_NAME*/", n2)
+                              .replace("/*G3_NAME*/", n3)
                               .replace("/*WGD_PEAKS_JSON*/", wgdPeaksJson)
                               .replace("/*TREE_NEWICK*/", treeNewick)
                               .replace("/*SUBST_RATE*/", String.format(java.util.Locale.US, "%.2e", substitutionRate));
