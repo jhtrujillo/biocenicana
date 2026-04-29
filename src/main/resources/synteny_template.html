@@ -550,16 +550,38 @@ function zoomWGD() {
 const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
 const invColor="#f97316";
 
-const sequences=[...new Set([...allData.map(d=>d.c1),...allData.map(d=>d.c2)])].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+const seq1 = [...new Set(allData.map(d=>d.c1))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+const seq2 = [...new Set(allData.map(d=>d.c2))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+const sequences = [...new Set([...seq1, ...seq2])];
 
 function isChr(n){const l=n.toLowerCase();return l.includes("chr")||l.includes("chromosome")||l.startsWith("sh")||l.startsWith("ss")||(!l.includes("scaffold")&&!l.includes("contig")&&!l.includes("unplaced"));}
 
-const sel=d3.select("#selector");
-sequences.forEach(s=>{
-  const div=sel.append("div").attr("class","sel-item");
+function renderChrItem(container, s) {
+  const div=container.append("div").attr("class","sel-item");
   div.append("input").attr("type","checkbox").attr("id","chk_"+s).property("checked",isChr(s));
   div.append("label").attr("for","chk_"+s).text(s.length>22?s.substring(0,19)+"...":s);
-});
+}
+
+const sel=d3.select("#selector");
+sel.append("div").attr("class", "sel-group-label").text(G1_NAME);
+seq1.forEach(s => renderChrItem(sel, s));
+
+sel.append("div").attr("class", "sel-group-label").style("margin-top", "12px").text(G2_NAME);
+seq2.forEach(s => renderChrItem(sel, s));
+
+// Add some styling for the group labels if needed (though already doing inline or classes)
+d3.select("head").append("style").html(`
+  .sel-group-label { 
+    font-size: 10px; 
+    font-weight: 800; 
+    color: #64748b; 
+    text-transform: uppercase; 
+    margin: 8px 0 4px 0; 
+    padding-bottom: 2px; 
+    border-bottom: 1px solid #f1f5f9; 
+    letter-spacing: 0.025em;
+  }
+`);
 
 function updateFilterLabel(v){d3.select("#minGenesVal").text(v);}
 function selectAll(v){d3.selectAll(".sel-item:not([style*='display: none']) input").property("checked",v);}
