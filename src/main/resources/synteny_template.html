@@ -301,7 +301,10 @@
       </div>
       <div id="selector" class="sel-list"></div>
     </div>
-    <button class="btn btn-primary" onclick="applySelection()" style="padding:12px;justify-content:center;">&#128260; Apply &amp; Update View</button>
+    <button class="btn btn-primary" onclick="applySelection()" style="padding:12px;justify-content:center;">&#128256; Apply &amp; Update View</button>
+    <button class="btn" onclick="showPhyloTree()" style="padding:12px;justify-content:center;background:#f0fdf4;border-color:#bbf7d0;color:#15803d;" id="btn-phylo">
+      &#127795; Chromosome Phylogeny
+    </button>
     <!-- Legend -->
     <div class="panel">
       <h4>&#127915; Color Legend</h4>
@@ -361,6 +364,8 @@
 const allData = /*DATA_JSON*/;
 const G1_NAME = "/*G1_NAME*/";
 const G2_NAME = "/*G2_NAME*/";
+const WGD_PEAKS = /*WGD_PEAKS_JSON*/;
+const TREE_NEWICK = "/*TREE_NEWICK*/";
 const W=1000,H=500,M=80,BH=25;
 
 // --- Scientific Dictionary ---
@@ -387,20 +392,83 @@ function closeModal() { d3.select("#modal-overlay").style("display","none"); }
 
 function zoomWGD() {
     const validKs = data.filter(d => d.kk && d.kk.ks > 0.01 && d.kk.ks < 3.0).map(d => d.kk.ks);
-    if(!validKs.length) return;
+    if(!validKs.length) { showHelp('wgd'); return; }
+
+    const peakAnnotations = WGD_PEAKS && WGD_PEAKS.length > 0
+        ? WGD_PEAKS.map(p => `<div style="display:inline-flex;align-items:center;gap:6px;margin-right:12px;">
+            <span style="display:inline-block;width:3px;height:14px;background:#ef4444;border-radius:1px;"></span>
+            <span><strong>Ks=${p.ks.toFixed(2)}</strong> &mdash; ~${p.mya.toFixed(0)} Mya</span>
+          </div>`).join("")
+        : "<span style='color:#94a3b8;font-size:11px;'>No peaks detected automatically.</span>";
+
     d3.select("#modal-body").html(`
-        <h2 style="margin-top:0;">⏱ Distribución Ks (WGD)</h2>
-        <div id="wgd-zoom-chart" style="width:100%; height:300px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
-        <div style="margin-top:15px;">${DICTIONARY['wgd'].text}</div>
+        <h2 style="margin-top:0;">⏱ Distribución Ks — Análisis WGD</h2>
+        <div id="wgd-zoom-chart" style="width:100%; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
+        <div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">
+          <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;">🔴 Picos Detectados (tasa de sustitución para gramíneas: r = 6.96×10⁻⁹/sitio/año)</div>
+          <div style="font-size:11px;color:#78350f;display:flex;flex-wrap:wrap;gap:4px;">${peakAnnotations}</div>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:#64748b;line-height:1.5;">${DICTIONARY['wgd'].text}</div>
     `);
-    const margin = {top: 20, right: 30, bottom: 40, left: 50}, width = 540 - margin.left - margin.right, height = 300 - margin.top - margin.bottom;
-    const svg = d3.select("#wgd-zoom-chart").append("svg").attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-    const x = d3.scaleLinear().domain([0, 3.0]).range([0, width]);
+
+    const margin = {top: 20, right: 20, bottom: 45, left: 55};
+    const chartW = 520, chartH = 280;
+    const innerW = chartW - margin.left - margin.right;
+    const innerH = chartH - margin.top - margin.bottom;
+
+    const svgEl = d3.select("#wgd-zoom-chart").append("svg")
+        .attr("width", chartW).attr("height", chartH)
+        .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const x = d3.scaleLinear().domain([0, 3.0]).range([0, innerW]);
     const bins = d3.bin().domain(x.domain()).thresholds(60)(validKs);
-    const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).range([height, 0]);
-    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
-    svg.append("g").call(d3.axisLeft(y));
-    svg.selectAll("rect").data(bins).enter().append("rect").attr("x", d => x(d.x0) + 1).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.length)).attr("height", d => height - y(d.length)).attr("fill", "#f59e0b").attr("opacity", 0.8);
+    const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).nice().range([innerH, 0]);
+
+    // Grid lines
+    svgEl.append("g").attr("class", "grid")
+        .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(""))
+        .selectAll("line").style("stroke", "#e2e8f0").style("stroke-dasharray", "2 2");
+    svgEl.select(".grid .domain").remove();
+
+    // Bars
+    svgEl.selectAll(".bar").data(bins).enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.x0) + 1)
+        .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+        .attr("y", d => y(d.length))
+        .attr("height", d => innerH - y(d.length))
+        .attr("fill", "#f59e0b")
+        .attr("opacity", 0.75)
+        .attr("rx", 1);
+
+    // Axes
+    svgEl.append("g").attr("transform", `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(10));
+    svgEl.append("g").call(d3.axisLeft(y));
+    svgEl.append("text").attr("x", innerW/2).attr("y", innerH + 38)
+        .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
+        .text("Ks (Synonymous Substitutions per Site)");
+    svgEl.append("text").attr("transform", "rotate(-90)")
+        .attr("x", -innerH/2).attr("y", -42)
+        .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
+        .text("Gene Pairs (count)");
+
+    // Peak annotations — vertical red dashed lines with labels
+    if (WGD_PEAKS && WGD_PEAKS.length > 0) {
+        WGD_PEAKS.forEach((peak, pi) => {
+            const px = x(peak.ks);
+            svgEl.append("line")
+                .attr("x1", px).attr("y1", 0)
+                .attr("x2", px).attr("y2", innerH)
+                .attr("stroke", "#ef4444").attr("stroke-width", 1.5)
+                .attr("stroke-dasharray", "4 3");
+            svgEl.append("text")
+                .attr("x", px + 3).attr("y", 12 + pi * 16)
+                .attr("font-size", "9px").attr("fill", "#dc2626")
+                .attr("font-weight", "bold")
+                .text(`~${peak.mya.toFixed(0)} Mya`);
+        });
+    }
+
     d3.select("#modal-overlay").style("display","flex");
 }
 const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
@@ -467,15 +535,26 @@ function renderGlobalStats(){
   if(validKs.length > 0) {
       const bins = d3.bin().domain([0, 3.0]).thresholds(60)(validKs);
       const maxFreq = d3.max(bins, b => b.length) || 1;
+      // Determine main peak label from WGD_PEAKS
+      const mainPeak = WGD_PEAKS && WGD_PEAKS.length > 0 ? WGD_PEAKS[0] : null;
       let svgBars = "";
       bins.forEach((b, i) => {
           const h = (b.length / maxFreq) * 30;
           svgBars += `<rect x="${i*2}" y="${30-h}" width="1.5" height="${h}" fill="#f59e0b"></rect>`;
       });
-      wgdHtml = `<div class="gstat" style="min-width:150px; cursor:zoom-in;" onclick="zoomWGD()">
+      // Peak lines on miniature histogram
+      if(WGD_PEAKS && WGD_PEAKS.length > 0) {
+          WGD_PEAKS.forEach(p => {
+              const px = (p.ks / 3.0) * 120;
+              svgBars += `<line x1="${px}" y1="0" x2="${px}" y2="30" stroke="#ef4444" stroke-width="1" stroke-dasharray="2 1"></line>`;
+          });
+      }
+      const peakLabel = mainPeak ? `<div style="font-size:10px;font-weight:700;color:#dc2626;margin-top:2px;">Peak: Ks=${mainPeak.ks.toFixed(2)} (~${mainPeak.mya.toFixed(0)} Mya)</div>` : "";
+      wgdHtml = `<div class="gstat" style="min-width:180px; cursor:zoom-in;" onclick="zoomWGD()">
         <svg width="120" height="30" style="margin-top:2px; margin-bottom:2px; box-shadow:none; border:none; border-radius:0; background:transparent;">
           ${svgBars}
         </svg>
+        ${peakLabel}
         <div class="gstat-lbl" style="margin-top:0;">⏱ WGD Peak (Ks)</div>
       </div>`;
   } else {
@@ -892,6 +971,147 @@ function render(){
       });
   }
 }
+// =========================================================================
+// PHYLOGENETIC TREE VIEWER
+// =========================================================================
+
+/**
+ * Parses a Newick string into a hierarchical object for D3.js.
+ * Handles nested parentheses, labels, and branch lengths (label:length).
+ */
+function parseNewick(s) {
+    const ancestors = [];
+    let tree = {};
+    let tokens = s.split(/([\(\),;:])/).filter(t => t.trim() !== '');
+    let subtree = tree;
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i].trim();
+        if (token === '(') {
+            subtree.children = subtree.children || [];
+            const child = {};
+            subtree.children.push(child);
+            ancestors.push(subtree);
+            subtree = child;
+        } else if (token === ',') {
+            const parent = ancestors[ancestors.length - 1];
+            const sibling = {};
+            parent.children.push(sibling);
+            subtree = sibling;
+        } else if (token === ')') {
+            subtree = ancestors.pop();
+        } else if (token === ':') {
+            // next token is branch length
+            i++;
+            subtree.length = parseFloat(tokens[i]) || 0;
+        } else if (token !== ';') {
+            subtree.name = token.replace(/^["']|["']$/g, '');
+        }
+    }
+    return tree;
+}
+
+/**
+ * Opens the modal and renders an interactive radial NJ phylogenetic tree
+ * using D3.js cluster layout. Nodes are colored by genome (G1_ prefix = blue,
+ * G2_ prefix = green). Internal nodes are shown in gray.
+ */
+function showPhyloTree() {
+    if (!TREE_NEWICK || TREE_NEWICK.trim() === '') {
+        d3.select("#modal-body").html(`
+            <h2 style="margin-top:0;">&#127795; Chromosome Phylogenetic Tree</h2>
+            <div style="padding:20px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;color:#94a3b8;text-align:center;">
+              <p>Ka/Ks data is required to build the phylogenetic tree.<br>
+              Run <code>comp-gen</code> with CDS files (--cds1, --cds2) or an existing Ka/Ks file (--kaks) to enable this feature.</p>
+            </div>
+        `);
+        d3.select("#modal-overlay").style("display", "flex");
+        return;
+    }
+
+    d3.select("#modal-body").html(`
+        <h2 style="margin-top:0;">&#127795; Chromosome Phylogenetic Tree</h2>
+        <p style="font-size:11px;color:#64748b;margin-top:-8px;">Neighbor-Joining tree based on average Ks distances between chromosome pairs. Branch lengths are proportional to divergence.</p>
+        <div style="display:flex;gap:16px;margin-bottom:10px;align-items:center;">
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;">
+            <div style="width:10px;height:10px;border-radius:50%;background:#2563eb;"></div><span>${G1_NAME}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;">
+            <div style="width:10px;height:10px;border-radius:50%;background:#16a34a;"></div><span>${G2_NAME}</span>
+          </div>
+        </div>
+        <div id="phylo-chart" style="width:100%;display:flex;justify-content:center;"></div>
+    `);
+
+    const size = 500;
+    const r = size / 2 - 60;
+
+    const root = d3.hierarchy(parseNewick(TREE_NEWICK), d => d.children);
+    const cluster = d3.cluster().size([360, r]);
+    cluster(root);
+
+    const svgEl = d3.select("#phylo-chart").append("svg")
+        .attr("width", size).attr("height", size)
+        .attr("style", "box-shadow:none;border:none;background:transparent;")
+        .append("g")
+        .attr("transform", `translate(${size/2},${size/2})`);
+
+    // Coordinate transform: cluster gives (angle_deg, radius)
+    function project(d) {
+        const angle = (d.x - 90) * Math.PI / 180;
+        return [d.y * Math.cos(angle), d.y * Math.sin(angle)];
+    }
+
+    // Draw edges
+    svgEl.selectAll(".phylo-link")
+        .data(root.links())
+        .enter().append("path")
+        .attr("class", "phylo-link")
+        .attr("fill", "none")
+        .attr("stroke", "#cbd5e1")
+        .attr("stroke-width", 1.5)
+        .attr("d", d => {
+            const s = project(d.source);
+            const t = project(d.target);
+            const sm = project({x: d.target.x, y: d.source.y});
+            return `M${s[0]},${s[1]}L${sm[0]},${sm[1]}L${t[0]},${t[1]}`;
+        });
+
+    // Draw nodes
+    const node = svgEl.selectAll(".phylo-node")
+        .data(root.descendants())
+        .enter().append("g")
+        .attr("class", "phylo-node")
+        .attr("transform", d => { const p = project(d); return `translate(${p[0]},${p[1]})`; });
+
+    node.append("circle")
+        .attr("r", d => d.children ? 2.5 : 5)
+        .attr("fill", d => {
+            if (d.children) return "#94a3b8"; // internal node
+            const name = (d.data.name || '');
+            if (name.startsWith('G1_')) return "#2563eb";
+            if (name.startsWith('G2_')) return "#16a34a";
+            return "#f59e0b";
+        })
+        .attr("stroke", d => d.children ? "#64748b" : "white")
+        .attr("stroke-width", 1.5)
+        .append("title")
+        .text(d => d.data.name ? d.data.name.replace(/^G[12]_/, '') + (d.data.length ? ` (Ks=${d.data.length.toFixed(3)})` : '') : '');
+
+    // Leaf labels
+    node.filter(d => !d.children)
+        .append("text")
+        .attr("dy", "0.31em")
+        .attr("font-size", "9px")
+        .attr("font-family", "'Inter', sans-serif")
+        .attr("font-weight", "600")
+        .attr("fill", d => (d.data.name || '').startsWith('G1_') ? "#1d4ed8" : "#15803d")
+        .attr("text-anchor", d => d.x < 180 ? "start" : "end")
+        .attr("transform", d => d.x < 180 ? "translate(8,0)" : "rotate(180)translate(-8,0)")
+        .text(d => (d.data.name || '').replace(/^G[12]_/, ''));
+
+    d3.select("#modal-overlay").style("display", "flex");
+}
+
 render();
 </script>
 </body>

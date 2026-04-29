@@ -265,7 +265,16 @@ public class ComparativeGenomicsAnalyzer {
             System.out.println("[Viz] Generating interactive visualization...");
             String n1 = gff1.toLowerCase().contains("1940") ? "CC 01-1940" : (gff1.toLowerCase().contains("r570") ? "R570" : "Genome 1");
             String n2 = gff2.toLowerCase().contains("1940") ? "CC 01-1940" : (gff2.toLowerCase().contains("r570") ? "R570" : "Genome 2");
-            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, n1, n2, vizOutput);
+
+            // --- WGD PEAK DETECTION ---
+            System.out.println("[Phase 4e/5] Detecting WGD peaks in Ks distribution...");
+            String wgdPeaksJson = detectWgdPeaks(kaksData);
+
+            // --- CHROMOSOME PHYLOGENY ---
+            System.out.println("[Phase 4f/5] Building chromosome-level phylogenetic tree from Ks distances...");
+            String treeNewick = buildChromosomePhylogeny(blocks, genes1, genes2, base1, base2, kaksData);
+
+            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, wgdPeaksJson, treeNewick, n1, n2, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
@@ -280,6 +289,7 @@ public class ComparativeGenomicsAnalyzer {
                                        Map<String, List<String>> go1, Map<String, List<String>> go2,
                                        Map<String, Double> blockDiv,
                                        Map<String, double[]> kaksData,
+                                       String wgdPeaksJson, String treeNewick,
                                        String n1, String n2,
                                        String outputPath) throws IOException {
         GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
@@ -348,11 +358,184 @@ public class ComparativeGenomicsAnalyzer {
 
         String html = template.replace("/*DATA_JSON*/", dataJson.toString())
                               .replace("/*G1_NAME*/", n1)
-                              .replace("/*G2_NAME*/", n2);
+                              .replace("/*G2_NAME*/", n2)
+                              .replace("/*WGD_PEAKS_JSON*/", wgdPeaksJson)
+                              .replace("/*TREE_NEWICK*/", treeNewick);
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputPath))) {
             writer.print(html);
         }
+    }
+
+    // =========================================================================
+    // WGD PEAK DETECTION
+    // =========================================================================
+
+    /**
+     * Detects local peaks in the Ks distribution using a histogram-based approach.
+     * A peak is a histogram bin whose count is higher than both its left and right
+     * neighbors (requires at least 3 consecutive bins).
+     *
+     * <p>For each detected peak, estimates the divergence time using the standard
+     * grass substitution rate: T = Ks / (2 * r), where r = 6.96e-9 sub/site/year.
+     *
+     * @param kaksData Ka/Ks map with keys "gene1:gene2" and values {Ka, Ks, ratio}
+     * @return JSON array string ready for template injection, e.g.
+     *         [{"ks":0.45,"count":312,"mya":32.3},...]
+     */
+    private String detectWgdPeaks(Map<String, double[]> kaksData) {
+        if (kaksData == null || kaksData.isEmpty()) return "[]";
+
+        // Build histogram with bins of width 0.05 over [0.01, 3.0]
+        final double BIN_WIDTH = 0.05;
+        final double KS_MIN = 0.01;
+        final double KS_MAX = 3.0;
+        final double GRASS_RATE = 6.96e-9; // substitutions per site per year
+        int numBins = (int) Math.ceil((KS_MAX - KS_MIN) / BIN_WIDTH);
+        int[] bins = new int[numBins];
+
+        for (double[] vals : kaksData.values()) {
+            double ks = vals[1];
+            if (ks > KS_MIN && ks < KS_MAX) {
+                int idx = (int) ((ks - KS_MIN) / BIN_WIDTH);
+                if (idx >= 0 && idx < numBins) bins[idx]++;
+            }
+        }
+
+        // Smooth the histogram with a 3-bin running average to reduce noise
+        double[] smoothed = new double[numBins];
+        for (int i = 0; i < numBins; i++) {
+            double sum = bins[i];
+            int count = 1;
+            if (i > 0) { sum += bins[i - 1]; count++; }
+            if (i < numBins - 1) { sum += bins[i + 1]; count++; }
+            smoothed[i] = sum / count;
+        }
+
+        // Detect peaks: a bin is a peak if it is strictly higher than its two neighbors
+        // and has at least 1% of the maximum bin count (avoids noise peaks)
+        double maxVal = 0;
+        for (double v : smoothed) if (v > maxVal) maxVal = v;
+        double threshold = maxVal * 0.01;
+
+        StringBuilder json = new StringBuilder("[");
+        boolean firstPeak = true;
+        for (int i = 1; i < numBins - 1; i++) {
+            if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1] && smoothed[i] >= threshold) {
+                double ksPeak = KS_MIN + (i + 0.5) * BIN_WIDTH;
+                double mya = (ksPeak / (2.0 * GRASS_RATE)) / 1_000_000.0;
+                if (!firstPeak) json.append(",");
+                json.append(String.format(Locale.US,
+                    "{\"ks\":%.3f,\"count\":%d,\"mya\":%.1f}",
+                    ksPeak, bins[i], mya));
+                firstPeak = false;
+                System.out.printf(Locale.US,
+                    "  - WGD Peak detected: Ks=%.3f, ~%.1f Mya (n=%d pairs)%n",
+                    ksPeak, mya, bins[i]);
+            }
+        }
+        json.append("]");
+        return json.toString();
+    }
+
+    // =========================================================================
+    // CHROMOSOME-LEVEL PHYLOGENETIC TREE
+    // =========================================================================
+
+    /**
+     * Builds a Neighbor-Joining phylogenetic tree using chromosome-level
+     * average Ks distances.
+     *
+     * <p>Strategy:
+     * <ol>
+     *   <li>Group all syntenic gene pairs by their chromosome pair (Chr1_A vs Chr2_B).</li>
+     *   <li>Average the Ks values within each chromosome pair as the pairwise distance.</li>
+     *   <li>Collect all unique chromosome nodes (prefix G1_/G2_ to distinguish genomes).</li>
+     *   <li>Build a symmetric distance matrix and run Neighbor-Joining.</li>
+     * </ol>
+     *
+     * @return Newick format string of the tree, or empty string if insufficient data.
+     */
+    private String buildChromosomePhylogeny(
+            List<SyntenicBlock> blocks,
+            Map<String, Gene> map1, Map<String, Gene> map2,
+            Map<String, Gene> base1, Map<String, Gene> base2,
+            Map<String, double[]> kaksData) {
+
+        if (kaksData == null || kaksData.isEmpty()) return "";
+
+        // Accumulate Ks values per chromosome pair: key = "chrA|chrB"
+        Map<String, List<Double>> chrPairKs = new HashMap<>();
+        Map<String, String[]> chrPairNames = new HashMap<>(); // key -> [chrLabel1, chrLabel2]
+
+        for (SyntenicBlock block : blocks) {
+            for (SyntenicPair pair : block.getPairs()) {
+                double[] kk = kaksData.get(pair.getGeneId1() + ":" + pair.getGeneId2());
+                if (kk == null || kk[1] <= 0.01 || kk[1] >= 3.0) continue;
+
+                Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
+                Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
+                if (g1 == null || g2 == null) continue;
+
+                String label1 = "G1_" + g1.getChromosome();
+                String label2 = "G2_" + g2.getChromosome();
+                String pairKey = label1 + "|" + label2;
+
+                chrPairKs.computeIfAbsent(pairKey, k -> new ArrayList<>()).add(kk[1]);
+                chrPairNames.putIfAbsent(pairKey, new String[]{label1, label2});
+            }
+        }
+
+        if (chrPairKs.isEmpty()) return "";
+
+        // Collect unique chromosome labels
+        Set<String> labelsSet = new LinkedHashSet<>();
+        for (String[] names : chrPairNames.values()) {
+            labelsSet.add(names[0]);
+            labelsSet.add(names[1]);
+        }
+        String[] labels = labelsSet.toArray(new String[0]);
+        int n = labels.length;
+        if (n < 3) return ""; // NJ needs at least 3 taxa
+
+        Map<String, Integer> labelIdx = new HashMap<>();
+        for (int i = 0; i < n; i++) labelIdx.put(labels[i], i);
+
+        // Build average-Ks matrix (symmetric, diagonal = 0)
+        float[][] matrix = new float[n][n];
+        Map<String, List<Double>> symKs = new HashMap<>();
+
+        for (Map.Entry<String, List<Double>> e : chrPairKs.entrySet()) {
+            String[] names = chrPairNames.get(e.getKey());
+            String symKey1 = names[0] + "|" + names[1];
+            String symKey2 = names[1] + "|" + names[0];
+            symKs.computeIfAbsent(symKey1, k -> new ArrayList<>()).addAll(e.getValue());
+            symKs.computeIfAbsent(symKey2, k -> new ArrayList<>()).addAll(e.getValue());
+        }
+
+        for (Map.Entry<String, List<Double>> e : symKs.entrySet()) {
+            String[] parts = e.getKey().split("\\|");
+            if (parts.length != 2) continue;
+            Integer i = labelIdx.get(parts[0]);
+            Integer j = labelIdx.get(parts[1]);
+            if (i == null || j == null || i.equals(j)) continue;
+            double avg = e.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            matrix[i][j] = (float) avg;
+        }
+
+        // Fill missing pairs with max distance (scaffold/contig with no pairs)
+        float maxDist = 0;
+        for (float[] row : matrix) for (float v : row) if (v > maxDist) maxDist = v;
+        if (maxDist <= 0) maxDist = 1.0f;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                if (i != j && matrix[i][j] == 0) matrix[i][j] = maxDist * 1.5f;
+            }
+        }
+
+        System.out.println("  - Building NJ tree with " + n + " chromosome nodes.");
+        PhylogenyTreeBuilder njBuilder = new PhylogenyTreeBuilder();
+        return njBuilder.buildNewick(matrix, labels);
     }
 
 
