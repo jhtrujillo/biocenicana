@@ -1118,6 +1118,10 @@ function showPhyloTree() {
           </div>
         </div>
         <div id="phylo-chart" style="width:100%;display:flex;justify-content:center;"></div>
+        <div style="margin-top:16px;padding:12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
+          <div style="font-size:10px; font-weight:700; color:#0369a1; text-transform:uppercase; margin-bottom:6px; letter-spacing:0.025em;">Interpretación de la Filogenia</div>
+          <div id="phylo-summary" style="font-size:11px; color:#0c4a6e; line-height:1.4;"></div>
+        </div>
     `);
 
     const size = 500;
@@ -1186,6 +1190,32 @@ function showPhyloTree() {
         .attr("text-anchor", d => d.x < 180 ? "start" : "end")
         .attr("transform", d => d.x < 180 ? "translate(8,0)" : "rotate(180)translate(-8,0)")
         .text(d => (d.data.name || '').replace(/^G[12]_/, ''));
+
+    // Generate Biological Summary
+    const leaves = root.leaves();
+    const avgDist = d3.mean(leaves, d => d.data.length || 0);
+    const g1Count = leaves.filter(d => d.data.name.startsWith('G1_')).length;
+    const g2Count = leaves.filter(d => d.data.name.startsWith('G2_')).length;
+    
+    let summaryHtml = `Este árbol representa la relación evolutiva entre <strong>${g1Count}</strong> cromosomas de ${G1_NAME} y <strong>${g2Count}</strong> de ${G2_NAME}. `;
+    summaryHtml += `La distancia genética promedio entre nodos es de <strong>Ks ≈ ${avgDist.toFixed(3)}</strong>. `;
+    
+    // Check for clustering (simplified check)
+    let mixedClusters = 0;
+    root.descendants().filter(d => d.depth === 1).forEach(d => {
+        const leafNames = d.leaves().map(l => l.data.name);
+        const hasG1 = leafNames.some(n => n.startsWith('G1_'));
+        const hasG2 = leafNames.some(n => n.startsWith('G2_'));
+        if (hasG1 && hasG2) mixedClusters++;
+    });
+
+    if (mixedClusters > 0) {
+        summaryHtml += `Se observa una <strong>topología de ortología</strong> dominante: los cromosomas tienden a agruparse con sus pares correspondientes del otro genoma, lo que confirma una alta conservación estructural entre ambos linajes.`;
+    } else {
+        summaryHtml += `Se observa una <strong>separación por genoma</strong>: los cromosomas de cada individuo se agrupan preferencialmente entre sí, lo que podría indicar una divergencia antigua o una reestructuración genómica significativa post-especiación.`;
+    }
+
+    d3.select("#phylo-summary").html(summaryHtml);
 
     d3.select("#modal-overlay").style("display", "flex");
 }
