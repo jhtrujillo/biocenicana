@@ -24,7 +24,8 @@ public class ComparativeGenomicsAnalyzer {
                             String cds1, String cds2, String prot1, String prot2,
                             String outputTsv, String vizOutput,
                             String annotFile1, String annotFile2, String vcfFile,
-                            String kaksFile, String exportOrthologs, String svFile) throws IOException {
+                            String kaksFile, String exportOrthologs, String svFile,
+                            double substitutionRate) throws IOException {
         
         System.out.println("[Phase 1/4] Loading GFF files...");
         GffParser gffParser = new GffParser();
@@ -268,13 +269,13 @@ public class ComparativeGenomicsAnalyzer {
 
             // --- WGD PEAK DETECTION ---
             System.out.println("[Phase 4e/5] Detecting WGD peaks in Ks distribution...");
-            String wgdPeaksJson = detectWgdPeaks(kaksData);
+            String wgdPeaksJson = detectWgdPeaks(kaksData, substitutionRate);
 
             // --- CHROMOSOME PHYLOGENY ---
             System.out.println("[Phase 4f/5] Building chromosome-level phylogenetic tree from Ks distances...");
             String treeNewick = buildChromosomePhylogeny(blocks, genes1, genes2, base1, base2, kaksData);
 
-            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, wgdPeaksJson, treeNewick, n1, n2, vizOutput);
+            generateVisualization(blocks, genes1, genes2, base1, base2, annot1, annot2, go1, go2, blockDiv, kaksData, wgdPeaksJson, treeNewick, substitutionRate, n1, n2, vizOutput);
             System.out.println("[Viz] Visualization saved to: " + vizOutput);
         }
 
@@ -290,6 +291,7 @@ public class ComparativeGenomicsAnalyzer {
                                        Map<String, Double> blockDiv,
                                        Map<String, double[]> kaksData,
                                        String wgdPeaksJson, String treeNewick,
+                                       double substitutionRate,
                                        String n1, String n2,
                                        String outputPath) throws IOException {
         GoEnrichmentCalculator goCalc = new GoEnrichmentCalculator();
@@ -360,7 +362,8 @@ public class ComparativeGenomicsAnalyzer {
                               .replace("/*G1_NAME*/", n1)
                               .replace("/*G2_NAME*/", n2)
                               .replace("/*WGD_PEAKS_JSON*/", wgdPeaksJson)
-                              .replace("/*TREE_NEWICK*/", treeNewick);
+                              .replace("/*TREE_NEWICK*/", treeNewick)
+                              .replace("/*SUBST_RATE*/", String.format(java.util.Locale.US, "%.2e", substitutionRate));
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputPath))) {
             writer.print(html);
@@ -376,21 +379,22 @@ public class ComparativeGenomicsAnalyzer {
      * A peak is a histogram bin whose count is higher than both its left and right
      * neighbors (requires at least 3 consecutive bins).
      *
-     * <p>For each detected peak, estimates the divergence time using the standard
-     * grass substitution rate: T = Ks / (2 * r), where r = 6.96e-9 sub/site/year.
+     * <p>For each detected peak, estimates the divergence time using the provided
+     * substitution rate: T = Ks / (2 * r).
      *
      * @param kaksData Ka/Ks map with keys "gene1:gene2" and values {Ka, Ks, ratio}
+     * @param substitutionRate Rate of substitutions per site per year
      * @return JSON array string ready for template injection, e.g.
      *         [{"ks":0.45,"count":312,"mya":32.3},...]
      */
-    private String detectWgdPeaks(Map<String, double[]> kaksData) {
+    private String detectWgdPeaks(Map<String, double[]> kaksData, double substitutionRate) {
         if (kaksData == null || kaksData.isEmpty()) return "[]";
 
         // Build histogram with bins of width 0.05 over [0.01, 3.0]
         final double BIN_WIDTH = 0.05;
         final double KS_MIN = 0.01;
         final double KS_MAX = 3.0;
-        final double GRASS_RATE = 6.96e-9; // substitutions per site per year
+        final double RATE = substitutionRate; // substitutions per site per year
         int numBins = (int) Math.ceil((KS_MAX - KS_MIN) / BIN_WIDTH);
         int[] bins = new int[numBins];
 
@@ -423,15 +427,15 @@ public class ComparativeGenomicsAnalyzer {
         for (int i = 1; i < numBins - 1; i++) {
             if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1] && smoothed[i] >= threshold) {
                 double ksPeak = KS_MIN + (i + 0.5) * BIN_WIDTH;
-                double mya = (ksPeak / (2.0 * GRASS_RATE)) / 1_000_000.0;
+                double mya = (ksPeak / (2.0 * RATE)) / 1_000_000.0;
                 if (!firstPeak) json.append(",");
                 json.append(String.format(Locale.US,
                     "{\"ks\":%.3f,\"count\":%d,\"mya\":%.1f}",
                     ksPeak, bins[i], mya));
                 firstPeak = false;
                 System.out.printf(Locale.US,
-                    "  - WGD Peak detected: Ks=%.3f, ~%.1f Mya (n=%d pairs)%n",
-                    ksPeak, mya, bins[i]);
+                    "  - WGD Peak detected: Ks=%.3f, ~%.1f Mya (n=%d pairs) using r=%.2e%n",
+                    ksPeak, mya, bins[i], RATE);
             }
         }
         json.append("]");

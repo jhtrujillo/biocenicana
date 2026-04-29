@@ -62,13 +62,16 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"-t", "--threads"}, description = "Number of threads to use for parallel processing (default: available cores).")
     private Integer threads;
 
+    @Option(names = {"--subst-rate"}, description = "The substitution rate (subs/site/year) for divergence time estimation. Default: 6.96e-9 (for grasses).", defaultValue = "6.96e-9")
+    private double substitutionRate;
+
     @Override
     public Integer call() throws Exception {
         if (threads != null) {
             System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", threads.toString());
         }
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile, substitutionRate);
         return 0;
     }
 }

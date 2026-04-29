@@ -366,6 +366,7 @@ const G1_NAME = "/*G1_NAME*/";
 const G2_NAME = "/*G2_NAME*/";
 const WGD_PEAKS = /*WGD_PEAKS_JSON*/;
 const TREE_NEWICK = "/*TREE_NEWICK*/";
+let SUBST_RATE = /*SUBST_RATE*/; // Substitutions/site/year
 const W=1000,H=500,M=80,BH=25;
 
 // --- Scientific Dictionary ---
@@ -394,81 +395,103 @@ function zoomWGD() {
     const validKs = data.filter(d => d.kk && d.kk.ks > 0.01 && d.kk.ks < 3.0).map(d => d.kk.ks);
     if(!validKs.length) { showHelp('wgd'); return; }
 
-    const peakAnnotations = WGD_PEAKS && WGD_PEAKS.length > 0
-        ? WGD_PEAKS.map(p => `<div style="display:inline-flex;align-items:center;gap:6px;margin-right:12px;">
-            <span style="display:inline-block;width:3px;height:14px;background:#ef4444;border-radius:1px;"></span>
-            <span><strong>Ks=${p.ks.toFixed(2)}</strong> &mdash; ~${p.mya.toFixed(0)} Mya</span>
-          </div>`).join("")
-        : "<span style='color:#94a3b8;font-size:11px;'>No peaks detected automatically.</span>";
+    const renderWgdModal = (rate) => {
+        const peakAnnotations = WGD_PEAKS && WGD_PEAKS.length > 0
+            ? WGD_PEAKS.map(p => {
+                const mya = (p.ks / (2.0 * rate)) / 1_000_000.0;
+                return `<div style="display:inline-flex;align-items:center;gap:6px;margin-right:12px;">
+                    <span style="display:inline-block;width:3px;height:14px;background:#ef4444;border-radius:1px;"></span>
+                    <span><strong>Ks=${p.ks.toFixed(2)}</strong> &mdash; ~${mya.toFixed(1)} Mya</span>
+                  </div>`;
+            }).join("")
+            : "<span style='color:#94a3b8;font-size:11px;'>No peaks detected automatically.</span>";
 
-    d3.select("#modal-body").html(`
-        <h2 style="margin-top:0;">⏱ Distribución Ks — Análisis WGD</h2>
-        <div id="wgd-zoom-chart" style="width:100%; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
-        <div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">
-          <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;">🔴 Picos Detectados (tasa de sustitución para gramíneas: r = 6.96×10⁻⁹/sitio/año)</div>
-          <div style="font-size:11px;color:#78350f;display:flex;flex-wrap:wrap;gap:4px;">${peakAnnotations}</div>
-        </div>
-        <div style="margin-top:12px;font-size:11px;color:#64748b;line-height:1.5;">${DICTIONARY['wgd'].text}</div>
-    `);
+        d3.select("#modal-body").html(`
+            <h2 style="margin-top:0;">⏱ Distribución Ks — Análisis WGD</h2>
+            <div id="wgd-zoom-chart" style="width:100%; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;"></div>
+            <div style="margin-top:12px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:11px;font-weight:700;color:#92400e;">🔴 Picos Detectados</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:10px;color:#9a3412;">Rate (r):</span>
+                  <input type="number" id="subst-rate-input" step="0.1e-9" style="width:100px;font-size:10px;padding:2px 4px;border:1px solid #fdba74;border-radius:4px;" value="${rate}">
+                  <span style="font-size:9px;color:#9a3412;">subs/site/yr</span>
+                </div>
+              </div>
+              <div style="font-size:11px;color:#78350f;display:flex;flex-wrap:wrap;gap:4px;">${peakAnnotations}</div>
+            </div>
+            <div style="margin-top:12px;font-size:11px;color:#64748b;line-height:1.5;">${DICTIONARY['wgd'].text}</div>
+        `);
 
-    const margin = {top: 20, right: 20, bottom: 45, left: 55};
-    const chartW = 520, chartH = 280;
-    const innerW = chartW - margin.left - margin.right;
-    const innerH = chartH - margin.top - margin.bottom;
-
-    const svgEl = d3.select("#wgd-zoom-chart").append("svg")
-        .attr("width", chartW).attr("height", chartH)
-        .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-
-    const x = d3.scaleLinear().domain([0, 3.0]).range([0, innerW]);
-    const bins = d3.bin().domain(x.domain()).thresholds(60)(validKs);
-    const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).nice().range([innerH, 0]);
-
-    // Grid lines
-    svgEl.append("g").attr("class", "grid")
-        .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(""))
-        .selectAll("line").style("stroke", "#e2e8f0").style("stroke-dasharray", "2 2");
-    svgEl.select(".grid .domain").remove();
-
-    // Bars
-    svgEl.selectAll(".bar").data(bins).enter().append("rect")
-        .attr("class", "bar")
-        .attr("x", d => x(d.x0) + 1)
-        .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
-        .attr("y", d => y(d.length))
-        .attr("height", d => innerH - y(d.length))
-        .attr("fill", "#f59e0b")
-        .attr("opacity", 0.75)
-        .attr("rx", 1);
-
-    // Axes
-    svgEl.append("g").attr("transform", `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(10));
-    svgEl.append("g").call(d3.axisLeft(y));
-    svgEl.append("text").attr("x", innerW/2).attr("y", innerH + 38)
-        .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
-        .text("Ks (Synonymous Substitutions per Site)");
-    svgEl.append("text").attr("transform", "rotate(-90)")
-        .attr("x", -innerH/2).attr("y", -42)
-        .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
-        .text("Gene Pairs (count)");
-
-    // Peak annotations — vertical red dashed lines with labels
-    if (WGD_PEAKS && WGD_PEAKS.length > 0) {
-        WGD_PEAKS.forEach((peak, pi) => {
-            const px = x(peak.ks);
-            svgEl.append("line")
-                .attr("x1", px).attr("y1", 0)
-                .attr("x2", px).attr("y2", innerH)
-                .attr("stroke", "#ef4444").attr("stroke-width", 1.5)
-                .attr("stroke-dasharray", "4 3");
-            svgEl.append("text")
-                .attr("x", px + 3).attr("y", 12 + pi * 16)
-                .attr("font-size", "9px").attr("fill", "#dc2626")
-                .attr("font-weight", "bold")
-                .text(`~${peak.mya.toFixed(0)} Mya`);
+        d3.select("#subst-rate-input").on("change", function() {
+            const newRate = parseFloat(this.value);
+            if (!isNaN(newRate) && newRate > 0) {
+                SUBST_RATE = newRate;
+                renderWgdModal(newRate);
+            }
         });
-    }
 
+        const margin = {top: 20, right: 20, bottom: 45, left: 55};
+        const chartW = 520, chartH = 260;
+        const innerW = chartW - margin.left - margin.right;
+        const innerH = chartH - margin.top - margin.bottom;
+
+        const svgEl = d3.select("#wgd-zoom-chart").append("svg")
+            .attr("width", chartW).attr("height", chartH)
+            .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().domain([0, 3.0]).range([0, innerW]);
+        const bins = d3.bin().domain(x.domain()).thresholds(60)(validKs);
+        const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).nice().range([innerH, 0]);
+
+        // Grid lines
+        svgEl.append("g").attr("class", "grid")
+            .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(""))
+            .selectAll("line").style("stroke", "#e2e8f0").style("stroke-dasharray", "2 2");
+        svgEl.select(".grid .domain").remove();
+
+        // Bars
+        svgEl.selectAll(".bar").data(bins).enter().append("rect")
+            .attr("class", "bar")
+            .attr("x", d => x(d.x0) + 1)
+            .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+            .attr("y", d => y(d.length))
+            .attr("height", d => innerH - y(d.length))
+            .attr("fill", "#f59e0b")
+            .attr("opacity", 0.75)
+            .attr("rx", 1);
+
+        // Axes
+        svgEl.append("g").attr("transform", `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(10));
+        svgEl.append("g").call(d3.axisLeft(y));
+        svgEl.append("text").attr("x", innerW/2).attr("y", innerH + 38)
+            .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
+            .text("Ks (Synonymous Substitutions per Site)");
+        svgEl.append("text").attr("transform", "rotate(-90)")
+            .attr("x", -innerH/2).attr("y", -42)
+            .attr("text-anchor", "middle").attr("font-size", "11px").attr("fill", "#64748b")
+            .text("Gene Pairs (count)");
+
+        // Peak annotations
+        if (WGD_PEAKS && WGD_PEAKS.length > 0) {
+            WGD_PEAKS.forEach((peak, pi) => {
+                const px = x(peak.ks);
+                const mya = (peak.ks / (2.0 * rate)) / 1_000_000.0;
+                svgEl.append("line")
+                    .attr("x1", px).attr("y1", 0)
+                    .attr("x2", px).attr("y2", innerH)
+                    .attr("stroke", "#ef4444").attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", "4 3");
+                svgEl.append("text")
+                    .attr("x", px + 3).attr("y", 12 + pi * 16)
+                    .attr("font-size", "9px").attr("fill", "#dc2626")
+                    .attr("font-weight", "bold")
+                    .text(`~${mya.toFixed(1)} Mya`);
+            });
+        }
+    };
+
+    renderWgdModal(SUBST_RATE);
     d3.select("#modal-overlay").style("display","flex");
 }
 const colorScale=d3.scaleOrdinal(d3.schemeCategory10);
