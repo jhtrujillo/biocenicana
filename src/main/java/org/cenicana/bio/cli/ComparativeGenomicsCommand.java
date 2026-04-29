@@ -62,16 +62,36 @@ public class ComparativeGenomicsCommand implements Callable<Integer> {
     @Option(names = {"-t", "--threads"}, description = "Number of threads to use for parallel processing (default: available cores).")
     private Integer threads;
 
-    @Option(names = {"--subst-rate"}, description = "The substitution rate (subs/site/year) for divergence time estimation. Default: 6.96e-9 (for grasses).", defaultValue = "6.96e-9")
-    private double substitutionRate;
+    @Option(names = {"--subst-rate"}, description = "Custom substitution rate (subs/site/year). If provided, it overrides the --organism preset.")
+    private Double customSubstRate;
+
+    @Option(names = {"--organism"}, description = "Organism preset for substitution rate. Options: Saccharum (6.96e-9), Arabidopsis (7e-9), Human (1.2e-9), Populus (2.5e-9), Drosophila (1.5e-8). Default: Saccharum.", defaultValue = "Saccharum")
+    private String organism;
 
     @Override
     public Integer call() throws Exception {
         if (threads != null) {
             System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", threads.toString());
         }
+
+        double rate = 6.96e-9; // Default (Saccharum/Grasses)
+        if (customSubstRate != null) {
+            rate = customSubstRate;
+        } else if (organism != null) {
+            switch (organism.toLowerCase()) {
+                case "saccharum": rate = 6.96e-9; break;
+                case "arabidopsis": rate = 7.0e-9; break;
+                case "human": rate = 1.2e-9; break;
+                case "populus": rate = 2.5e-9; break;
+                case "drosophila": rate = 1.5e-8; break;
+                default:
+                    System.err.println("Warning: Unknown organism '" + organism + "'. Using default Saccharum rate.");
+                    rate = 6.96e-9;
+            }
+        }
+
         ComparativeGenomicsAnalyzer analyzer = new ComparativeGenomicsAnalyzer();
-        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile, substitutionRate);
+        analyzer.runAnalysis(gff1, gff2, collinearity, cds1, cds2, prot1, prot2, output, vizOutput, annot1, annot2, vcf, kaks, exportOrthologs, svFile, rate);
         return 0;
     }
 }
