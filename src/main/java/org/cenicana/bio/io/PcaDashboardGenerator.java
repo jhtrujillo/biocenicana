@@ -1,6 +1,7 @@
 package org.cenicana.bio.io;
 
 import org.cenicana.bio.core.PopulationStructureAnalyzer.PcaResult;
+import org.cenicana.bio.utils.ResourceUtils;
 import java.io.*;
 import java.util.List;
 import java.util.Locale;
@@ -11,22 +12,37 @@ import java.util.Locale;
 public class PcaDashboardGenerator {
 
     public static void generateReport(PcaResult result, String htmlPath) throws IOException {
+        String plotlyContent = ResourceUtils.loadResource("plotly.min.js");
+        
         try (PrintWriter w = new PrintWriter(new FileWriter(htmlPath))) {
             w.println("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>");
             w.println("<title>BioJava - PCA Population Structure</title>");
-            w.println("<script src='https://cdn.plot.ly/plotly-2.24.1.min.js'></script>");
-            w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap' rel='stylesheet'>");
+            if (plotlyContent.isEmpty()) {
+                w.println("<script src='https://cdn.plot.ly/plotly-2.24.1.min.js'></script>");
+            } else {
+                w.println("<script>" + plotlyContent + "</script>");
+            }
             w.println("<style>");
-            w.println("  body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }");
+            w.println("  body { font-family: Inter, system-ui, -apple-system, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }");
             w.println("  .container { max-width: 1200px; margin: 0 auto; }");
             w.println("  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }");
             w.println("  .header h1 { margin: 0; color: #0f172a; font-size: 24px; }");
-            w.println("  .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); padding: 20px; margin-bottom: 20px; }");
+            w.println("  .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); padding: 20px; margin-bottom: 20px; position: relative; }");
             w.println("  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }");
             w.println("  .full { grid-column: span 2; }");
-            w.println("  h3 { margin-top: 0; color: #334155; border-left: 4px solid #6366f1; padding-left: 10px; }");
+            w.println("  h3 { margin-top: 0; color: #334155; border-left: 4px solid #6366f1; padding-left: 10px; display: flex; align-items: center; justify-content: space-between; }");
+            w.println("  .info-btn { background: #e2e8f0; color: #64748b; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s; }");
+            w.println("  .info-btn:hover { background: #6366f1; color: white; }");
+            w.println("  .info-text { display: none; background: #f1f5f9; border-left: 3px solid #6366f1; padding: 10px; margin-top: 10px; font-size: 13px; color: #475569; border-radius: 4px; }");
             w.println("  .stat { font-size: 14px; color: #64748b; }");
-            w.println("</style></head><body>");
+            w.println("</style>");
+            w.println("<script>");
+            w.println("  function toggleInfo(id) {");
+            w.println("    const el = document.getElementById('info-' + id);");
+            w.println("    el.style.display = el.style.display === 'block' ? 'none' : 'block';");
+            w.println("  }");
+            w.println("</script>");
+            w.println("</head><body>");
 
             w.println("<div class='container'>");
             w.println("<div class='header'>");
@@ -45,16 +61,32 @@ public class PcaDashboardGenerator {
             w.println("</div>");
 
             w.println("<div class='grid'>");
-            w.println("<div class='card full'><h3>Ancestry Analysis (Admixture Proportions)</h3><div id='ancestry' style='height: 400px;'></div></div>");
-            w.println("<div class='card full'><h3>Cluster Visualization (PCA / DAPC)</h3><div id='pc12' style='height: 500px;'></div></div>");
-            w.println("<div class='card full'><h3>Genomic Relationship Matrix (Kinship - VanRaden)</h3><div id='kinship' style='height: 600px;'></div></div>");
-            w.println("<div class='card'><h3>Explained Variance (Scree Plot)</h3><div id='scree' style='height: 400px;'></div></div>");
-            w.println("<div class='card'><h3>Elbow Method (Optimal K)</h3><div id='elbow' style='height: 400px;'></div></div>");
-            w.println("<div class='card full'><h3>Kinship Analysis (Dendrogram)</h3><div id='dendrogram' style='height: 600px;'></div></div>");
-            w.println("<div class='card full'><h3>Genetic Distance Matrix (Heatmap)</h3><div id='heatmap' style='height: 600px;'></div></div>");
+            w.println("<div class='card full'><h3>Ancestry Analysis (Admixture Proportions) <button class='info-btn' onclick=\"toggleInfo('ancestry')\">?</button></h3>");
+            w.println("<div id='info-ancestry' class='info-text'>Muestra la proporción de ancestría asignada a diferentes grupos (K). Las barras coloreadas indican la probabilidad de pertenencia de cada individuo a los clústeres detectados.</div>");
+            w.println("<div id='ancestry' style='height: 400px;'></div></div>");
+            w.println("<div class='card full'><h3>Cluster Visualization (PCA / DAPC) <button class='info-btn' onclick=\"toggleInfo('cluster')\">?</button></h3>");
+            w.println("<div id='info-cluster' class='info-text'>Visualización en el espacio genético. Los individuos cercanos son genéticamente similares. PCA muestra la variación natural, mientras que DAPC maximiza la separación entre grupos.</div>");
+            w.println("<div id='pc12' style='height: 500px;'></div></div>");
+            w.println("<div class='card full'><h3>Genomic Relationship Matrix (Kinship - VanRaden) <button class='info-btn' onclick=\"toggleInfo('kinship')\">?</button></h3>");
+            w.println("<div id='info-kinship' class='info-text'>Mapa de calor del parentesco genómico. Los colores claros/rojos indican una relación genética estrecha (hermanos o clones), mientras que los oscuros indican individuos no relacionados.</div>");
+            w.println("<div id='kinship' style='height: 600px;'></div></div>");
+            w.println("<div class='card'><h3>Explained Variance (Scree Plot) <button class='info-btn' onclick=\"toggleInfo('scree')\">?</button></h3>");
+            w.println("<div id='info-scree' class='info-text'>Porcentaje de la variabilidad genética total capturado por cada componente principal. Ayuda a determinar cuántos PCs son biológicamente informativos.</div>");
+            w.println("<div id='scree' style='height: 400px;'></div></div>");
+            w.println("<div class='card'><h3>Elbow Method (Optimal K) <button class='info-btn' onclick=\"toggleInfo('elbow')\">?</button></h3>");
+            w.println("<div id='info-elbow' class='info-text'>Gráfico de WCSS vs K. El 'codo' de la curva sugiere el número óptimo de sub-poblaciones reales presentes en el set de datos.</div>");
+            w.println("<div id='elbow' style='height: 400px;'></div></div>");
+            w.println("<div class='card full'><h3>Kinship Analysis (Dendrogram) <button class='info-btn' onclick=\"toggleInfo('dendro')\">?</button></h3>");
+            w.println("<div id='info-dendro' class='info-text'>Representación jerárquica de la estructura familiar basada en la matriz de parentesco. Permite identificar clanes o grupos de familias.</div>");
+            w.println("<div id='dendrogram' style='height: 600px;'></div></div>");
+            w.println("<div class='card full'><h3>Genetic Distance Matrix (Heatmap) <button class='info-btn' onclick=\"toggleInfo('heatmap')\">?</button></h3>");
+            w.println("<div id='info-heatmap' class='info-text'>Mapa de calor de distancias euclidianas. Ideal para detectar muestras muy divergentes (outliers) o duplicados genéticos exactos.</div>");
+            w.println("<div id='heatmap' style='height: 600px;'></div></div>");
             
             if (result.pcMatrix[0].length >= 3) {
-                w.println("<div class='card full'><h3>3D Analysis (PC1, PC2, PC3)</h3><div id='pc3d' style='height: 700px;'></div></div>");
+                w.println("<div class='card full'><h3>3D Analysis (PC1, PC2, PC3) <button class='info-btn' onclick=\"toggleInfo('pc3d')\">?</button></h3>");
+                w.println("<div id='info-pc3d' class='info-text'>Exploración tridimensional de los tres primeros componentes principales. Útil para separar grupos complejos que parecen solaparse en 2D.</div>");
+                w.println("<div id='pc3d' style='height: 700px;'></div></div>");
             }
             w.println("</div></div>");
 
@@ -71,7 +103,7 @@ public class PcaDashboardGenerator {
             
             for (int i = 0; i < result.sampleNames.length; i++) {
                 if (i > 0) { labels.append(","); pc1.append(","); pc2.append(","); pc3.append(","); ld1.append(","); ld2.append(","); kmeans.append(","); dbscan.append(","); gmm.append(","); ancestry.append(","); }
-                labels.append("'").append(result.sampleNames[i]).append("'");
+                labels.append("\"").append(escapeJs(result.sampleNames[i])).append("\"");
                 pc1.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][0]));
                 pc2.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][1]));
                 if (result.pcMatrix[0].length >= 3) pc3.append(String.format(Locale.US, "%.6f", result.pcMatrix[i][2])); else pc3.append("0");
@@ -219,5 +251,17 @@ public class PcaDashboardGenerator {
             w.println("</script></body></html>");
         }
         System.out.println("[PCA] Dashboard generated: " + htmlPath);
+    }
+
+    private static String escapeJs(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("'", "\\'")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

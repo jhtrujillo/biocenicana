@@ -2,6 +2,7 @@ package org.cenicana.bio.io;
 
 import org.cenicana.bio.core.SnpClusterAnalyzer.SampleCoord;
 import org.cenicana.bio.core.SnpClusterAnalyzer.SnpResult;
+import org.cenicana.bio.utils.ResourceUtils;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -10,13 +11,18 @@ import java.util.List;
 public class SnpExplorerDashboard {
 
     public static void generate(List<SnpResult> results, List<SampleCoord> pcaCoords, int ploidy, String outputPath) throws IOException {
+        String plotlyContent = ResourceUtils.loadResource("plotly.min.js");
+        
         try (PrintWriter w = new PrintWriter(new FileWriter(outputPath))) {
             w.println("<!DOCTYPE html><html lang='en'><head>");
             w.println("<meta charset='UTF-8'><title>BioJava - SNP Group Explorer</title>");
-            w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
-            w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap' rel='stylesheet'>");
+            if (plotlyContent.isEmpty()) {
+                w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
+            } else {
+                w.println("<script>" + plotlyContent + "</script>");
+            }
             w.println("<style>");
-            w.println("body{font-family:'Inter',sans-serif;background:#f8fafc;margin:0;display:flex;height:100vh}");
+            w.println("body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f8fafc;margin:0;display:flex;height:100vh}");
             w.println(".sidebar{width:350px;background:white;border-right:1px solid #e2e8f0;display:flex;flex-direction:column}");
             w.println(".header{padding:1.5rem;background:#1e293b;color:white}");
             w.println(".header h1{font-size:1.2rem;margin:0}");

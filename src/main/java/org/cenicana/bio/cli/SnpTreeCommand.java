@@ -16,6 +16,29 @@ import java.util.concurrent.Callable;
          version = "snp-tree 1.0")
 public class SnpTreeCommand implements Callable<Integer> {
 
+    enum DistanceMethod {
+        MANHATTAN("manhattan"),
+        EUCLIDEAN("euclidean"),
+        NEI("nei"),
+        ROGERS("rogers"),
+        IBS("ibs"),
+        P_DISTANCE("p-distance");
+
+        private final String stringValue;
+        DistanceMethod(String stringValue) { this.stringValue = stringValue; }
+        @Override public String toString() { return stringValue; }
+    }
+
+    static class MethodConverter implements picocli.CommandLine.ITypeConverter<DistanceMethod> {
+        @Override
+        public DistanceMethod convert(String value) throws Exception {
+            for (DistanceMethod m : DistanceMethod.values()) {
+                if (m.stringValue.equalsIgnoreCase(value)) return m;
+            }
+            throw new Exception("Invalid method: " + value);
+        }
+    }
+
     @Option(names = {"-v", "--vcf"}, description = "Path to the VCF file.", required = true)
     private String vcfFile;
 
@@ -37,6 +60,12 @@ public class SnpTreeCommand implements Callable<Integer> {
     @Option(names = {"--pca"}, description = "Optional: path to a PCA CSV file (from pop-structure) to color nodes by cluster.")
     private String pcaFile;
 
+    @Option(names = {"-m", "--method"},
+            description = "Genetic distance method (manhattan, euclidean, nei, rogers, ibs, p-distance).",
+            defaultValue = "manhattan",
+            converter = MethodConverter.class)
+    private DistanceMethod method;
+
     @Override
     public Integer call() throws Exception {
         System.out.println("=== BioJava: SNP-based Phylogeny (Neighbor-Joining) ===");
@@ -44,8 +73,8 @@ public class SnpTreeCommand implements Callable<Integer> {
         int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
         AlleleDosageCalculator calculator = new AlleleDosageCalculator();
 
-        System.out.println("[Step 1/2] Computing genetic distance matrix from VCF...");
-        AlleleDosageCalculator.DistanceResult dr = calculator.computeDistanceMatrix(vcfFile, ploidy, caller, minDepth, false, numThreads);
+        System.out.println("[Step 1/2] Computing genetic distance matrix from VCF using " + method + " method...");
+        AlleleDosageCalculator.DistanceResult dr = calculator.computeDistanceMatrix(vcfFile, ploidy, caller, minDepth, false, numThreads, method.toString());
 
         System.out.println("[Step 2/2] Building Neighbor-Joining tree...");
         PhylogenyTreeBuilder treeBuilder = new PhylogenyTreeBuilder();

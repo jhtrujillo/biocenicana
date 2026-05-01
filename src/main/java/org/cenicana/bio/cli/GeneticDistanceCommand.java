@@ -41,6 +41,26 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 		}
 	}
 
+	enum DistanceMethod {
+		MANHATTAN("manhattan"),
+		EUCLIDEAN("euclidean"),
+		NEI("nei"),
+		ROGERS("rogers"),
+		IBS("ibs"),
+		P_DISTANCE("p-distance");
+
+		private final String stringValue;
+
+		DistanceMethod(String stringValue) {
+			this.stringValue = stringValue;
+		}
+
+		@Override
+		public String toString() {
+			return stringValue;
+		}
+	}
+
 	static class CallerConverter implements ITypeConverter<CallerType> {
 		@Override
 		public CallerType convert(String value) throws TypeConversionException {
@@ -51,6 +71,19 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 			}
 			throw new TypeConversionException(
 				"Invalid value: " + value + ". Allowed values: ngsep, gatk, freebayes, auto"
+			);
+		}
+	}
+	static class MethodConverter implements ITypeConverter<DistanceMethod> {
+		@Override
+		public DistanceMethod convert(String value) throws TypeConversionException {
+			for (DistanceMethod m : DistanceMethod.values()) {
+				if (m.stringValue.equalsIgnoreCase(value)) {
+					return m;
+				}
+			}
+			throw new TypeConversionException(
+				"Invalid value: " + value + ". Allowed values: manhattan, euclidean, nei, rogers, ibs, p-distance"
 			);
 		}
 	}
@@ -77,6 +110,12 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 		converter = CallerConverter.class)
 	private CallerType caller;
 
+	@Option(names = {"-m", "--method"},
+		description = "Genetic distance method (manhattan, euclidean, nei, rogers, ibs, p-distance). Default: ${DEFAULT-VALUE}.",
+		defaultValue = "manhattan",
+		converter = MethodConverter.class)
+	private DistanceMethod method;
+
 	@Option(names = {"-md", "--min-depth"},
 		description = "Minimum total read depth (Ref + Alt) required to trust a genotype call. Lower depth calls will be treated as missing data. Default: ${DEFAULT-VALUE}.",
 		defaultValue = "0")
@@ -99,7 +138,7 @@ public class GeneticDistanceCommand implements Callable<Integer> {
 		try {
 			int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
 			AlleleDosageCalculator calculator = new AlleleDosageCalculator();
-			calculator.computeAndPrintDistanceMatrix(vcfFile, ploidy, caller.toString(), minDepth, adaptiveRounding, numThreads, outputFile);
+			calculator.computeAndPrintDistanceMatrix(vcfFile, ploidy, caller.toString(), minDepth, adaptiveRounding, numThreads, outputFile, method.toString());
 			return 0;
 
 		} catch (Exception e) {

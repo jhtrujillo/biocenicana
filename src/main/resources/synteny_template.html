@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>BioJava | Advanced Synteny Explorer</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script>/*D3_JS_CONTENT*/</script>
   <style>
     :root {
       --primary: #2563eb;
@@ -22,14 +21,14 @@
 
     * { box-sizing: border-box; }
     body { 
-      font-family: 'Inter', -apple-system, sans-serif; 
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; 
       background: var(--bg); 
       color: var(--text-main); 
       margin: 0; 
       display: flex; 
       flex-direction: column; 
-      height: 100vh; 
-      overflow: hidden; 
+      height: 100vh;
+      overflow: hidden;
     }
 
     .navbar { 
@@ -410,7 +409,22 @@ function closeModal() { d3.select("#modal-overlay").style("display","none"); }
 
 function zoomWGD() {
     const validKs = data.filter(d => d.kk && d.kk.ks > 0.01 && d.kk.ks < 3.0).map(d => d.kk.ks);
-    if(!validKs.length) { showHelp('wgd'); return; }
+    if(!validKs.length) { 
+        d3.select("#modal-body").html(`
+            <h2 style="margin-top:0;">⏱ Distribución Ks — Sin Datos</h2>
+            <div style="padding:40px; text-align:center; background:#f8fafc; border-radius:12px; border:2px dashed #e2e8f0;">
+                <div style="font-size:48px; margin-bottom:20px;">📊</div>
+                <h3 style="color:#64748b;">No hay datos de Ks disponibles</h3>
+                <p style="color:#94a3b8; max-width:400px; margin:0 auto;">
+                    Para generar este gráfico, asegúrate de haber proporcionado un archivo de Ka/Ks o las secuencias CDS para el cálculo.
+                    Los valores de Ks deben estar entre 0.01 y 3.0 para ser visualizados.
+                </p>
+                <button onclick="closeModal()" class="btn btn-primary" style="margin-top:20px;">Entendido</button>
+            </div>
+        `);
+        d3.select("#modal-overlay").style("display","flex");
+        return; 
+    }
 
     const renderWgdModal = (rate) => {
         const generateBioSummary = (peaks) => {
@@ -563,22 +577,22 @@ const invColor="#f97316";
 
 const seq1 = [...new Set(allData.map(d=>d.c1))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 const seq2 = [...new Set(allData.map(d=>d.c2))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-const sequences = [...new Set([...seq1, ...seq2])];
 
 function isChr(n){const l=n.toLowerCase();return l.includes("chr")||l.includes("chromosome")||l.startsWith("sh")||l.startsWith("ss")||(!l.includes("scaffold")&&!l.includes("contig")&&!l.includes("unplaced"));}
 
-function renderChrItem(container, s) {
+function renderChrItem(container, s, prefix) {
+  const id = "chk_" + prefix + "_" + s;
   const div=container.append("div").attr("class","sel-item");
-  div.append("input").attr("type","checkbox").attr("id","chk_"+s).property("checked",isChr(s));
-  div.append("label").attr("for","chk_"+s).text(s.length>22?s.substring(0,19)+"...":s);
+  div.append("input").attr("type","checkbox").attr("id", id).property("checked",isChr(s));
+  div.append("label").attr("for", id).text(s.length>22?s.substring(0,19)+"...":s);
 }
 
 const sel=d3.select("#selector");
 sel.append("div").attr("class", "sel-group-label").text(G1_NAME);
-seq1.forEach(s => renderChrItem(sel, s));
+seq1.forEach(s => renderChrItem(sel, s, "g1"));
 
 sel.append("div").attr("class", "sel-group-label").style("margin-top", "12px").text(G2_NAME);
-seq2.forEach(s => renderChrItem(sel, s));
+seq2.forEach(s => renderChrItem(sel, s, "g2"));
 
 // Add some styling for the group labels if needed (though already doing inline or classes)
 d3.select("head").append("style").html(`
@@ -755,8 +769,9 @@ function render(){
   d3.select("#viz").selectAll("*").remove();
   activeC=null;
   const minG=+d3.select("#minGenes").property("value");
-  const sel2=sequences.filter(s=>d3.select("#chk_"+s).property("checked"));
-  const bg=d3.group(allData.filter(d=>sel2.includes(d.c1)&&sel2.includes(d.c2)),d=>d.b);
+  const sel1 = seq1.filter(s => d3.select("#chk_g1_" + s).property("checked"));
+  const sel2 = seq2.filter(s => d3.select("#chk_g2_" + s).property("checked"));
+  const bg = d3.group(allData.filter(d => sel1.includes(d.c1) && sel2.includes(d.c2)), d => d.b);
   data=[];
   bg.forEach(genes=>{if(genes.length>=minG)genes.forEach(g=>data.push(g));});
   if(!data.length){d3.select("#viz").append("p").style("color","#94a3b8").text("No syntenic blocks match your filters.");renderGlobalStats();return;}

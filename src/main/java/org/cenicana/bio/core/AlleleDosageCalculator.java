@@ -238,7 +238,7 @@ public class AlleleDosageCalculator {
 		// ── Phase 2: K-Nearest Neighbors (KNN) Pass 1 (Optional) ───────────────
 		float[][] distanceMatrix = null;
 		if (impute.contains("knn")) {
-			distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numGenotypes, adaptiveRounding, 1);
+			distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numGenotypes, adaptiveRounding, 1, "manhattan");
 		}
 
 		// ── 3. Stream VCF line by line (low memory footprint) ──────────────────
@@ -354,13 +354,13 @@ public class AlleleDosageCalculator {
 	}
 
 	public DistanceResult computeDistanceMatrix(String vcfFile, int ploidy, String callerType, 
-			int minDepth, boolean adaptiveRounding, int threads) throws IOException {
+			int minDepth, boolean adaptiveRounding, int threads, String method) throws IOException {
 		String[] sampleIds = org.cenicana.bio.io.VcfFastReader.getSampleIds(vcfFile);
 		int n = Math.max(ploidy, 2);
 		float[] ploidyLevels = new float[n + 1];
 		for (int y = 0; y <= n; y++) ploidyLevels[y] = (1.0f / n) * y;
 		
-		float[][] matrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, sampleIds.length, adaptiveRounding, threads);
+		float[][] matrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, sampleIds.length, adaptiveRounding, threads, method);
 		
 		DistanceResult dr = new DistanceResult();
 		dr.sampleIds = sampleIds;
@@ -373,7 +373,7 @@ public class AlleleDosageCalculator {
 	 * as a TSV matrix to the specified output file (or stdout if null).
 	 */
 	public void computeAndPrintDistanceMatrix(String vcfFile, int ploidy, String callerType, 
-			int minDepth, boolean adaptiveRounding, int threads, String outputFile) throws IOException {
+			int minDepth, boolean adaptiveRounding, int threads, String outputFile, String method) throws IOException {
 		
 		java.io.PrintWriter pw;
 		if (outputFile != null) {
@@ -392,7 +392,7 @@ public class AlleleDosageCalculator {
 			ploidyLevels[y] = (1.0f / n) * y;
 		}
 		
-		float[][] distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numG, adaptiveRounding, threads);
+		float[][] distanceMatrix = buildDistanceMatrix(vcfFile, callerType, minDepth, ploidyLevels, numG, adaptiveRounding, threads, method);
 		
 		// Print Header
 		pw.print("Sample\t");
@@ -490,19 +490,26 @@ public class AlleleDosageCalculator {
 	// ── Phase 2 Helpers: KNN Distance Matrix and Imputation ────────────────────
 	
 	private float[][] buildDistanceMatrix(String vcfFile, String callerType, int minDepth, 
-			float[] ploidyLevels, int numGenotypes, boolean adaptiveRounding, int threads) throws IOException {
+			float[] ploidyLevels, int numGenotypes, boolean adaptiveRounding, int threads, String method) throws IOException {
 		
 		float[][] distance = new float[numGenotypes][numGenotypes];
 		int[][] sharedSnps = new int[numGenotypes][numGenotypes];
 		
+		// For Nei distance, we need additional matrices to accumulate terms
+		final float[][] sumP2 = method.equals("nei") ? new float[numGenotypes][numGenotypes] : null;
+		final float[][] sumQ2 = method.equals("nei") ? new float[numGenotypes][numGenotypes] : null;
+		final float[][] dotProd = method.equals("nei") ? new float[numGenotypes][numGenotypes] : null;
+
 		// Parallel setup
 		ExecutorService executor = Executors.newFixedThreadPool(threads);
 		List<Future<?>> futures = new ArrayList<>();
 		
-		// To avoid synchronization on distance/sharedSnps matrices, 
-		// we use a per-thread accumulation matrix if threads > 1
+		// Per-thread accumulation
 		final float[][][] threadDist = (threads > 1) ? new float[threads][numGenotypes][numGenotypes] : null;
 		final int[][][] threadShared = (threads > 1) ? new int[threads][numGenotypes][numGenotypes] : null;
+		final float[][][] threadSumP2 = (threads > 1 && method.equals("nei")) ? new float[threads][numGenotypes][numGenotypes] : null;
+		final float[][][] threadSumQ2 = (threads > 1 && method.equals("nei")) ? new float[threads][numGenotypes][numGenotypes] : null;
+		final float[][][] threadDot = (threads > 1 && method.equals("nei")) ? new float[threads][numGenotypes][numGenotypes] : null;
 		
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 		
@@ -547,12 +554,35 @@ public class AlleleDosageCalculator {
 
 				float[][] targetDist = (threadDist != null) ? threadDist[currentThreadId] : distance;
 				int[][] targetShared = (threadShared != null) ? threadShared[currentThreadId] : sharedSnps;
+				float[][] targetP2 = (threadSumP2 != null) ? threadSumP2[currentThreadId] : sumP2;
+				float[][] targetQ2 = (threadSumQ2 != null) ? threadSumQ2[currentThreadId] : sumQ2;
+				float[][] targetDot = (threadDot != null) ? threadDot[currentThreadId] : dotProd;
 
 				for (int i = 0; i < len; i++) {
 					if (isMissing[i]) continue;
 					for (int j = i + 1; j < len; j++) {
 						if (isMissing[j]) continue;
-						targetDist[i][j] += Math.abs(parsedDosages[i] - parsedDosages[j]);
+						
+						float pi = parsedDosages[i];
+						float qi = parsedDosages[j];
+						
+						switch (method) {
+							case "euclidean":
+							case "rogers":
+								targetDist[i][j] += (pi - qi) * (pi - qi);
+								break;
+							case "nei":
+								targetDot[i][j] += pi * qi;
+								targetP2[i][j] += pi * pi;
+								targetQ2[i][j] += qi * qi;
+								break;
+							case "manhattan":
+							case "p-distance":
+							case "ibs":
+							default:
+								targetDist[i][j] += Math.abs(pi - qi);
+								break;
+						}
 						targetShared[i][j]++;
 					}
 				}
@@ -578,6 +608,11 @@ public class AlleleDosageCalculator {
 					for (int j = i + 1; j < numGenotypes; j++) {
 						distance[i][j] += threadDist[t][i][j];
 						sharedSnps[i][j] += threadShared[t][i][j];
+						if (method.equals("nei")) {
+							dotProd[i][j] += threadDot[t][i][j];
+							sumP2[i][j] += threadSumP2[t][i][j];
+							sumQ2[i][j] += threadSumQ2[t][i][j];
+						}
 					}
 				}
 			}
@@ -591,12 +626,45 @@ public class AlleleDosageCalculator {
 			}
 		}
 		
-		// Normalize by number of shared SNPs to prevent bias from missing data
+		// Normalize and apply final math transformations
 		for (int i = 0; i < numGenotypes; i++) {
 			for (int j = 0; j < numGenotypes; j++) {
-				if (i != j && sharedSnps[i][j] > 0) {
-					distance[i][j] /= sharedSnps[i][j];
-				} else if (i != j) {
+				if (i == j) {
+					distance[i][j] = 0;
+					continue;
+				}
+				
+				// Ensure symmetry from the upper triangle
+				int row = Math.min(i, j);
+				int col = Math.max(i, j);
+				
+				if (sharedSnps[row][col] > 0) {
+					int n = sharedSnps[row][col];
+					switch (method) {
+						case "euclidean":
+							distance[i][j] = (float) Math.sqrt(distance[row][col] / n);
+							break;
+						case "rogers":
+							distance[i][j] = (float) Math.sqrt(distance[row][col] / n); // For bi-allelic it reduces to this
+							break;
+						case "nei":
+							double numerator = dotProd[row][col];
+							double denominator = Math.sqrt(sumP2[row][col] * sumQ2[row][col]);
+							if (denominator > 0) {
+								double identity = numerator / denominator;
+								distance[i][j] = (float) -Math.log(Math.max(identity, 1e-10));
+							} else {
+								distance[i][j] = Float.MAX_VALUE;
+							}
+							break;
+						case "manhattan":
+						case "p-distance":
+						case "ibs":
+						default:
+							distance[i][j] = distance[row][col] / n;
+							break;
+					}
+				} else {
 					distance[i][j] = Float.MAX_VALUE; // No overlap, infinite distance
 				}
 			}

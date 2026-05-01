@@ -1,5 +1,6 @@
 package org.cenicana.bio.io;
 import org.cenicana.bio.utils.FileUtils;
+import org.cenicana.bio.utils.ResourceUtils;
 import org.cenicana.bio.core.JoinMapCpFormat;
 import org.cenicana.bio.core.AlleleDosageCalculator;
 import org.cenicana.bio.core.VcfStatisticsCalculator;
@@ -13,6 +14,7 @@ import java.util.Map;
 public class HtmlDashboardGenerator {
 
 	public static void generateReport(VcfStatisticsCalculator stats, String outputPath) throws IOException {
+		String plotlyContent = ResourceUtils.loadResource("plotly.min.js");
 		try (PrintWriter w = new PrintWriter(new FileWriter(outputPath))) {
 
 			// ── Pre-computed scalars ──────────────────────────────────────────
@@ -118,11 +120,14 @@ public class HtmlDashboardGenerator {
 			w.println("<!DOCTYPE html><html lang='en'><head>");
 			w.println("<meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>");
 			w.println("<title>BioJava – VCF QC Dashboard</title>");
-			w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
-			w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap' rel='stylesheet'>");
+			if (plotlyContent.isEmpty()) {
+				w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
+			} else {
+				w.println("<script>" + plotlyContent + "</script>");
+			}
 			w.println("<style>");
 			w.println("*{box-sizing:border-box}");
-			w.println("body{font-family:'Inter',sans-serif;background:#f0f4f8;color:#0f172a;margin:0;padding:2rem}");
+			w.println("body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#0f172a;margin:0;padding:2rem}");
 			w.println(".header{text-align:center;margin-bottom:2.5rem}");
 			w.println(".header h1{font-weight:800;font-size:2.2rem;color:#1e293b;margin:0 0 .4rem}");
 			w.println(".header p{color:#64748b;font-size:1rem;margin:0}");
@@ -306,6 +311,7 @@ public class HtmlDashboardGenerator {
 	}
 
     public static void generateLdDecayDashboard(String outputPath, double[] sumR2, long[] countR2, int binSizeBp, int halfDecayDistanceBp, double thresholdR2) throws java.io.IOException {
+        String plotlyContent = ResourceUtils.loadResource("plotly.min.js");
         java.util.List<Double> xL = new java.util.ArrayList<>(), yL = new java.util.ArrayList<>();
         for (int i = 0; i < sumR2.length; i++) {
             if (countR2[i] > 0) { double avg = sumR2[i] / countR2[i]; if (avg > 0) { xL.add((double)(i * binSizeBp)); yL.add(avg); } }
@@ -326,8 +332,12 @@ public class HtmlDashboardGenerator {
         String r2Label = String.format(java.util.Locale.US, "%.4f", best.r2);
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html><html><head><title>LD Decay</title>\n");
-        html.append("<script src=\"https://cdn.plot.ly/plotly-2.24.1.min.js\"></script>\n");
-        html.append("<style>body{font-family:\'Segoe UI\',sans-serif;margin:0;padding:20px;background:#f0f4f8;}.wrap{max-width:1200px;margin:0 auto;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);}h1{color:#2c3e50;text-align:center;}.sub{text-align:center;color:#7f8c8d;margin-bottom:18px;}.kpis{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;}.kpi{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 22px;border-radius:10px;text-align:center;min-width:155px;}.kpi label{font-size:11px;opacity:.8;display:block;margin-bottom:3px;text-transform:uppercase;}.kpi span{font-size:19px;font-weight:700;}.eq{text-align:center;background:#eaf4fb;border-left:4px solid #2980b9;padding:10px 18px;border-radius:6px;margin-bottom:14px;font-size:14px;color:#1a5276;}.chart{width:100%;height:570px;}</style></head><body><div class=\"wrap\">\n");
+        if (plotlyContent.isEmpty()) {
+            html.append("<script src=\"https://cdn.plot.ly/plotly-2.24.1.min.js\"></script>\n");
+        } else {
+            html.append("<script>").append(plotlyContent).append("</script>\n");
+        }
+        html.append("<style>body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;padding:20px;background:#f0f4f8;}.wrap{max-width:1200px;margin:0 auto;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);}h1{color:#2c3e50;text-align:center;}.sub{text-align:center;color:#7f8c8d;margin-bottom:18px;}.kpis{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;}.kpi{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 22px;border-radius:10px;text-align:center;min-width:155px;}.kpi label{font-size:11px;opacity:.8;display:block;margin-bottom:3px;text-transform:uppercase;}.kpi span{font-size:19px;font-weight:700;}.eq{text-align:center;background:#eaf4fb;border-left:4px solid #2980b9;padding:10px 18px;border-radius:6px;margin-bottom:14px;font-size:14px;color:#1a5276;}.chart{width:100%;height:570px;}</style></head><body><div class=\"wrap\">\n");
         html.append("<h1>&#x1F9EC; LD Decay Dashboard</h1>\n");
         html.append("<p class=\"sub\">Best model auto-selected from 5 candidates</p>\n");
         html.append("<div class=\"kpis\">");

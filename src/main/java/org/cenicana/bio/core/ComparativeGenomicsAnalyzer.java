@@ -8,6 +8,7 @@ import org.cenicana.bio.io.SvParser;
 import org.cenicana.bio.model.Gene;
 import org.cenicana.bio.model.SyntenicBlock;
 import org.cenicana.bio.model.SyntenicPair;
+import org.cenicana.bio.utils.ResourceUtils;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -66,6 +67,31 @@ public class ComparativeGenomicsAnalyzer {
 
         Map<String, Gene> base1 = createBaseIdMap(genes1);
         Map<String, Gene> base2 = createBaseIdMap(genes2);
+
+        // --- AUTO-DETECT SWAPPED GENOMES ---
+        // Some collinearity files are generated as G2 vs G1. We detect this by checking the match rate.
+        int normalMatches = 0;
+        int swappedMatches = 0;
+        int testLimit = Math.min(blocks.size(), 100);
+        for (int i = 0; i < testLimit; i++) {
+            SyntenicBlock b = blocks.get(i);
+            if (b.getPairs().isEmpty()) continue;
+            SyntenicPair p = b.getPairs().get(0);
+            if (fastFind(p.getGeneId1(), genes1, base1) != null && fastFind(p.getGeneId2(), genes2, base2) != null) normalMatches++;
+            if (fastFind(p.getGeneId1(), genes2, base2) != null && fastFind(p.getGeneId2(), genes1, base1) != null) swappedMatches++;
+        }
+
+        System.out.println("  - Auto-detection: Normal=" + normalMatches + ", Swapped=" + swappedMatches);
+        if (swappedMatches > normalMatches && swappedMatches > 0) {
+            System.out.println("  [Auto-Fix] Detected swapped genome order in collinearity file. Adjusting GFF mapping...");
+            Map<String, Gene> tempG = genes1; genes1 = genes2; genes2 = tempG;
+            Map<String, Gene> tempB = base1; base1 = base2; base2 = tempB;
+            Map<String, String> tempA = annot1; annot1 = annot2; annot2 = tempA;
+            Map<String, List<String>> tempGo = go1; go1 = go2; go2 = tempGo;
+            String tempN = name1; name1 = name2; name2 = tempN;
+            // Note: CDS sequences might also need swapping if used later for Ka/Ks
+            Map<String, String> tempC = seqCds1; seqCds1 = seqCds2; seqCds2 = tempC;
+        }
 
         // --- KA/KS CALCULATION / LOADING ---
         Map<String, double[]> kaksData;
@@ -326,42 +352,60 @@ public class ComparativeGenomicsAnalyzer {
             }
             goJson.append("]");
 
+            int matchedPairs = 0;
             for (SyntenicPair pair : block.getPairs()) {
                 Gene g1 = fastFind(pair.getGeneId1(), map1, base1);
                 Gene g2 = fastFind(pair.getGeneId2(), map2, base2);
                 if (g1 != null && g2 != null) {
+                    matchedPairs++;
                     if (!first) dataJson.append(",");
                     // Resolve description: first from dedicated annot map, then from gene attributes
-                    String desc1 = annot1.getOrDefault(g1.getId(), g1.getDescription()).replace("\"", "'");
-                    String desc2 = annot2.getOrDefault(g2.getId(), g2.getDescription()).replace("\"", "'");
+                    String desc1 = escapeJson(annot1.getOrDefault(g1.getId(), g1.getDescription()));
+                    String desc2 = escapeJson(annot2.getOrDefault(g2.getId(), g2.getDescription()));
                     double div = blockDiv.getOrDefault(block.getBlockId(), 0.0);
-                    double[] kk = kaksData.getOrDefault(g1.getId() + ":" + g2.getId(), null);
-                    String kkJson = kk == null ? "\"kk\":null" : String.format(java.util.Locale.US, "\"kk\":{\"ka\":%.4f,\"ks\":%.4f,\"r\":%.4f}", kk[0], kk[1], kk[2]);
+                    if (Double.isNaN(div) || Double.isInfinite(div)) div = 0.0;
+                    
+                    String lookupKey = stripPrefix(g1.getId()) + ":" + stripPrefix(g2.getId());
+                    double[] kk = kaksData.getOrDefault(lookupKey, null);
+                    String kkJson;
+                    if (kk == null || Double.isNaN(kk[0]) || Double.isNaN(kk[1]) || Double.isNaN(kk[2])) {
+                        kkJson = "\"kk\":null";
+                    } else {
+                        kkJson = String.format(java.util.Locale.US, "\"kk\":{\"ka\":%.4f,\"ks\":%.4f,\"r\":%.4f}", kk[0], kk[1], kk[2]);
+                    }
                     
                     dataJson.append(String.format(java.util.Locale.US, "{\"b\":\"%s\",\"o\":\"%s\",\"div\":%.2f,%s,\"sv\":%b,\"go\":%s,\"g1\":\"%s\",\"c1\":\"%s\",\"s1\":%d,\"e1\":%d,\"f1\":\"%s\",\"g2\":\"%s\",\"c2\":\"%s\",\"s2\":%d,\"e2\":%d,\"f2\":\"%s\"}",
-                            block.getBlockId(), block.getOrientation(), div, kkJson, block.hasSV(), goJson.toString(),
-                            g1.getId(), g1.getChromosome(), g1.getStart(), g1.getEnd(), desc1,
-                            g2.getId(), g2.getChromosome(), g2.getStart(), g2.getEnd(), desc2));
+                            escapeJson(block.getBlockId()), block.getOrientation(), div, kkJson, block.hasSV(), goJson.toString(),
+                            escapeJson(g1.getId()), escapeJson(g1.getChromosome()), g1.getStart(), g1.getEnd(), desc1,
+                            escapeJson(g2.getId()), escapeJson(g2.getChromosome()), g2.getStart(), g2.getEnd(), desc2));
                     first = false;
+                }
+            }
+            if (matchedPairs == 0 && block.getPairs().size() > 0) {
+                // Potential ID mismatch warning for the first few blocks
+                if (blocks.indexOf(block) < 5) {
+                    System.err.println("  [Warning] Block " + block.getBlockId() + ": 0 matched genes. Sample IDs: " + 
+                        block.getPairs().get(0).getGeneId1() + " vs " + block.getPairs().get(0).getGeneId2());
                 }
             }
         }
 
         dataJson.append("]");
 
-        // Load HTML template from resources
-        String template;
-        try (java.io.InputStream is = getClass().getClassLoader().getResourceAsStream("synteny_template.html")) {
-            if (is == null) throw new IOException("Template not found: synteny_template.html");
-            template = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        // Load HTML template and D3 library from resources
+        String template = ResourceUtils.loadResource("synteny_template.html");
+        String d3Content = ResourceUtils.loadResource("d3.v7.min.js");
+        if (template.isEmpty()) {
+            throw new IOException("Error loading visualization template: synteny_template.html");
         }
 
         String html = template.replace("/*DATA_JSON*/", dataJson.toString())
-                              .replace("/*G1_NAME*/", n1)
-                              .replace("/*G2_NAME*/", n2)
-                              .replace("/*G3_NAME*/", n3)
+                              .replace("/*D3_JS_CONTENT*/", d3Content)
+                              .replace("/*G1_NAME*/", escapeJson(n1))
+                              .replace("/*G2_NAME*/", escapeJson(n2))
+                              .replace("/*G3_NAME*/", escapeJson(n3))
                               .replace("/*WGD_PEAKS_JSON*/", wgdPeaksJson)
-                              .replace("/*TREE_NEWICK*/", treeNewick)
+                              .replace("/*TREE_NEWICK*/", escapeJson(treeNewick))
                               .replace("/*SUBST_RATE*/", String.format(java.util.Locale.US, "%.2e", substitutionRate));
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputPath))) {
@@ -427,6 +471,7 @@ public class ComparativeGenomicsAnalyzer {
             if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1] && smoothed[i] >= threshold) {
                 double ksPeak = KS_MIN + (i + 0.5) * BIN_WIDTH;
                 double mya = (ksPeak / (2.0 * RATE)) / 1_000_000.0;
+                if (Double.isNaN(mya) || Double.isInfinite(mya)) mya = 0.0;
                 if (!firstPeak) json.append(",");
                 json.append(String.format(Locale.US,
                     "{\"ks\":%.3f,\"count\":%d,\"mya\":%.1f}",
@@ -599,7 +644,7 @@ public class ComparativeGenomicsAnalyzer {
                 String[] p = line.split("\t");
                 if (p.length >= 5) {
                     try {
-                        String key = p[0] + ":" + p[1];
+                        String key = stripPrefix(p[0]) + ":" + stripPrefix(p[1]);
                         double ka = Double.parseDouble(p[2]);
                         double ks = Double.parseDouble(p[3]);
                         double ratio = Double.parseDouble(p[4]);
@@ -633,18 +678,29 @@ public class ComparativeGenomicsAnalyzer {
     }
 
     private Gene fastFind(String id, Map<String, Gene> fullMap, Map<String, Gene> baseMap) {
+        if (id == null) return null;
         if (fullMap.containsKey(id)) return fullMap.get(id);
         String stripped = stripPrefix(id);
         if (fullMap.containsKey(stripped)) return fullMap.get(stripped);
         if (baseMap.containsKey(stripped)) return baseMap.get(stripped);
         
-        // Try removing suffix
-        int lastDot = stripped.lastIndexOf('.');
-        if (lastDot > 0) {
-            String noVer = stripped.substring(0, lastDot);
-            if (baseMap.containsKey(noVer)) return baseMap.get(noVer);
-        }
+        // Try common McScanX variants (removing trailing .1, -RA, etc)
+        String base = stripped.replaceFirst("[._-][a-zA-Z0-9]+$", "");
+        if (fullMap.containsKey(base)) return fullMap.get(base);
+        if (baseMap.containsKey(base)) return baseMap.get(base);
+        
         return null;
+    }
+
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
     
     private String normalizeChromosome(String chr) {
