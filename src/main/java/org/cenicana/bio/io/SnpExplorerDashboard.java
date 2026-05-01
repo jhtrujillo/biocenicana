@@ -12,7 +12,7 @@ public class SnpExplorerDashboard {
     public static void generate(List<SnpResult> results, List<SampleCoord> pcaCoords, int ploidy, String outputPath) throws IOException {
         try (PrintWriter w = new PrintWriter(new FileWriter(outputPath))) {
             w.println("<!DOCTYPE html><html lang='en'><head>");
-            w.println("<meta charset='UTF-8'><title>BioCenicana - SNP Group Explorer</title>");
+            w.println("<meta charset='UTF-8'><title>BioJava - SNP Group Explorer</title>");
             w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
             w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap' rel='stylesheet'>");
             w.println("<style>");

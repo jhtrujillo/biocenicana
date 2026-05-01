@@ -36,7 +36,7 @@ public class PopStructureCommand implements Callable<Integer> {
         }
 
         System.out.println("=================================================");
-        System.out.println("BioCenicana Population Structure (PCA)");
+        System.out.println("BioJava Population Structure (PCA)");
         System.out.println("=================================================");
         System.out.println("Input:      " + vcfFile);
         System.out.println("Output:     " + outputBase + ".pca.csv");

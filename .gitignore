@@ -75,3 +75,4 @@ example_vcfs/large_synthetic.vcf
 # Resultados de análisis
 results/
 results/
+*.vcf

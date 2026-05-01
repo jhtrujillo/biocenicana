@@ -13,7 +13,7 @@ public class PcaDashboardGenerator {
     public static void generateReport(PcaResult result, String htmlPath) throws IOException {
         try (PrintWriter w = new PrintWriter(new FileWriter(htmlPath))) {
             w.println("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>");
-            w.println("<title>BioCenicana - PCA Population Structure</title>");
+            w.println("<title>BioJava - PCA Population Structure</title>");
             w.println("<script src='https://cdn.plot.ly/plotly-2.24.1.min.js'></script>");
             w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap' rel='stylesheet'>");
             w.println("<style>");
@@ -30,7 +30,7 @@ public class PcaDashboardGenerator {
 
             w.println("<div class='container'>");
             w.println("<div class='header'>");
-            w.println("  <h1>BioCenicana | PCA Population Structure</h1>");
+            w.println("  <h1>BioJava | PCA Population Structure</h1>");
             w.println("  <div style='display:flex; align-items:center; gap:20px;'>");
             w.println("    <div class='stat'>Visual Mode: ");
             w.println("      <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");

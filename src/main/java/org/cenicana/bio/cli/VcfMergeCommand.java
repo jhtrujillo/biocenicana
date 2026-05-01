@@ -22,7 +22,7 @@ public class VcfMergeCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("🧬 BioCenicana - VCF Merge");
+        System.out.println("🧬 BioJava - VCF Merge");
         System.out.println("-------------------------------------");
 
         if (inputFiles.length < 2) {

@@ -4,10 +4,10 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
- * Main entrance for the BioCenicana Bioinformatics Toolkit.
+ * Main entrance for the BioJava Bioinformatics Toolkit.
  * This class aggregates all specialized subcommands for VCF processing and analysis.
  */
-@Command(name = "biocenicana", 
+@Command(name = "biojava", 
          mixinStandardHelpOptions = true, 
          version = "1.0", 
          description = "Bioinformatics tools for Cenicana (Genomics of Polyploids)", 

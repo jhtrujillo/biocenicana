@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BioCenicana | SNP Phylogeny Viewer</title>
+<title>BioJava | SNP Phylogeny Viewer</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -56,7 +56,7 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 <nav class="nav">
     <div class="nav-brand">
         <div class="nav-icon">B</div>
-        <div class="nav-title">BioCenicana <span>| SNP Neighbor-Joining Tree</span></div>
+        <div class="nav-title">BioJava <span>| SNP Neighbor-Joining Tree</span></div>
     </div>
     <button class="btn-export" onclick="exportSVG()">&#8659; Export SVG</button>
 </nav>
@@ -315,7 +315,7 @@ function exportSVG(){
     src=src.replace(/(<svg[^>]*>)/,'$1<rect width="100%" height="100%" fill="#f8fafc"/>');
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([src],{type:'image/svg+xml'}));
-    a.download='biocenicana_phylogeny.svg'; a.click();
+    a.download='biojava_phylogeny.svg'; a.click();
 }
 
 function renderStats(){

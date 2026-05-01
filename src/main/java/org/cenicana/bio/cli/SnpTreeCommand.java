@@ -39,7 +39,7 @@ public class SnpTreeCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("=== BioCenicana: SNP-based Phylogeny (Neighbor-Joining) ===");
+        System.out.println("=== BioJava: SNP-based Phylogeny (Neighbor-Joining) ===");
 
         int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
         AlleleDosageCalculator calculator = new AlleleDosageCalculator();

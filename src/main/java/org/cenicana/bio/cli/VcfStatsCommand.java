@@ -42,13 +42,13 @@ public class VcfStatsCommand implements Callable<Integer> {
 
 	@Override
 	public Integer call() throws Exception {
-		System.out.println("[biocenicana] Analyzing VCF: " + vcfFile);
+		System.out.println("[biojava] Analyzing VCF: " + vcfFile);
 
 		// Create output directory
 		File outDir = new File(baseName);
 		if (!outDir.exists()) {
 			outDir.mkdirs();
-			System.out.println("[biocenicana] Created output folder: " + outDir.getAbsolutePath());
+			System.out.println("[biojava] Created output folder: " + outDir.getAbsolutePath());
 		}
 
 		// Initialize calculator
@@ -56,25 +56,25 @@ public class VcfStatsCommand implements Callable<Integer> {
 
 		// Load population file if provided (enables Fst)
 		if (popFile != null) {
-			System.out.println("[biocenicana] Loading population assignments from: " + popFile);
+			System.out.println("[biojava] Loading population assignments from: " + popFile);
 			calc.loadPopulationMap(popFile);
-			System.out.println("[biocenicana] Populations found: "
+			System.out.println("[biojava] Populations found: "
 				+ calc.populationNames.length + " → " + String.join(", ", calc.populationNames));
 		}
 
 		int numThreads = (threads <= 0) ? Runtime.getRuntime().availableProcessors() : threads;
 		calc.calculate(vcfFile, numThreads);
-		System.out.println("[biocenicana] Done. Variants: "
+		System.out.println("[biojava] Done. Variants: "
 			+ (calc.numSnps + calc.numIndels)
 			+ "  |  Samples: " + calc.sampleNames.length
 			+ "  |  Seg. sites: " + calc.numSegSites);
 
 		if (!Double.isNaN(calc.tajimaD)) {
-			System.out.printf("[biocenicana] Tajima's D = %.4f%n", calc.tajimaD);
+			System.out.printf("[biojava] Tajima's D = %.4f%n", calc.tajimaD);
 		}
 		if (calc.numHweTested > 0) {
 			double pctHwe = 100.0 * calc.numHweViolations / calc.numHweTested;
-			System.out.printf("[biocenicana] HWE violations: %d / %d sites (%.1f%%)%n",
+			System.out.printf("[biojava] HWE violations: %d / %d sites (%.1f%%)%n",
 				calc.numHweViolations, calc.numHweTested, pctHwe);
 		}
 
@@ -84,10 +84,10 @@ public class VcfStatsCommand implements Callable<Integer> {
 		String tsvPath  = outDir.getPath() + File.separator + simpleName + ".tsv";
 
 		HtmlDashboardGenerator.generateReport(calc, htmlPath);
-		System.out.println("[biocenicana] HTML Dashboard → " + htmlPath);
+		System.out.println("[biojava] HTML Dashboard → " + htmlPath);
 
 		TsvStatsExporter.exportSampleStats(calc, tsvPath);
-		System.out.println("[biocenicana] TSV Summary    → " + tsvPath);
+		System.out.println("[biojava] TSV Summary    → " + tsvPath);
 
 		System.out.println("\n✅  Open in your browser: " + htmlPath);
 		return 0;

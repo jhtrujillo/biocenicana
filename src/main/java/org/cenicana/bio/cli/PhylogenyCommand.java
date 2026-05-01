@@ -38,7 +38,7 @@ public class PhylogenyCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        System.out.println("=== BioCenicana: Phylogeny Module ===");
+        System.out.println("=== BioJava: Phylogeny Module ===");
         
         GffParser gffParser = new GffParser();
         Map<String, Gene> map1 = loadGenes(gffParser.parse(gff1));

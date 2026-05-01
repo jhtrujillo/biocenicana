@@ -76,7 +76,7 @@ public class VcfFilter {
 			while ((line = br.readLine()) != null) {
 				if (line.startsWith("#")) {
 					if (line.startsWith("#CHROM")) {
-						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + ",minEh=" + minEh + ",topN=" + topN + ",threads=" + threads + "\"");
+						pw.println("##BioJava_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + ",minEh=" + minEh + ",topN=" + topN + ",threads=" + threads + "\"");
 					}
 					pw.println(line);
 					continue;
@@ -140,7 +140,7 @@ public class VcfFilter {
 			while ((line = br.readLine()) != null) {
 				if (line.startsWith("#")) {
 					if (line.startsWith("#CHROM")) {
-						pw.println("##BioCenicana_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + ",minEh=" + minEh + ",topN=" + topN + ",mode=sequential\"");
+						pw.println("##BioJava_VCFFilter=\"minMaf=" + minMaf + ",maxMissingness=" + maxMissingness + ",minHwePValue=" + minHwePValue + ",onlyBiallelicSnps=" + onlyBiallelicSnps + ",ploidy=" + ploidy + ",minEh=" + minEh + ",topN=" + topN + ",mode=sequential\"");
 					}
 					pw.println(line);
 					continue;

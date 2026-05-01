@@ -20,7 +20,7 @@ public class TsvStatsExporter {
 
 			// ── SECTION 1: Global summary ─────────────────────────────────────
 			w.println("## ========================================================");
-			w.println("## BioCenicana VCF Statistics Report");
+			w.println("## BioJava VCF Statistics Report");
 			w.println("## ========================================================");
 			w.printf("## Total Variants: %d  (SNPs: %d | InDels: %d)%n",
 				numVariants, stats.numSnps, stats.numIndels);

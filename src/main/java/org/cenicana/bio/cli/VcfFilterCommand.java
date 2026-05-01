@@ -63,7 +63,7 @@ public class VcfFilterCommand implements Callable<Integer> {
 		}
 
 		System.out.println("=================================================");
-		System.out.println("BioCenicana VCF Filter");
+		System.out.println("BioJava VCF Filter");
 		System.out.println("=================================================");
 		System.out.println("Input:  " + vcfFile);
 		System.out.println("Output: " + outputFile);

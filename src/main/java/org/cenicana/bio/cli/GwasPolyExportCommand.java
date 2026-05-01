@@ -27,7 +27,7 @@ public class GwasPolyExportCommand implements Callable<Integer> {
         }
 
         System.out.println("=================================================");
-        System.out.println("BioCenicana GWASpoly Exporter");
+        System.out.println("BioJava GWASpoly Exporter");
         System.out.println("=================================================");
         System.out.println("Input:  " + vcfFile);
         System.out.println("Output: " + outputFile);

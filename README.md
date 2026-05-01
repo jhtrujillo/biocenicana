@@ -1,26 +1,26 @@
-# BioCenicana: Sequential Analysis Pipeline for Polyploid Genomics
+# BioJava: Sequential Analysis Pipeline for Polyploid Genomics
 
-BioCenicana is a high-performance Java toolkit optimized for **Saccharum spp. (Sugarcane)** and other complex polyploids. It uses a line-by-line streaming engine to process massive VCF files with minimal memory footprint.
+BioJava is a high-performance Java toolkit optimized for **Saccharum spp. (Sugarcane)** and other complex polyploids. It uses a line-by-line streaming engine to process massive VCF files with minimal memory footprint.
 
-## Why BioCenicana?
+## Why BioJava?
 *   **Streaming Engine**: Reads datasets line-by-line, decoupling RAM consumption from the number of variants. Run 60GB VCFs on a standard laptop.
 *   **Polyploid-Aware Mathematics**: Discards discrete genotyping in favor of continuous allele dosages using Maximum Likelihood estimation.
 *   **All-in-One Toolkit**: Go from raw VCF to PCA, Kinship, Phylogeny, LD decay, and Comparative Genomics in a single executable. No messy R scripts required.
 *   **Interactive HTML Dashboards**: Every module exports a 100% offline HTML/D3.js interactive viewer. Democratize your results with non-bioinformatician breeders instantly.
 
 ## Quick Start (Try it in 2 minutes)
-We provide a small simulated dataset so you can test BioCenicana immediately without needing your own data.
+We provide a small simulated dataset so you can test BioJava immediately without needing your own data.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/jhtrujillo/biocenicana.git
-cd biocenicana
+git clone https://github.com/jhtrujillo/biojava.git
+cd biojava
 
 # 2. Compile the JAR file (Requires Java 11+ and Maven)
 mvn clean package -DskipTests
 
 # 3. Run the interactive PCA and Kinship module on the test VCF
-java -jar target/biocenicana-1.0.jar pop-structure -v simulation_data/CC01_sim.vcf -p 10 -o test_output
+java -jar target/biojava.jar pop-structure -v simulation_data/CC01_sim.vcf -p 10 -o test_output
 ```
 *Open `test_output.pca.html` in your web browser to explore the 3D PCA plot!*
 
@@ -34,7 +34,7 @@ This manual follows the logical order of a standard bioinformatics pipeline.
 Before starting, ensure you have Java 11+ and Maven installed.
 ```bash
 mvn clean package -DskipTests
-# The executable JAR will be generated as: target/biocenicana-1.0.jar
+# The executable JAR will be generated as: target/biojava.jar
 ```
 
 ---
@@ -42,7 +42,7 @@ mvn clean package -DskipTests
 ## Step 2: Initial Dataset Diagnostics (`vcf-stats`)
 Always start by understanding the raw state of your VCF.
 ```bash
-java -jar target/biocenicana-1.0.jar vcf-stats -v raw_data.vcf -o initial_stats -p 10
+java -jar target/biojava.jar vcf-stats -v raw_data.vcf -o initial_stats -p 10
 ```
 *   **Result**: Creates an interactive dashboard (`initial_stats.html`) showing allele frequencies, depth distributions, and missingness.
 *   **Use this to**: Decide your filtering thresholds (MAF and missingness).
@@ -52,7 +52,7 @@ java -jar target/biocenicana-1.0.jar vcf-stats -v raw_data.vcf -o initial_stats 
 ## Step 3: Quality Control & Filtering (`vcf-filter`)
 Clean your dataset to keep only high-quality, informative markers.
 ```bash
-java -jar target/biocenicana-1.0.jar vcf-filter -v raw_data.vcf -o filtered.vcf --min-maf 0.05 --max-missing 0.2 --top-n 5000
+java -jar target/biojava.jar vcf-filter -v raw_data.vcf -o filtered.vcf --min-maf 0.05 --max-missing 0.2 --top-n 5000
 ```
 *   **Result**: A new VCF (`filtered.vcf`) containing the top 5000 most heterozygous and complete SNPs.
 
@@ -61,7 +61,7 @@ java -jar target/biocenicana-1.0.jar vcf-filter -v raw_data.vcf -o filtered.vcf 
 ## Step 4: Population Structure & Kinship (`pop-structure`)
 Map the genetic space of your samples and calculate relationships.
 ```bash
-java -jar target/biocenicana-1.0.jar pop-structure -v filtered.vcf -p 10 -o my_population
+java -jar target/biojava.jar pop-structure -v filtered.vcf -p 10 -o my_population
 ```
 *   **Result**: Creates `my_population.pca.csv` (coordinates/clusters) and `my_population.kinship.csv` (VanRaden relationship matrix).
 *   **Visualization**: Open `my_population.pca.html` to explore the population in 3D/2D and see ancestry barplots.
@@ -73,12 +73,12 @@ Export the finalized data for external statistical software.
 
 **A. Allele Dosages (for GWAS/Mapping):**
 ```bash
-java -jar target/biocenicana-1.0.jar allele-dosage -v filtered.vcf -p 10 --raw > dosages_raw.tsv
+java -jar target/biojava.jar allele-dosage -v filtered.vcf -p 10 --raw > dosages_raw.tsv
 ```
 
 **B. Genetic Distance (for Phylogeny/Diversity):**
 ```bash
-java -jar target/biocenicana-1.0.jar genetic-distance -v filtered.vcf -p 10 > matrix_distance.tsv
+java -jar target/biojava.jar genetic-distance -v filtered.vcf -p 10 > matrix_distance.tsv
 ```
 
 ---
@@ -86,7 +86,7 @@ java -jar target/biocenicana-1.0.jar genetic-distance -v filtered.vcf -p 10 > ma
 ## Step 6: Interactive SNP Quality Audit (`snp-explorer`)
 Audit individual SNP quality using **AD-Plots** (Reference vs Alternative depth scatter plots). By providing the VCF directly, the tool visualizes genotype clusters with high precision.
 ```bash
-java -jar target/biocenicana-1.0.jar snp-explorer --vcf filtered.vcf --pca my_population.pca.csv --include list_of_snps.txt -p 10 -o audit.html
+java -jar target/biojava.jar snp-explorer --vcf filtered.vcf --pca my_population.pca.csv --include list_of_snps.txt -p 10 -o audit.html
 ```
 *   **Visual Check**: Open `audit.html`. This interactive dashboard allows you to:
     *   **Filter**: Use `--include` to focus only on specific SNPs of interest (one ID per line).
@@ -99,7 +99,7 @@ java -jar target/biocenicana-1.0.jar snp-explorer --vcf filtered.vcf --pca my_po
 ## Step 7: Linkage Disequilibrium Analysis (`ld`)
 Study the recombination rates and LD decay.
 ```bash
-java -jar target/biocenicana-1.0.jar ld -v filtered.vcf -o ld_report --max-dist 200000
+java -jar target/biojava.jar ld -v filtered.vcf -o ld_report --max-dist 200000
 ```
 *   **Output**: An LD decay dashboard showing $r^2$ reduction over physical distance.
 
@@ -110,12 +110,12 @@ Finalize your analysis by connecting with other specialized tools.
 
 **A. Export for R/GWASpoly:**
 ```bash
-java -jar target/biocenicana-1.0.jar gwaspoly-export -v filtered.vcf -p 10 -o gwas_ready.csv
+java -jar target/biojava.jar gwaspoly-export -v filtered.vcf -p 10 -o gwas_ready.csv
 ```
 
 **B. Convert for JoinMap (Linkage Mapping):**
 ```bash
-java -jar target/biocenicana-1.0.jar joinmap --input data.loc --output fixed.loc --fix
+java -jar target/biojava.jar joinmap --input data.loc --output fixed.loc --fix
 ```
 
 ---
@@ -127,7 +127,7 @@ java -jar target/biocenicana-1.0.jar joinmap --input data.loc --output fixed.loc
 ## Step 9: Consolidating Batches (`vcf-merge`)
 If you have data from different sequencing batches or chromosomes, use this to join them into a single master VCF. It automatically handles the union of samples and fills gaps with missing data.
 ```bash
-java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.vcf -o consolidated.vcf
+java -jar target/biojava.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.vcf -o consolidated.vcf
 ```
 *   **Intelligence**: Automatically detects samples in each file and creates a unified cross-table.
 
@@ -137,7 +137,7 @@ java -jar target/biocenicana-1.0.jar vcf-merge -i batch1.vcf,batch2.vcf,batch3.v
 Integrate disparate genomic datasets to study synteny, structural variations, and functional conservation between genomes. This tool supports outputs from **McScanX** and **SynMap2 (CoGe)** and features an **Advanced Synteny Explorer** with integrated evolutionary analytics.
 
 ```bash
-java -jar target/biocenicana.jar comp-gen \
+java -jar target/biojava.jar comp-gen \
   --gff1 genome1.gff \
   --gff2 genome2.gff \
   --collinearity results.collinearity \
@@ -151,13 +151,13 @@ java -jar target/biocenicana.jar comp-gen \
 *   **Organism-Agnostic Rates**: Use `--organism` (Saccharum, Arabidopsis, Human, etc.) or `--subst-rate` to define custom substitution rates for divergence time estimation.
 *   **Automated WGD Peak Detection**: Automatically identifies peaks in the $K_s$ distribution, estimates Millions of Years Ago (Mya) based on your organism's rate, and annotates them in the interactive histogram.
 *   **Chromosome-Level Phylogeny**: Reconstructs a Neighbor-Joining (NJ) tree based on average $K_s$ distances between chromosomes, allowing you to visualize how subgenomes or individual chromosomes relate across species.
-*   **BioCenicana AI Insights**: A built-in expert system that analyzes your current view (filters, genes, diversity) and generates a natural language report explaining the biological significance of the results.
+*   **BioJava AI Insights**: A built-in expert system that analyzes your current view (filters, genes, diversity) and generates a natural language report explaining the biological significance of the results.
 
 #### Step 10.1: Native Ka/Ks Calculation (`kaks-calc`)
 If you have your CDS sequences and a collinearity file, you can calculate the selection pressure (Ka/Ks ratios) natively using the Nei-Gojobori (1986) model:
 
 ```bash
-java -jar target/biocenicana.jar kaks-calc \
+java -jar target/biojava.jar kaks-calc \
   --collinearity simulation_data/R570_vs_CC01.collinearity \
   --cds1 simulation_data/R570.cds.fa \
   --cds2 simulation_data/CC01.cds.fa \
@@ -205,7 +205,7 @@ By adding the `--viz` flag, the engine generates an interactive, high-performanc
 Build an interactive **Neighbor-Joining phylogenetic tree** directly from a VCF file. The tool computes a pairwise genetic distance matrix and reconstructs the tree topology, then generates a standalone HTML viewer that works **100% offline** (no internet or external libraries required).
 
 ```bash
-java -jar target/biocenicana-1.0.jar snp-tree \
+java -jar target/biojava.jar snp-tree \
   -v filtered.vcf \
   -p 10 \
   --output filogenia.nwk
@@ -217,7 +217,7 @@ java -jar target/biocenicana-1.0.jar snp-tree \
 Combine the tree with population structure results from Step 4 (`pop-structure`) to color each leaf node by its cluster assignment:
 
 ```bash
-java -jar target/biocenicana-1.0.jar snp-tree \
+java -jar target/biojava.jar snp-tree \
   -v filtered.vcf \
   -p 10 \
   --output filogenia.nwk \

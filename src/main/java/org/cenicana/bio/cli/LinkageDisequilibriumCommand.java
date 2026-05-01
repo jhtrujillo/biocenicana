@@ -42,7 +42,7 @@ public class LinkageDisequilibriumCommand implements Callable<Integer> {
         }
 
         System.out.println("=================================================");
-        System.out.println("BioCenicana Polyploid LD Calculator");
+        System.out.println("BioJava Polyploid LD Calculator");
         System.out.println("=================================================");
         System.out.println("Input:  " + vcfFile);
         System.out.println("Output: " + outputFile);

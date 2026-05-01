@@ -117,7 +117,7 @@ public class HtmlDashboardGenerator {
 			// ── HTML ──────────────────────────────────────────────────────────
 			w.println("<!DOCTYPE html><html lang='en'><head>");
 			w.println("<meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>");
-			w.println("<title>BioCenicana – VCF QC Dashboard</title>");
+			w.println("<title>BioJava – VCF QC Dashboard</title>");
 			w.println("<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>");
 			w.println("<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap' rel='stylesheet'>");
 			w.println("<style>");
@@ -141,7 +141,7 @@ public class HtmlDashboardGenerator {
 			w.println("</style></head><body>");
 
 			// Header
-			w.println("<div class='header'><h1>🧬 BioCenicana VCF Quality Control Dashboard</h1>");
+			w.println("<div class='header'><h1>🧬 BioJava VCF Quality Control Dashboard</h1>");
 			w.println("<p>Level 1 + Level 2 NGSEP-compatible statistics &bull; GATK &bull; FreeBayes &bull; Interactive & publication-ready</p></div>");
 
 			// ── KPI Cards ─────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ public class HtmlDashboardGenerator {
 			w.println("var sM=" + missing + ";");
 			w.println("var sOH="+ obsHet  + ";");
 			w.println("var sF=" + fstat   + ";");
-			w.println("var cfg={responsive:true,displayModeBar:true,toImageButtonOptions:{format:'png',filename:'biocenicana_qc',height:1080,width:1920,scale:2}};");
+			w.println("var cfg={responsive:true,displayModeBar:true,toImageButtonOptions:{format:'png',filename:'biojava_qc',height:1080,width:1920,scale:2}};");
 
 			// ── Chart 1: Depth
 			w.println("(()=>{var ds=S(sD);");

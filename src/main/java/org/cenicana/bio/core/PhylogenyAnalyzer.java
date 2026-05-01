@@ -11,7 +11,7 @@ import java.io.PrintWriter;
 import java.util.*;
 
 /**
- * Phylogeny Module for BioCenicana.
+ * Phylogeny Module for BioJava.
  * Calculates evolutionary distances and prepares data for tree construction.
  */
 public class PhylogenyAnalyzer {

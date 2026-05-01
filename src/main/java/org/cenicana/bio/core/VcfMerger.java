@@ -59,7 +59,7 @@ public class VcfMerger {
         try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile)))) {
             // Write Header
             writer.println("##fileformat=VCFv4.2");
-            writer.println("##source=BioCenicanaVcfMerger");
+            writer.println("##source=BioJavaVcfMerger");
             writer.println("##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of Samples with Data\">");
             writer.println("##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">");
             writer.print("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
