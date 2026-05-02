@@ -150,7 +150,32 @@ Si el PCA no carga, asegúrate de tener conexión a internet ya que usa Plotly d
 
 ---
 
-## 5. Interpretación de los Resultados
+## 5. Reporte de Consenso de Parentesco
+
+A menudo, los mejoradores necesitan cruzar la información de diferentes análisis para tomar una decisión final. El comando `rel-consensus` integra los resultados del PCA, la Distancia Genética y el Kinship en una sola tabla resumida.
+
+### Comando de ejecución
+```bash
+java -jar target/biojava.jar rel-consensus \
+  -v benchmarks/sugarcane/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  -p 10 \
+  -o taller_bioinformatica/reporte_consenso.csv
+```
+
+### ¿Qué obtenemos?
+El comando genera un archivo `.csv` con las siguientes columnas para cada par de individuos:
+1.  **Same_PCA_Cluster**: ¿Fueron agrupados juntos por el PCA?
+2.  **Distance_PC_Space**: Distancia "física" en el mapa del PCA.
+3.  **Kinship_VanRaden**: Valor de parentesco genómico real.
+4.  **Inferred_Relationship**: Clasificación automática (Clon, Hermano, Medio Hermano, No relacionado).
+
+### Interpretación Estratégica:
+*   **Validación:** Si dos muestras están en el mismo clúster del PCA y su Kinship es > 0.40, puedes confirmar con total seguridad que son **familia directa**.
+*   **Selección:** Para nuevos cruces, busca pares de muestras donde `Same_PCA_Cluster` sea **NO** y el Kinship sea cercano a **0** o negativo.
+
+---
+
+## 6. Interpretación de los Resultados
 
 La salida es una **matriz N x N** (donde N es el número de muestras) separada por tabuladores.
 
@@ -168,7 +193,7 @@ La salida es una **matriz N x N** (donde N es el número de muestras) separada p
 
 ---
 
-## 6. Catálogo Completo de Comandos (BioJava Toolkit)
+## 7. Catálogo Completo de Comandos (BioJava Toolkit)
 
 BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos los comandos disponibles que puedes usar en tu taller:
 
@@ -199,6 +224,10 @@ BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos lo
 *   **`snp-explorer`**: Permite auditar visualmente el comportamiento de cada SNP.
     ```bash
     java -jar target/biojava.jar snp-explorer --vcf filtrado.vcf --pca estructura.pca.csv -o visor_snps.html
+    ```
+*   **`rel-consensus`**: Genera el reporte integrado de parentesco y grupos.
+    ```bash
+    java -jar target/biojava.jar rel-consensus -v filtrado.vcf -p 10 -o reporte.csv
     ```
 
 ### C. Desequilibrio de Ligamiento y Genómica Funcional
