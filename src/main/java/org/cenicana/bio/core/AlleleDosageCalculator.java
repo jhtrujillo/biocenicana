@@ -223,7 +223,7 @@ public class AlleleDosageCalculator {
 				float[] tmpDosages = new float[numGenotypes];
 
 				extractRawDosagesExtended(columns, numGenotypes, "auto", gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths, null);
+								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths);
 
 				for (int i=0; i<numGenotypes; i++) dr.dosages[i] = tmpDosages[i];
 				results.add(dr);

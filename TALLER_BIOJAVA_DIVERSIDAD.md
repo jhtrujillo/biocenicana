@@ -193,55 +193,6 @@ La salida es una **matriz N x N** (donde N es el número de muestras) separada p
 
 ---
 
-## 7. Catálogo Completo de Comandos (BioJava Toolkit)
-
-BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos los comandos disponibles que puedes usar en tu taller:
-
-### A. Gestión y Control de Calidad (QC)
-*   **`vcf-stats`**: Genera reportes estadísticos y tableros interactivos de calidad.
-    ```bash
-    java -jar target/biojava.jar vcf-stats -v input.vcf -o reporte_qc
-    ```
-*   **`vcf-filter`**: Filtra variantes por MAF, missingness y equilibrio de Hardy-Weinberg.
-    ```bash
-    java -jar target/biojava.jar vcf-filter -v input.vcf --min-maf 0.05 --max-missing 0.2 -o filtrado.vcf
-    ```
-*   **`vcf-merge`**: Combina múltiples archivos VCF en uno solo.
-    ```bash
-    java -jar target/biojava.jar vcf-merge -i batch1.vcf,batch2.vcf -o unificado.vcf
-    ```
-
-### B. Análisis de Diversidad y Estructura
-*   **`pop-structure`**: Realiza Análisis de Componentes Principales (PCA) para ver agrupamientos.
-    ```bash
-    java -jar target/biojava.jar pop-structure -v filtrado.vcf -p 10 -o estructura
-    ```
-*   **`genetic-distance`**: Calcula la matriz de distancia genética.
-*   **`snp-tree`**: Reconstruye árboles filogenéticos Neighbor-Joining.
-    ```bash
-    java -jar target/biojava.jar snp-tree -v filtrado.vcf -p 10 -o arbol.nwk
-    ```
-*   **`snp-explorer`**: Permite auditar visualmente el comportamiento de cada SNP.
-    ```bash
-    java -jar target/biojava.jar snp-explorer --vcf filtrado.vcf --pca estructura.pca.csv -o visor_snps.html
-    ```
-*   **`rel-consensus`**: Genera el reporte integrado de parentesco y grupos.
-    ```bash
-    java -jar target/biojava.jar rel-consensus -v filtrado.vcf -p 10 -o reporte.csv
-    ```
-
-### C. Desequilibrio de Ligamiento y Genómica Funcional
-*   **`ld`**: Calcula el decaimiento de LD (Linkage Disequilibrium).
-    ```bash
-    java -jar target/biojava.jar ld -v filtrado.vcf -o reporte_ld
-    ```
-*   **`allele-dosage`**: Exporta las dosis alélicas puras (0, 1, 2... k).
-    ```bash
-    java -jar target/biojava.jar allele-dosage -v filtrado.vcf -p 10 > dosis.tsv
-    ```
-
----
-
 ## 5.5. Estimación de Ploidía por Individuo (Nuevo)
 
 En poblaciones heterogéneas o cuando se trabaja con materiales de origen desconocido, la ploidía de cada individuo puede no ser uniforme. BioJava puede **estimar automáticamente** la ploidía de cada muestra directamente desde las frecuencias alélicas del VCF, sin necesidad de datos adicionales.
@@ -307,23 +258,68 @@ Total samples: 3  |  Ambiguous: 1
 > [!TIP]
 > Si obtienes muchas muestras `AMBIGUOUS`, intenta añadir ploidías impares a `--ploidy-candidates` (ej: `2,3,4,5,6,8,10,12`) o aumentar el filtro de profundidad con `-md 10`.
 
+---
 
+## 8. Anotación Funcional Avanzada y Matriz de Haplotipos
 
-### D. Genómica Comparativa y Evolución
-*   **`comp-gen`**: Integra sintenia, WGD y anotaciones funcionales.
-    ```bash
-    java -jar target/biojava.jar comp-gen --gff1 g1.gff --gff2 g2.gff --collinearity col.txt --viz sintenia.html
-    ```
+Esta es la herramienta más completa de BioJava. Permite integrar en un solo tablero interactivo la función de los genes, el efecto de las mutaciones (VEP), la recomendación de marcadores para laboratorio (KASP) y la estructura de haplotipos de la población.
+
+### Comando de ejecución
+Utiliza el subcomando `annotate`. Este comando requiere el genoma de referencia para el análisis KASP:
+
+```bash
+# Generar la Suite Profesional de Anotación y Población
+java -jar target/biojava.jar annotate \
+  -v benchmarks/sugarcane/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  -g benchmarks/genomas/1940/CC-01-1940.gff3 \
+  -r benchmarks/genomas/1940/CC-01-1940.fasta \
+  --gff2 benchmarks/genomas/R570/R570.gff3 \
+  -p benchmarks/genomas/1940/CC-01-1940.protein.faa \
+  -c benchmarks/genomas/1940/CC-01-1940.cds.fna \
+  -w 5000 \
+  -o taller_bioinformatica/BioJava_Suite_Final.html
+```
+
+### ¿Qué aprenderemos en este módulo?
+
+1.  **Buscador Híbrido**: Usa la barra lateral para buscar por funciones (ej. "sugar", "stress", "transporter"). El sistema autocompletará términos de GO e InterPro.
+2.  **Variant Effect Predictor (VEP)**: Identifica si un SNP cambia un aminoácido (**Missense**) o si es silencioso (**Synonymous**).
+3.  **Recomendación KASP (⭐⭐⭐)**: 
+    *   Busca los SNPs con **3 estrellas**. Son los mejores candidatos para el laboratorio porque no tienen interferencia de otros SNPs cercanos y tienen un GC ideal.
+    *   Haz clic en **"KASP Primer"** para obtener la secuencia lista para pedir a tu proveedor.
+4.  **Matriz de Haplotipos**: 
+    *   Haz clic en el botón **"Haplotypes"**.
+    *   Observa cómo se distribuyen los genotipos (Verde/Naranja/Rojo) en tus 220 muestras para todos los genes que te interesan. ¿Ves bloques de herencia?
+
+---
+
+## 9. Catálogo Completo de Comandos (BioJava Toolkit)
+
+BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos los comandos disponibles que puedes usar en tu taller:
+
+### A. Gestión y Control de Calidad (QC)
+*   **`vcf-stats`**: Genera reportes estadísticos y tableros interactivos de calidad.
+*   **`vcf-filter`**: Filtra variantes por MAF, missingness y equilibrio de Hardy-Weinberg.
+*   **`vcf-merge`**: Combina múltiples archivos VCF en uno solo.
+
+### B. Análisis de Diversidad y Estructura
+*   **`pop-structure`**: Realiza Análisis de Componentes Principales (PCA) para ver agrupamientos.
+*   **`genetic-distance`**: Calcula la matriz de distancia genética.
+*   **`snp-tree`**: Reconstruye árboles filogenéticos Neighbor-Joining.
+*   **`snp-explorer`**: Permite auditar visualmente el comportamiento de cada SNP.
+*   **`rel-consensus`**: Genera el reporte integrado de parentesco y grupos.
+
+### C. Anotación y Genómica Funcional (Suite Profesional)
+*   **`annotate`**: **[NUEVO]** Genera el tablero integral con VEP, KASP, Sintenia y Matriz de Haplotipos.
+*   **`allele-dosage`**: Exporta las dosis alélicas puras (0, 1, 2... k).
 *   **`kaks-calc`**: Calcula tasas de sustitución Ka/Ks para detectar selección.
-    ```bash
-    java -jar target/biojava.jar kaks-calc --cds1 g1.fasta --cds2 g2.fasta -o seleccion.tsv
-    ```
+*   **`comp-gen`**: Integra sintenia, WGD y anotaciones funcionales globales.
 
-### E. Exportación a otros Formatos
+### D. Exportación a otros Formatos
 *   **`gwaspoly-export`**: Prepara datos para el paquete R GWASpoly.
 *   **`joinmap`**: Convierte datos para mapeo de ligamiento en JoinMap.
 
 ---
 
 ## Conclusión
-El uso de matrices de distancia basadas en dosis alélicas permite a los mejoradores capturar la verdadera variación genética en poliploides, facilitando decisiones más precisas en los programas de cruzamiento.
+El uso de la Suite BioJava permite a los mejoradores capturar la verdadera variación genética en poliploides, facilitando decisiones más precisas desde la estructura poblacional hasta la validación de marcadores funcionales en el laboratorio.

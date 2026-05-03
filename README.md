@@ -252,4 +252,41 @@ Open the generated `.html` file in any browser to access:
 
 ---
 
+## Step 12: Advanced Genomic Annotation Dashboard (`annotate`)
+The most advanced module in BioJava. It generates a professional-grade research dashboard that integrates Variant Effect Prediction (VEP), interactive synteny, population analysis, and laboratory-ready marker recommendations.
+
+```bash
+java -jar target/biojava.jar annotate \
+  -v population.vcf \
+  -g genome1.gff3 \
+  -r genome1.fasta \
+  --gff2 genome2.gff3 \
+  -p proteins.faa \
+  -c cds.fna \
+  -w 5000 \
+  -o annotation_suite.html
+```
+
+### Key Analytical Capabilities
+*   **Hybrid Functional Search**: Combine a traditional functional catalog with a real-time autocomplete engine (GO, Pfam, InterPro) to isolate genes and markers instantly.
+*   **Variant Effect Predictor (VEP)**: Automatically classifies mutations as **Missense**, **Synonymous**, **Stop-Gain**, or **Intronic** based on the primary GFF3 and CDS data.
+*   **Interactive Synteny**: For every SNP, the tool visualizes the physical region in the primary genome and maps the orthologous block in a secondary genome (e.g., 1940 vs R570).
+*   **KASP Marker Recommendation**: An expert system that scores SNPs (⭐ to ⭐⭐⭐) based on environment cleanliness (nearby SNPs) and GC content. Provides ready-to-order flanking sequences.
+*   **Population Haplotype Matrix**: A global, color-coded grid visualizing genotypes across all samples and filtered markers to identify inheritance blocks.
+*   **Sequence Explorer & BLAST**: Direct access to Protein and CDS sequences with integrated one-click BLAST functionality.
+
+### Parameters
+| Flag | Description |
+|---|---|
+| `-v` / `--vcf` | **(Required)** Input VCF file with samples |
+| `-g` / `--gff` | **(Required)** Primary GFF3 file (Reference) |
+| `-r` / `--ref-genome` | **(Required for KASP)** Reference Genome FASTA |
+| `--gff2` | **(Optional)** Secondary GFF3 for Synteny |
+| `-p` / `--protein` | **(Optional)** Protein FASTA file |
+| `-c` / `--cds` | **(Optional)** CDS FASTA file |
+| `-w` / `--window` | Search window in bp around markers (Default: 5000) |
+| `-o` / `--output` | **(Required)** Output interactive HTML dashboard |
+
+---
+
 *This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*
