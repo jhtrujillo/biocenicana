@@ -255,13 +255,13 @@ public class PopulationStructureAnalyzer {
         result.dapcMatrix = runDAPC(result.pcMatrix, result.clusterAssignments, result.optimalK);
 
         // Compute Kinship Matrix (VanRaden)
-        System.out.println("[PCA] Computing Genomic Relationship Matrix (Kinship - VanRaden)...");
-        result.kinshipMatrix = computeKinshipVanRaden(dosageMatrix, ploidy);
+        System.out.println("[PCA] Computing Kinship matrix (VanRaden)...");
+        result.kinshipMatrix = calculateVanRadenKinship(dosageMatrix, ploidy);
 
         return result;
     }
 
-    private static class PcaDecomposition {
+    public static class PcaDecomposition {
         DMatrixRMaj U;
         double[] singularValues;
     }
@@ -314,7 +314,11 @@ public class PopulationStructureAnalyzer {
         return res;
     }
 
-    private double[][] computeKinshipVanRaden(List<double[]> dosageMatrix, int ploidy) {
+    /**
+     * Calculates the VanRaden Genomic Relationship Matrix (Kinship).
+     */
+    public static double[][] calculateVanRadenKinship(List<double[]> dosageMatrix, int ploidy) {
+        if (dosageMatrix.isEmpty()) return null;
         int m = dosageMatrix.size();
         int n = dosageMatrix.get(0).length;
         double[][] kinship = new double[n][n];
@@ -336,18 +340,19 @@ public class PopulationStructureAnalyzer {
             scale += ploidy * p[j] * (1.0 - p[j]);
         }
 
-        // 2. Compute Z * Z' where Z is centered genotypes
-        // Z_ji = dosage_ji - ploidy * p_j
-        // Kinship_i1,i2 = sum_j (Z_ji1 * Z_ji2) / scale
+        // 2. Compute Z * Z' where Z is centered genotypes (Z = X - P)
+        // Kinship = sum(Z_i * Z_j) / scale
         for (int i1 = 0; i1 < n; i1++) {
             for (int i2 = i1; i2 < n; i2++) {
                 double sumZ = 0;
                 for (int j = 0; j < m; j++) {
                     double z1 = dosageMatrix.get(j)[i1] - (ploidy * p[j]);
                     double z2 = dosageMatrix.get(j)[i2] - (ploidy * p[j]);
-                    sumZ += z1 * z2;
+                    if (!Double.isNaN(z1) && !Double.isNaN(z2)) {
+                        sumZ += z1 * z2;
+                    }
                 }
-                double val = sumZ / scale;
+                double val = sumZ / (scale + 1e-10);
                 kinship[i1][i2] = val;
                 kinship[i2][i1] = val;
             }

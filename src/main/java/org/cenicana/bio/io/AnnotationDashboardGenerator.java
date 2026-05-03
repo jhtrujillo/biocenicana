@@ -91,24 +91,6 @@ public class AnnotationDashboardGenerator {
             }
             pw.println("            </datalist>");
 
-            pw.println("            <div style='margin-top:10px'>");
-            pw.println("                <label style='font-size:0.7rem; color:#64748b; font-weight:600; text-transform:uppercase'>Browse Catalog:</label>");
-            pw.println("                <select id='functionDropdown' class='search-box' style='margin-top:5px; background-image:none'>");
-            pw.println("                    <option value=''>-- Full Function Index --</option>");
-            for (String func : uniqueFunctions) {
-                pw.println("                    <option value=\"" + func.replace("\"", "&quot;") + "\">" + func + "</option>");
-            }
-            pw.println("                </select>");
-            pw.println("            </div>");
-
-            pw.println("            <div style='margin-top:10px; display:flex; gap:10px; align-items:center'>");
-            pw.println("                <label style='font-size:0.7rem; color:#64748b; font-weight:600'>MIN QUALITY:</label>");
-            pw.println("                <select id='starFilter' class='search-box' style='padding:5px; width:auto; border-color:var(--primary)' onchange='renderSidebar($(\"#markerSearch\").val())'>");
-            pw.println("                    <option value='0'>Any Quality</option>");
-            pw.println("                    <option value='50'>⭐⭐+ (Fair)</option>");
-            pw.println("                    <option value='80'>⭐⭐⭐ (Best)</option>");
-            pw.println("                </select>");
-            pw.println("            </div>");
 
             pw.println("            <div style='margin-top:10px; display:flex; gap:10px'>");
             pw.println("                <button class='badge' style='background:#f59e0b; border:none; cursor:pointer' onclick='filterHighImpact()'>High Impact</button>");
@@ -199,12 +181,50 @@ public class AnnotationDashboardGenerator {
                 pw.println("],");
             }
             pw.println("        };");
+            pw.println("");
+            pw.println("        function drawGeneMap(g) {");
+            pw.println("            const width = 200; const height = 15;");
+            pw.println("            const len = g.gEnd - g.gStart;");
+            pw.println("            if (len <= 0) return '';");
+            pw.println("            let svg = `<svg width='${width}' height='${height}' style='background:#f1f5f9; border-radius:4px'>`;");
+            pw.println("            svg += `<line x1='0' y1='${height/2}' x2='${width}' y2='${height/2}' stroke='#cbd5e1' stroke-width='1'/>`;");
+            pw.println("            if (g.sb) {");
+            pw.println("                g.sb.forEach(s => {");
+            pw.println("                    let x = ((s.s - g.gStart) / len) * width;");
+            pw.println("                    let w = ((s.e - s.s) / len) * width;");
+            pw.println("                    let color = s.t === 'CDS' ? 'var(--primary)' : '#94a3b8';");
+            pw.println("                    svg += `<rect x='${x}' y='2' width='${Math.max(1, w)}' height='${height-4}' fill='${color}' rx='1'/>`;");
+            pw.println("                });");
+            pw.println("            }");
+            pw.println("            let snpX = ((g.pos - g.gStart) / len) * width;");
+            pw.println("            svg += `<line x1='${snpX}' y1='0' x2='${snpX}' y2='${height}' stroke='#ef4444' stroke-width='2'/>`;");
+            pw.println("            return svg + '</svg>';");
+            pw.println("        }");
 
             pw.println("        function showKasp(mId, gIdx) {");
             pw.println("            const g = data[mId][gIdx];");
             pw.println("            $('#seqTitle').text('KASP Flanking Sequence - ' + mId);");
             pw.println("            $('#seqText').text(g.fl);");
             pw.println("            $('#seqModal').css('display', 'flex');");
+            pw.println("        }");
+            pw.println("");
+            pw.println("        function copySeq() {");
+            pw.println("            const text = $('#seqText').text();");
+            pw.println("            navigator.clipboard.writeText(text).then(() => { alert('Sequence copied!'); });");
+            pw.println("        }");
+            pw.println("");
+            pw.println("        function downloadAllFASTA() {");
+            pw.println("            let fasta = '';");
+            pw.println("            markerIds.forEach(id => {");
+            pw.println("                data[id].forEach(g => {");
+            pw.println("                    if (g.pr) fasta += `>${g.id} [Marker:${id}]\\n${g.pr}\\n`;");
+            pw.println("                });");
+            pw.println("            });");
+            pw.println("            const blob = new Blob([fasta], { type: 'text/plain' });");
+            pw.println("            const link = document.createElement('a');");
+            pw.println("            link.href = URL.createObjectURL(blob);");
+            pw.println("            link.download = 'biojava_proteins.faa';");
+            pw.println("            link.click();");
             pw.println("        }");
 
             pw.println("        let table; let isHighImpact = false;");
@@ -213,7 +233,6 @@ public class AnnotationDashboardGenerator {
             pw.println("        function renderSidebar(filter = '') {");
             pw.println("            const container = $('#markerList').empty();");
             pw.println("            let count = 0; const val = filter.toLowerCase();");
-            pw.println("            const minKasp = parseInt($('#starFilter').val() || '0');");
             pw.println("            if (val.length > 2) {");
             pw.println("                container.append(`<div style='padding:10px 25px; background:#eef2ff; color:var(--primary); font-size:0.8rem; font-weight:600; cursor:pointer; border-radius:10px; margin:10px' onclick='showGlobalResults(\"${val}\")'>🔍 View all matches &rarr;</div>`);");
             pw.println("            }");
@@ -225,8 +244,6 @@ public class AnnotationDashboardGenerator {
             pw.println("                    if (foundGene) { matches = true; matchType = foundGene.n.length > 30 ? foundGene.n.substring(0,30) + '...' : foundGene.n; }");
             pw.println("                }");
             pw.println("                if (isHighImpact && data[id]) matches = matches && data[id].some(g => g.ef.includes('Missense') || g.ef.includes('Stop-Gain'));");
-            pw.println("                let bestKasp = data[id] ? Math.max(...data[id].map(g => g.kasp)) : 0;");
-            pw.println("                if (bestKasp < minKasp) matches = false;");
             pw.println("                if (matches) {");
             pw.println("                    container.append(`<div class='marker-item' onclick='showMarker(\"${id}\")' data-id='${id}'><div style='font-weight:600'>${id}</div><div style='font-size:0.7rem; color:#64748b'>${data[id].length} genes nearby</div>${val.length > 0 ? `<div style='font-size:0.65rem; color:var(--primary); margin-top:3px'>Matches: ${matchType}</div>` : ''}</div>`);");
             pw.println("                    if (++count >= 1000) break;");
@@ -235,7 +252,6 @@ public class AnnotationDashboardGenerator {
             pw.println("        }");
 
             pw.println("        $('#markerSearch').on('input', function() { renderSidebar($(this).val()); });");
-            pw.println("        $('#functionDropdown').on('change', function() { const val = $(this).val(); if (val) { $('#markerSearch').val(val); renderSidebar(val); showGlobalResults(val); } });");
             pw.println("        function filterHighImpact() { isHighImpact = !isHighImpact; renderSidebar($('#markerSearch').val()); }");
 
             pw.println("        function showHaplotypeMatrix() {");
@@ -246,14 +262,11 @@ public class AnnotationDashboardGenerator {
             pw.println("            samples.forEach(s => headRow += `<th style=\"padding:5px; border:1px solid #e2e8f0; writing-mode:vertical-rl; text-orientation:mixed\">${s}</th>`);");
             pw.println("            head.append(headRow + '</tr>');");
             pw.println("            const query = $('#markerSearch').val().toLowerCase();");
-            pw.println("            const minKasp = parseInt($('#starFilter').val() || '0');");
             pw.println("            markerIds.forEach(id => {");
             pw.println("                const markerData = data[id];");
             pw.println("                if (!markerData) return;");
             pw.println("                let matches = id.toLowerCase().includes(query) || markerData.some(g => g.n.toLowerCase().includes(query) || g.go.some(t => t.toLowerCase().includes(query)));");
             pw.println("                if (isHighImpact) matches = matches && markerData.some(g => g.ef.includes('Missense') || g.ef.includes('Stop-Gain'));");
-            pw.println("                let bestKasp = Math.max(...markerData.map(g => g.kasp));");
-            pw.println("                if (bestKasp < minKasp) matches = false;");
             pw.println("                if (matches) {");
             pw.println("                    let row = `<tr><td style=\"padding:5px; border:1px solid #e2e8f0; cursor:pointer; font-weight:bold\" onclick=\"showMarker('${id}')\">${id}</td>`;");
             pw.println("                    const g = markerData[0];");

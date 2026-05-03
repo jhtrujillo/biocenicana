@@ -27,7 +27,8 @@ import picocli.CommandLine.Command;
              PhylogenyCommand.class,
              SnpTreeCommand.class,
              RelationshipConsensusCommand.class,
-             AnnotateMarkersCommand.class
+             AnnotateMarkersCommand.class,
+             GwasCommand.class
          })
 public class VcfToolkit {
 

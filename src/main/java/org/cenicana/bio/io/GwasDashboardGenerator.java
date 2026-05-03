@@ -1,0 +1,365 @@
+package org.cenicana.bio.io;
+
+import org.cenicana.bio.core.GwasEngine.GwasHit;
+import java.io.*;
+import java.util.*;
+
+/**
+ * Generates an interactive, premium HTML dashboard for GWAS results with a LIGHT theme.
+ * Fixed QQ plot logic to handle thinning without shifting axes.
+ */
+public class GwasDashboardGenerator {
+
+    public void generate(List<GwasHit> hits, String traitName, String outputPath, int ploidy) throws IOException {
+        // Pre-process hits for Manhattan plot
+        Map<String, Long> chromMaxPos = new TreeMap<>();
+        for (GwasHit h : hits) {
+            String chrom = h.chromosome.toLowerCase();
+            boolean isChromosome = chrom.startsWith("chr") || chrom.matches("\\d+") || chrom.startsWith("ch");
+            if (isChromosome) {
+                chromMaxPos.put(h.chromosome, Math.max(chromMaxPos.getOrDefault(h.chromosome, 0L), h.position));
+            }
+        }
+
+        Map<String, Long> chromOffsets = new HashMap<>();
+        long currentOffset = 0;
+        List<String> sortedChroms = new ArrayList<>(chromMaxPos.keySet());
+        sortedChroms.sort((a, b) -> {
+            try {
+                int ia = Integer.parseInt(a.replaceAll("\\D", ""));
+                int ib = Integer.parseInt(b.replaceAll("\\D", ""));
+                return Integer.compare(ia, ib);
+            } catch (Exception e) {
+                return a.compareTo(b);
+            }
+        });
+
+        for (String chrom : sortedChroms) {
+            chromOffsets.put(chrom, currentOffset);
+            currentOffset += chromMaxPos.get(chrom) + 5_000_000;
+        }
+
+        // Calculate Lambda GC
+        double lambdaGC = calculateLambdaGC(hits);
+
+        try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
+            pw.println("<!DOCTYPE html>");
+            pw.println("<html lang='en'>");
+            pw.println("<head>");
+            pw.println("    <meta charset='UTF-8'>");
+            pw.println("    <title>BioJava GWAS | " + traitName + "</title>");
+            pw.println("    <script src='https://cdn.plot.ly/plotly-2.24.1.min.js'></script>");
+            pw.println("    <link href='https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap' rel='stylesheet'>");
+            pw.println("    <style>");
+            pw.println("        :root { --primary: #4f46e5; --secondary: #9333ea; --bg: #f1f5f9; --card: rgba(255, 255, 255, 0.7); --text: #0f172a; --text-dim: #64748b; }");
+            pw.println("        body { font-family: 'Outfit', sans-serif; margin: 0; background: var(--bg); color: var(--text); background-image: radial-gradient(circle at 50% -20%, #e0e7ff, var(--bg)); min-height: 100vh; }");
+            pw.println("        .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }");
+            pw.println("        .header { padding: 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }");
+            pw.println("        h1 { margin: 0; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(to right, #4f46e5, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }");
+            pw.println("        .container { padding: 40px; max-width: 1600px; margin: 0 auto; }");
+            pw.println("        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }");
+            pw.println("        .stat-card { padding: 24px; text-align: center; transition: transform 0.3s ease; }");
+            pw.println("        .stat-card:hover { transform: translateY(-5px); }");
+            pw.println("        .stat-val { font-size: 2rem; font-weight: 700; color: var(--primary); }");
+            pw.println("        .stat-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }");
+            pw.println("        .main-grid { display: grid; grid-template-columns: 2.5fr 1fr; gap: 30px; margin-bottom: 30px; }");
+            pw.println("        .card { padding: 30px; position: relative; overflow: hidden; }");
+            pw.println("        .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: var(--text); }");
+            pw.println("        .controls { margin-bottom: 20px; display: flex; gap: 15px; }");
+            pw.println("        select, input { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0,0,0,0.1); color: var(--text); padding: 10px 16px; border-radius: 12px; font-family: inherit; outline: none; }");
+            pw.println("        select:focus, input:focus { border-color: var(--primary); }");
+            pw.println("        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: -8px; }");
+            pw.println("        th { text-align: left; padding: 16px; color: var(--text-dim); font-weight: 400; font-size: 0.85rem; }");
+            pw.println("        td { padding: 16px; background: rgba(255,255,255,0.5); border-top: 1px solid rgba(0,0,0,0.02); border-bottom: 1px solid rgba(0,0,0,0.02); }");
+            pw.println("        td:first-child { border-radius: 12px 0 0 12px; border-left: 1px solid rgba(0,0,0,0.02); }");
+            pw.println("        td:last-child { border-radius: 0 12px 12px 0; border-right: 1px solid rgba(0,0,0,0.02); }");
+            pw.println("        tr:hover td { background: rgba(255,255,255,0.9); }");
+            pw.println("        .badge { padding: 6px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; }");
+            pw.println("        .sig { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }");
+            pw.println("        .non-sig { background: #f1f5f9; color: var(--text-dim); }");
+            pw.println("        ::-webkit-scrollbar { width: 8px; }");
+            pw.println("        ::-webkit-scrollbar-track { background: transparent; }");
+            pw.println("        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }");
+            pw.println("    </style>");
+            pw.println("</head>");
+            pw.println("<body>");
+            pw.println("    <div class='header'>");
+            pw.println("        <div><h1>" + traitName + " <span style='font-weight:300; font-size:1.2rem; opacity:0.6; color:var(--text)'>| GWAS Insight</span></h1></div>");
+            pw.println("        <div style='opacity: 0.8'><img src='https://www.cenicana.org/wp-content/uploads/2021/04/Logo-Cenicana-color.png' height='45'></div>");
+            pw.println("    </div>");
+            pw.println("    <div class='container'>");
+            
+            pw.println("        <div class='stats-grid'>");
+            pw.println("            <div class='glass stat-card'><div class='stat-val'>" + hits.size() + "</div><div class='stat-label'>Total Variants</div></div>");
+            pw.println("            <div class='glass stat-card'><div class='stat-val'>" + String.format("%.3f", lambdaGC) + "</div><div class='stat-label'>Lambda GC</div></div>");
+            pw.println("            <div class='glass stat-card'><div class='stat-val' id='sigCount'>0</div><div class='stat-label'>Significant (Bonferroni)</div></div>");
+            pw.println("            <div class='glass stat-card'><div class='stat-val' style='color:var(--secondary)'>EMMAX</div><div class='stat-label'>Engine</div></div>");
+            pw.println("        </div>");
+
+            pw.println("        <div class='main-grid'>");
+            pw.println("            <div class='glass card'>");
+            pw.println("                <div class='card-title'>Manhattan Discovery Plot</div>");
+            pw.println("                <div class='controls'>");
+            pw.println("                    <select id='viewMode' onchange='updateManhattan()'>");
+            pw.println("                        <option value='all'>Show All Sequences</option>");
+            pw.println("                        <option value='chroms' selected>Main Chromosomes</option>");
+            pw.println("                    </select>");
+            pw.println("                </div>");
+            pw.println("                <div id='manhattan' style='height: 550px;'></div>");
+            pw.println("            </div>");
+            pw.println("            <div class='glass card'>");
+            pw.println("                <div class='card-title'>QQ Inflation</div>");
+            pw.println("                <div id='qqplot' style='height: 500px;'></div>");
+            pw.println("            </div>");
+            pw.println("        </div>");
+
+            pw.println("        <div class='glass card'>");
+            pw.println("            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;'>");
+            pw.println("                <div class='card-title'>Associated Markers</div>");
+            pw.println("                <div style='display: flex; gap: 12px;'>");
+            pw.println("                    <input type='text' id='search' placeholder='Search marker...' onkeyup='filterTable()'>");
+            pw.println("                    <select id='pageSize' onchange='renderTable()'>");
+            pw.println("                        <option value='20'>20 Results</option>");
+            pw.println("                        <option value='50' selected>50 Results</option>");
+            pw.println("                        <option value='100'>100 Results</option>");
+            pw.println("                    </select>");
+            pw.println("                </div>");
+            pw.println("            </div>");
+            pw.println("            <div style='overflow-x: auto;'>");
+            pw.println("                <table><thead><tr><th>MARKER</th><th>CHR</th><th>POSITION</th><th>MODEL</th><th>EFFECT</th><th>R²</th><th>P-VALUE</th></tr></thead>");
+            pw.println("                <tbody id='tableBody'></tbody></table>");
+            pw.println("            </div>");
+            pw.println("        </div>");
+            pw.println("        <div class='glass card' id='selectionAnalysis' style='margin-top: 30px; display: none;'>");
+            pw.println("            <div class='card-title'>Selection Analysis & Allele Effect</div>");
+            pw.println("            <div style='display: grid; grid-template-columns: 1fr 2.5fr; gap: 30px;'>");
+            pw.println("                <div id='selectionInfo' style='padding: 20px; background: rgba(79, 70, 229, 0.05); border-radius: 16px;'>");
+            pw.println("                    <h3 id='selMarkerName' style='margin-top: 0; color: var(--primary);'></h3>");
+            pw.println("                    <div id='selMarkerStats'></div>");
+            pw.println("                </div>");
+            pw.println("                <div id='selBoxplot' style='height: 400px;'></div>");
+            pw.println("            </div>");
+            pw.println("        </div>");
+            pw.println("    </div>");
+
+            pw.println("    <script>");
+            pw.println("        const totalM = " + hits.size() + ";");
+            pw.println("        const palette = ['#4f46e5', '#7c3aed', '#db2777', '#dc2626', '#d97706', '#059669', '#0891b2', '#2563eb'];");
+            pw.println("        const bonferroni = " + (-Math.log10(0.05 / Math.max(1, hits.size()))) + ";");
+            
+            pw.println("        const all_data = [");
+            int sigCount = 0;
+            for (int j = 0; j < hits.size(); j++) {
+                GwasHit h = hits.get(j);
+                double logP = -Math.log10(h.pValue);
+                if (h.pValue < (0.05 / hits.size())) sigCount++;
+
+                if (h.pValue > 0.05 && j % 10 != 0) continue;
+
+                String chrom = h.chromosome.toLowerCase();
+                boolean isChrom = chrom.startsWith("chr") || chrom.matches("\\d+") || chrom.startsWith("ch");
+                long offset = chromOffsets.getOrDefault(h.chromosome, 0L);
+                
+                String chromNum = h.chromosome.replaceAll("\\D", "");
+                int cIdx = chromNum.isEmpty() ? h.hashCode() : Integer.parseInt(chromNum);
+                String color = isChrom ? "palette[" + (Math.abs(cIdx) % 8) + "]" : "'#94a3b8'";
+
+                pw.print("{x:" + (offset + h.position) + ",y:" + logP + ",id:'" + h.markerId + "',chr:'" + h.chromosome + "',c:" + color + ",isChrom:" + isChrom + "}");
+                if (j < hits.size() - 1) pw.print(",");
+            }
+            pw.println("        ];");
+            pw.println("        document.getElementById('sigCount').innerText = '" + sigCount + "';");
+
+            pw.println("        const ticks = { val: [" + String.join(",", sortedChroms.stream().map(c -> String.valueOf(chromOffsets.get(c) + chromMaxPos.get(c)/2)).toArray(String[]::new)) + "], text: [" + String.join(",", sortedChroms.stream().map(c -> "'" + c + "'").toArray(String[]::new)) + "] };");
+
+            pw.println("        function updateManhattan() {");
+            pw.println("            const mode = document.getElementById('viewMode').value;");
+            pw.println("            const filtered = all_data.filter(d => mode === 'all' || d.isChrom);");
+            pw.println("            Plotly.react('manhattan', [{");
+            pw.println("                x: filtered.map(d => d.x), y: filtered.map(d => d.y), text: filtered.map(d => d.id),");
+            pw.println("                mode: 'markers', type: 'scattergl', marker: { color: filtered.map(d => d.c), size: 6, opacity: 0.7 }");
+            pw.println("            }], {");
+            pw.println("                paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',");
+            pw.println("                xaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, tickvals: mode === 'chroms' ? ticks.val : null, ticktext: mode === 'chroms' ? ticks.text : null },");
+            pw.println("                yaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, title: '-log10(p)' },");
+            pw.println("                margin: { t: 10, l: 50, r: 10, b: 50 }, hovermode: 'closest',");
+            pw.println("                shapes: [{ type: 'line', x0: 0, x1: " + currentOffset + ", y0: bonferroni, y1: bonferroni, line: { color: '#ef4444', width: 2, dash: 'dash' } }]");
+            pw.println("            }, { responsive: true, displayModeBar: false });");
+            pw.println("        }");
+            pw.println("        updateManhattan();");
+
+            pw.println("        const top_hits = [");
+            for (int j = 0; j < Math.min(1000, hits.size()); j++) {
+                GwasHit h = hits.get(j);
+                pw.print("{id:'" + h.markerId + "',chr:'" + h.chromosome + "',pos:" + h.position + ",ref:'" + h.refAllele + "',alt:'" + h.altAllele + "',model:'" + h.model + "',eff:" + h.effect + ",r2:" + h.r2 + ",p:" + h.pValue);
+                if (h.phenotypesByDosage != null && j < 100) {
+                    pw.print(",dist:[");
+                    for (int d = 0; d < h.phenotypesByDosage.length; d++) {
+                        pw.print("[");
+                        for (int k = 0; k < h.phenotypesByDosage[d].size(); k++) {
+                            pw.print(h.phenotypesByDosage[d].get(k));
+                            if (k < h.phenotypesByDosage[d].size() - 1) pw.print(",");
+                        }
+                        pw.print("]");
+                        if (d < h.phenotypesByDosage.length - 1) pw.print(",");
+                    }
+                    pw.print("],samples:[");
+                    for (int d = 0; d < h.samplesByDosage.length; d++) {
+                        pw.print("[");
+                        for (int k = 0; k < h.samplesByDosage[d].size(); k++) {
+                            pw.print("'" + h.samplesByDosage[d].get(k) + "'");
+                            if (k < h.samplesByDosage[d].size() - 1) pw.print(",");
+                        }
+                        pw.print("]");
+                        if (d < h.samplesByDosage.length - 1) pw.print(",");
+                    }
+                    pw.print("]");
+                }
+                pw.print("}");
+                if (j < Math.min(1000, hits.size()) - 1) pw.print(",");
+            }
+            pw.println("        ];");
+
+            pw.println("        function renderTable() {");
+            pw.println("            const q = document.getElementById('search').value.toLowerCase();");
+            pw.println("            const size = parseInt(document.getElementById('pageSize').value);");
+            pw.println("            const filtered = top_hits.filter(h => h.id.toLowerCase().includes(q)).slice(0, size);");
+            pw.println("            document.getElementById('tableBody').innerHTML = filtered.map(h => `<tr onclick=\"showSelectionAnalysis('${h.id}')\" style='cursor:pointer'>");
+            pw.println("                <td style='font-weight:600; color:var(--text)'>${h.id}</td><td>${h.chr}</td><td>${h.pos.toLocaleString()}</td>");
+            pw.println("                <td style='color:var(--text-dim)'>${h.model}</td><td style='font-family:monospace'>${h.eff.toFixed(4)}</td>");
+            pw.println("                <td style='font-weight:600; color:var(--secondary)'>${(h.r2 * 100).toFixed(1)}%</td>");
+            pw.println("                <td><span class='badge ${h.p < (0.05/ totalM) ? \"sig\" : \"non-sig\"}'>${h.p.toExponential(2)}</span></td>");
+            pw.println("            </tr>`).join('');");
+            pw.println("        }");
+            pw.println("        renderTable();");
+            pw.println("");
+            pw.println("        function showSelectionAnalysis(markerId) {");
+            pw.println("            const h = top_hits.find(x => x.id === markerId);");
+            pw.println("            if (!h || !h.dist) return;");
+            pw.println("");
+            pw.println("            document.getElementById('selectionAnalysis').style.display = 'block';");
+            pw.println("            document.getElementById('selMarkerName').innerText = h.id;");
+            pw.println("            ");
+            pw.println("            const action = h.eff > 0 ? 'AUMENTAR' : 'DISMINUIR';");
+            pw.println("            const inverseAction = h.eff > 0 ? 'disminuir' : 'aumentar';");
+            pw.println("            const color = h.eff > 0 ? '#059669' : '#dc2626';");
+            pw.println("            ");
+            pw.println("            document.getElementById('selMarkerStats').innerHTML = `");
+            pw.println("                <p><b>Cromosoma:</b> ${h.chr}</p>");
+            pw.println("                <p><b>Modelo:</b> ${h.model}</p>");
+            pw.println("                <p><b>Efecto por alelo ALT:</b> <span style='color:${color}; font-weight:bold'>${h.eff.toFixed(4)}</span></p>");
+            pw.println("                <p><b>Varianza Explicada (R²):</b> ${(h.r2*100).toFixed(2)}%</p>");
+            pw.println("                <div style='margin-top:20px; padding:15px; background:white; border-radius:12px; border-left:4px solid ${color}'>");
+            pw.println("                    <small style='color:var(--text-dim)'>GUÍA DE SELECCIÓN GENÓMICA</small><br>");
+            pw.println("                    <strong>El alelo ALT (Dosis) tiende a ${action.toLowerCase()} el rasgo.</strong><br><br>");
+            pw.println("                    <div style='font-size:13px;'>");
+            pw.println("                        • Si busca <b>${action}</b> el rasgo: Seleccione individuos con <b>Dosis " + (ploidy) + "</b>.<br>");
+            pw.println("                        • Si busca <b>${inverseAction.toUpperCase()}</b> el rasgo: Seleccione individuos con <b>Dosis 0</b>.");
+            pw.println("                    </div>");
+            pw.println("                </div>");
+            pw.println("                <div style='margin-top:20px;'>");
+            pw.println("                    <p><b>Candidatos Élite (Genotipo Ideal):</b></p>");
+            pw.println("                    <div id='eliteList' style='max-height:250px; overflow-y:auto; font-size:12px; background:white; padding:10px; border-radius:8px; border:1px solid rgba(0,0,0,0.05)'></div>");
+            pw.println("                </div>");
+            pw.println("            `;");
+            pw.println("");
+            pw.println("            const getGenotype = (d, ref, alt) => {");
+            pw.println("                return alt.repeat(d) + ref.repeat(" + ploidy + " - d);");
+            pw.println("            };");
+            pw.println("");
+            pw.println("            const bestDosage = h.eff > 0 ? " + ploidy + " : 0;");
+            pw.println("            const eliteSamples = h.samples[bestDosage] || [];");
+            pw.println("            const geno = getGenotype(bestDosage, h.ref, h.alt);");
+            pw.println("            if (eliteSamples.length > 0) {");
+            pw.println("                let html = '<table style=\"width:100%; border-collapse:collapse; margin-top:10px\">';");
+            pw.println("                html += '<tr style=\"background:rgba(0,0,0,0.02); font-weight:bold\"><td>Individuo</td><td>Dosis</td><td>Genotipo</td></tr>';");
+            pw.println("                html += eliteSamples.map(s => `<tr><td style=\"padding:4px\">${s}</td><td>${bestDosage}</td><td style=\"font-family:monospace; color:var(--primary)\">${geno}</td></tr>`).join('');");
+            pw.println("                html += '</table>';");
+            pw.println("                document.getElementById('eliteList').innerHTML = html;");
+            pw.println("            } else {");
+            pw.println("                document.getElementById('eliteList').innerHTML = '<div style=\"padding:10px; color:var(--text-dim)\">No hay individuos con el genotipo ideal (Dosis ' + bestDosage + ')</div>';");
+            pw.println("            }");
+            pw.println("");
+            pw.println("            const traces = h.dist.map((values, dosage) => ({");
+            pw.println("                y: values, type: 'box', name: 'Dosis ' + dosage, ");
+            pw.println("                marker: { color: palette[dosage % palette.length] },");
+            pw.println("                boxpoints: 'all', jitter: 0.3, pointpos: -1.8");
+            pw.println("            })).filter(t => t.y.length > 0);");
+            pw.println("");
+            pw.println("            Plotly.newPlot('selBoxplot', traces, {");
+            pw.println("                paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',");
+            pw.println("                title: 'Phenotype Distribution by Allele Dosage',");
+            pw.println("                yaxis: { gridcolor: 'rgba(0,0,0,0.05)', title: 'Phenotype Value' },");
+            pw.println("                xaxis: { title: 'Allele Dosage (Copies)' },");
+            pw.println("                margin: { t: 40, l: 50, r: 10, b: 50 }, showlegend: false");
+            pw.println("            }, { responsive: true, displayModeBar: false });");
+            pw.println("            ");
+            pw.println("            window.scrollTo({ top: document.getElementById('selectionAnalysis').offsetTop - 20, behavior: 'smooth' });");
+            pw.println("        }");
+
+            pw.println("        // QQ Plot Data with Correct Ranks");
+            pw.println("        const obsData = " + getRankedPValuesJson(hits) + ";");
+            pw.println("        const expLogP = obsData.map(d => -Math.log10(d.r / totalM));");
+            pw.println("        const obsLogP = obsData.map(d => -Math.log10(d.p));");
+            pw.println("        Plotly.newPlot('qqplot', [");
+            pw.println("            { x: expLogP, y: obsLogP, mode: 'markers', type: 'scattergl', marker: { color: '#4f46e5', size: 4, opacity: 0.5 } },");
+            pw.println("            { x: [0, Math.max(...expLogP)], y: [0, Math.max(...expLogP)], mode: 'lines', line: { color: '#ef4444', dash: 'dash', width: 1 } }");
+            pw.println("        ], {");
+            pw.println("            paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',");
+            pw.println("            xaxis: { title: 'Expected -log10(p)', gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'} },");
+            pw.println("            yaxis: { title: 'Observed -log10(p)', gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'} },");
+            pw.println("            margin: { t: 20, l: 50, r: 10, b: 50 }, showlegend: false");
+            pw.println("        }, { responsive: true, displayModeBar: false });");
+            pw.println("    </script>");
+            pw.println("</body>");
+            pw.println("</html>");
+        }
+    }
+
+    private double calculateLambdaGC(List<GwasHit> hits) {
+        if (hits.isEmpty()) return 1.0;
+        double[] pValues = hits.stream().mapToDouble(h -> h.pValue).sorted().toArray();
+        double medianP = pValues[pValues.length / 2];
+        double chiObs = inverseChiSquare(1.0 - medianP);
+        double chiExp = 0.4549; 
+        return chiObs / chiExp;
+    }
+
+    private double inverseChiSquare(double p) {
+        double z = inverseNormal(0.5 + p / 2.0);
+        return z * z;
+    }
+
+    private double inverseNormal(double p) {
+        double a[] = {-3.969683028665376e+01,  2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01,  2.506628277459239e+00};
+        double b[] = {-5.447609879822406e+01,  1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01};
+        double c[] = {-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00,  4.374664141464968e+00,  2.938163982698783e+00};
+        double d[] = { 7.784695709041462e-03,  3.224671290700398e-01,  2.445134137142996e+00,  3.754408661907416e+00};
+        double p_low = 0.02425, p_high = 1 - p_low;
+        if (p < p_low) {
+            double q = Math.sqrt(-2 * Math.log(p));
+            return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+        }
+        if (p <= p_high) {
+            double q = p - 0.5, r = q * q;
+            return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+        }
+        double q = Math.sqrt(-2 * Math.log(1 - p));
+        return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+    }
+
+    private String getRankedPValuesJson(List<GwasHit> hits) {
+        double[] pValues = hits.stream().mapToDouble(h -> h.pValue).sorted().toArray();
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < pValues.length; i++) {
+            // Thinning: all significant and a subset of others
+            if (pValues[i] > 0.05 && i % 40 != 0) continue;
+            
+            sb.append("{\"p\":").append(pValues[i]).append(",\"r\":").append(i + 1).append("}");
+            if (i < pValues.length - 1) sb.append(",");
+        }
+        if (sb.charAt(sb.length()-1) == ',') sb.setLength(sb.length()-1);
+        sb.append("]");
+        return sb.toString();
+    }
+}
