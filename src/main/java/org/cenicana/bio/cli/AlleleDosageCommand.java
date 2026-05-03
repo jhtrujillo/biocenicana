@@ -128,13 +128,17 @@ public class AlleleDosageCommand implements Callable<Integer> {
 		defaultValue = "false")
 	private boolean rawFrequencies;
 
+
+
 	// ── Execution ──────────────────────────────────────────────────────────────
 
 	@Override
 	public Integer call() throws Exception {
 		try {
 			AlleleDosageCalculator dosiscgene = new AlleleDosageCalculator();
-			dosiscgene.computeAlleleDosage(vcfFile, ploidy, impute.toInternalKey(), false, caller.toString(), minDepth, knnK, adaptiveRounding, rawFrequencies);
+
+			dosiscgene.computeAlleleDosage(vcfFile, ploidy, impute.toInternalKey(), false,
+					caller.toString(), minDepth, knnK, adaptiveRounding, rawFrequencies);
 			return 0;
 
 		} catch (Exception e) {

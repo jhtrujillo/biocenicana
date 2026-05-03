@@ -27,6 +27,9 @@ public class PopStructureCommand implements Callable<Integer> {
     @Option(names = {"--max-missing"}, description = "Maximum missingness per SNP", defaultValue = "0.2")
     private double maxMissing;
 
+    @Option(names = {"--fast"}, description = "Use Randomized SVD for faster computation on large datasets")
+    private boolean fastMode = false;
+
     @Override
     public Integer call() throws Exception {
         File f = new File(vcfFile);
@@ -42,11 +45,12 @@ public class PopStructureCommand implements Callable<Integer> {
         System.out.println("Output:     " + outputBase + ".pca.csv");
         System.out.println("Ploidy:     " + ploidy);
         System.out.println("PCs:        " + numPCs);
+        System.out.println("Fast Mode:  " + fastMode);
         System.out.println("Filters:    MAF > " + minMaf + ", Missing < " + maxMissing);
         System.out.println("=================================================\n");
 
         PopulationStructureAnalyzer analyzer = new PopulationStructureAnalyzer();
-        PopulationStructureAnalyzer.PcaResult result = analyzer.computePCA(vcfFile, ploidy, numPCs, minMaf, maxMissing);
+        PopulationStructureAnalyzer.PcaResult result = analyzer.computePCA(vcfFile, ploidy, numPCs, minMaf, maxMissing, fastMode);
         
         analyzer.exportPca(result, outputBase + ".pca.csv");
         analyzer.exportKinship(result, outputBase + ".kinship.csv");

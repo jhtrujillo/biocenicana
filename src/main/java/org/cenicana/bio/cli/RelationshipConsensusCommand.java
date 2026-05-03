@@ -30,13 +30,16 @@ public class RelationshipConsensusCommand implements Callable<Integer> {
     @Option(names = {"--max-missing"}, description = "Maximum missingness.", defaultValue = "0.2")
     private double maxMissing;
 
+    @Option(names = {"--fast"}, description = "Use Randomized SVD for faster computation.")
+    private boolean fastMode = false;
+
     @Override
     public Integer call() throws Exception {
         System.out.println("=== BioJava: Relationship Consensus Report ===");
         
         PopulationStructureAnalyzer analyzer = new PopulationStructureAnalyzer();
-        System.out.println("[Step 1/3] Running PCA, Distance and Kinship analysis...");
-        PcaResult result = analyzer.computePCA(vcfFile, ploidy, 10, minMaf, maxMissing);
+        System.out.println("[Step 1/3] Running PCA, Distance and Kinship analysis (Fast Mode: " + fastMode + ")...");
+        PcaResult result = analyzer.computePCA(vcfFile, ploidy, 10, minMaf, maxMissing, fastMode);
 
         System.out.println("[Step 2/3] Cross-referencing results and inferring relationships...");
         

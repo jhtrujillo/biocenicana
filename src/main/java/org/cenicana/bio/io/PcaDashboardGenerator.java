@@ -35,6 +35,14 @@ public class PcaDashboardGenerator {
             w.println("  .info-btn:hover { background: #6366f1; color: white; }");
             w.println("  .info-text { display: none; background: #f1f5f9; border-left: 3px solid #6366f1; padding: 10px; margin-top: 10px; font-size: 13px; color: #475569; border-radius: 4px; }");
             w.println("  .stat { font-size: 14px; color: #64748b; }");
+            w.println("  .summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }");
+            w.println("  .summary-item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid #6366f1; }");
+            w.println("  .summary-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }");
+            w.println("  .summary-value { font-size: 20px; font-weight: bold; color: #0f172a; margin-top: 5px; }");
+            w.println("  #sampleSearch { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; width: 250px; font-size: 14px; outline: none; }");
+            w.println("  #sampleSearch:focus { border-color: #6366f1; }");
+            w.println("  .btn-export { background: #6366f1; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }");
+            w.println("  .btn-export:hover { background: #4f46e5; }");
             w.println("</style>");
             w.println("<script>");
             w.println("  function toggleInfo(id) {");
@@ -47,17 +55,26 @@ public class PcaDashboardGenerator {
             w.println("<div class='container'>");
             w.println("<div class='header'>");
             w.println("  <h1>BioJava | PCA Population Structure</h1>");
-            w.println("  <div style='display:flex; align-items:center; gap:20px;'>");
-            w.println("    <div class='stat'>Visual Mode: ");
-            w.println("      <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");
-            w.println("        <option value='kmeans'>PCA: K-Means</option>");
-            w.println("        <option value='dbscan'>PCA: DBSCAN</option>");
-            w.println("        <option value='gmm'>PCA: GMM</option>");
-            w.println("        <option value='dapc'>DAPC Analysis</option>");
-            w.println("      </select>");
-            w.println("    </div>");
-            w.println("    <div class='stat'>Samples: " + result.sampleNames.length + " | <b>Global Fst: " + String.format("%.4f", result.fstGlobal) + "</b></div>");
+            w.println("  <div class='stat'>Visual Mode: ");
+            w.println("    <select id='colorMode' onchange='updateColoring()' style='padding:5px; border-radius:5px; border:1px solid #cbd5e1;'>");
+            w.println("      <option value='kmeans'>PCA: K-Means</option>");
+            w.println("      <option value='dbscan'>PCA: DBSCAN</option>");
+            w.println("      <option value='gmm'>PCA: GMM</option>");
+            w.println("      <option value='dapc'>DAPC Analysis</option>");
+            w.println("    </select>");
             w.println("  </div>");
+            w.println("</div>");
+            
+            w.println("<div class='summary-bar'>");
+            w.println("  <div class='summary-item'><div class='summary-label'>Samples</div><div class='summary-value'>" + result.sampleNames.length + "</div></div>");
+            w.println("  <div class='summary-item'><div class='summary-label'>Principal Components</div><div class='summary-value'>" + result.pcMatrix[0].length + "</div></div>");
+            w.println("  <div class='summary-item'><div class='summary-label'>Optimal K</div><div class='summary-value'>" + result.optimalK + "</div></div>");
+            w.println("  <div class='summary-item'><div class='summary-label'>Global Fst</div><div class='summary-value'>" + String.format("%.4f", result.fstGlobal) + "</div></div>");
+            w.println("</div>");
+
+            w.println("<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;'>");
+            w.println("  <input type='text' id='sampleSearch' placeholder='🔍 Search sample name...' onkeyup='handleSearch()'>");
+            w.println("  <button class='btn-export' onclick='exportToCSV()'>📥 Export PCA (.csv)</button>");
             w.println("</div>");
 
             w.println("<div class='grid'>");
@@ -185,6 +202,37 @@ public class PcaDashboardGenerator {
             w.println("  layout.xaxis = {title: mode==='dapc' ? 'Linear Discriminant 1 (LD1)' : 'Principal Component 1 (PC1)'};");
             w.println("  layout.yaxis = {title: mode==='dapc' ? 'Linear Discriminant 2 (LD2)' : 'Principal Component 2 (PC2)'};");
             w.println("  Plotly.react(id, traces, layout, cfg);");
+            w.println("}");
+
+            w.println("function handleSearch() {");
+            w.println("  const query = document.getElementById('sampleSearch').value.toLowerCase();");
+            w.println("  const plots = ['pc12', 'pc3d'].filter(id => document.getElementById(id));");
+            w.println("  plots.forEach(id => {");
+            w.println("    const plot = document.getElementById(id);");
+            w.println("    if (!plot.data) return;");
+            w.println("    const update = { 'marker.opacity': [], 'marker.size': [] };");
+            w.println("    plot.data.forEach(trace => {");
+            w.println("      if (!trace.text) return;");
+            w.println("      const opacities = trace.text.map(t => !query || t.toLowerCase().includes(query) ? 0.9 : 0.1);");
+            w.println("      const sizes = trace.text.map(t => !query || t.toLowerCase().includes(query) ? (id === 'pc3d' ? 8 : 12) : (id === 'pc3d' ? 3 : 5));");
+            w.println("      update['marker.opacity'].push(opacities);");
+            w.println("      update['marker.size'].push(sizes);");
+            w.println("    });");
+            w.println("    Plotly.restyle(id, update);");
+            w.println("  });");
+            w.println("}");
+
+            w.println("function exportToCSV() {");
+            w.println("  let csv = 'Sample,PC1,PC2,PC3,KMeans_Cluster\\n';");
+            w.println("  for(let i=0; i<data_labels.length; i++) {");
+            w.println("    csv += data_labels[i] + ',' + data_pc1[i] + ',' + data_pc2[i] + ',' + data_pc3[i] + ',' + (data_kmeans[i]+1) + '\\n';");
+            w.println("  }");
+            w.println("  const blob = new Blob([csv], { type: 'text/csv' });");
+            w.println("  const url = window.URL.createObjectURL(blob);");
+            w.println("  const a = document.createElement('a');");
+            w.println("  a.href = url;");
+            w.println("  a.download = 'biojava_pca_results.csv';");
+            w.println("  a.click();");
             w.println("}");
 
             // Heatmap Genetic Distance

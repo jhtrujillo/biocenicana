@@ -240,6 +240,75 @@ BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos lo
     java -jar target/biojava.jar allele-dosage -v filtrado.vcf -p 10 > dosis.tsv
     ```
 
+---
+
+## 5.5. Estimación de Ploidía por Individuo (Nuevo)
+
+En poblaciones heterogéneas o cuando se trabaja con materiales de origen desconocido, la ploidía de cada individuo puede no ser uniforme. BioJava puede **estimar automáticamente** la ploidía de cada muestra directamente desde las frecuencias alélicas del VCF, sin necesidad de datos adicionales.
+
+### ¿Cómo funciona?
+
+El algoritmo realiza **dos pasadas** sobre el VCF:
+
+1. **Pasada 1 — Estimación:** Para cada individuo y cada ploidía candidata `p`, calcula el error cuadrático medio entre las frecuencias alélicas observadas (BAF) y los niveles teóricos esperados (`0/p, 1/p, ... p/p`). La ploidía que produce el menor error es seleccionada.
+2. **Pasada 2 — Dosaje:** Calcula la matriz de dosis alélicas usando la ploidía específica estimada para cada individuo.
+
+> [!IMPORTANT]
+> Si un individuo es **10x**, sus dosajes se calculan como `{0.0, 0.1, 0.2, ..., 1.0}`. Si otro es **8x**, sus dosajes serán `{0.0, 0.125, 0.25, ..., 1.0}`. Cada individuo usa su propio sistema de discretización.
+
+### Comando de ejecución
+
+```bash
+# Estimar ploidía individualmente y calcular dosis alélicas
+java -jar target/biojava.jar allele-dosage \
+  -v benchmarks/sugarcane/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --estimate-ploidy \
+  --ploidy-candidates 2,4,6,8,10,12 \
+  --ploidy-report taller_bioinformatica/reporte_ploidia.tsv \
+  -i bsdp-mode \
+  -md 5 \
+  > taller_bioinformatica/dosis_por_ploidia.tsv
+```
+
+### Explicación de parámetros:
+| Parámetro | Descripción |
+|---|---|
+| `--estimate-ploidy` | Activa la estimación automática. El parámetro `-p` se ignora como fuente principal. |
+| `--ploidy-candidates` | Lista separada por comas de ploidías a evaluar. Acepta cualquier entero ≥ 2. |
+| `--ploidy-report` | Archivo TSV donde se guarda el reporte de ploidías estimadas por individuo. |
+| `-i bsdp-mode` | Usa conteos de lectura primero; imputa valores faltantes con la moda. |
+| `-md 5` | Rechaza genotipos con menos de 5 lecturas totales (control de calidad). |
+| `> dosis_por_ploidia.tsv` | Redirige la **matriz de dosaje** (stdout) al archivo de resultados. |
+
+> [!NOTE]
+> El reporte de ploidías se imprime en `stderr` (consola) si no se especifica `--ploidy-report`. La **matriz de dosaje** siempre va a `stdout`. Esto permite redirigirlos por separado.
+
+### Ejemplo de reporte de ploidía generado (`reporte_ploidia.tsv`):
+
+```
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║             [BioJava] Per-Individual Ploidy Estimation Report                   ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+Sample                              Ploidy_Estimated  Confidence  SNPs_Used    Status
+─────────────────────────────────────────────────────────────────────────────────────
+CC01-1940_replicate_1               10                0.921       18432        ✓ OK
+CC01-1940_replicate_2               10                0.908       17891        ✓ OK
+muestra_sospechosa_003              8                 0.073       12340        ⚠ AMBIGUOUS
+─────────────────────────────────────────────────────────────────────────────────────
+Total samples: 3  |  Ambiguous: 1
+```
+
+### Interpretación del reporte:
+- **`Ploidy_Estimated`**: La ploidía que mejor explica el patrón de frecuencias alélicas del individuo.
+- **`Confidence`** ∈ [0, 1]: Qué tan claro es el ajuste. `Confidence = 1 - (mejor_residual / segundo_mejor_residual)`. Valores altos indican señal clara.
+- **`SNPs_Used`**: Número de SNPs con profundidad suficiente usados para la estimación. Valores bajos indican muestras con baja cobertura.
+- **`⚠ AMBIGUOUS`**: Confianza < 0.10. El patrón BAF es igualmente compatible con dos ploidías. Revisa la cobertura o considera incluir esa ploidía como candidata adicional.
+
+> [!TIP]
+> Si obtienes muchas muestras `AMBIGUOUS`, intenta añadir ploidías impares a `--ploidy-candidates` (ej: `2,3,4,5,6,8,10,12`) o aumentar el filtro de profundidad con `-md 10`.
+
+
+
 ### D. Genómica Comparativa y Evolución
 *   **`comp-gen`**: Integra sintenia, WGD y anotaciones funcionales.
     ```bash

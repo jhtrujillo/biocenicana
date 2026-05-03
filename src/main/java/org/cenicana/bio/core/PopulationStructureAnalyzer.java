@@ -5,6 +5,7 @@ import org.ejml.simple.SimpleMatrix;
 import org.ejml.dense.row.factory.DecompositionFactory_DDRM;
 import org.ejml.interfaces.decomposition.SingularValueDecomposition_F64;
 import org.ejml.data.DMatrixRMaj;
+import org.ejml.dense.row.CommonOps_DDRM;
 
 import java.io.*;
 import java.util.*;
@@ -39,8 +40,9 @@ public class PopulationStructureAnalyzer {
      * @param numPCs Number of principal components to extract.
      * @param minMaf Minimum MAF for filtering SNPs.
      * @param maxMissing Maximum missingness for filtering SNPs.
+     * @param fastMode If true, uses Randomized SVD for speed.
      */
-    public PcaResult computePCA(String vcfFile, int ploidy, int numPCs, double minMaf, double maxMissing) throws IOException {
+    public PcaResult computePCA(String vcfFile, int ploidy, int numPCs, double minMaf, double maxMissing, boolean fastMode) throws IOException {
         String[] sampleNames = VcfFastReader.getSampleIds(vcfFile);
         int numSamples = sampleNames.length;
 
@@ -149,16 +151,25 @@ public class PopulationStructureAnalyzer {
             }
         }
 
-        System.out.println("[PCA] Computing Singular Value Decomposition (SVD)...");
-        // needU=true, needV=true, compact=true
-        SingularValueDecomposition_F64<DMatrixRMaj> svd = DecompositionFactory_DDRM.svd(matrix.numRows, matrix.numCols, true, true, true);
-        if (!svd.decompose(matrix)) {
-            throw new RuntimeException("SVD decomposition failed.");
-        }
+        System.out.println("[PCA] Computing " + (fastMode ? "Randomized" : "Exact") + " SVD...");
+        
+        DMatrixRMaj U;
+        double[] singularValues;
 
-        DMatrixRMaj V = svd.getV(null, false); // Eigenvectors (Right singular vectors)
-        DMatrixRMaj U = svd.getU(null, false); // Loadings (Left singular vectors)
-        double[] singularValues = svd.getSingularValues();
+        if (fastMode) {
+            // Randomized SVD
+            PcaDecomposition randomizedResult = computeRandomizedSVD(matrix, numPCs, 5);
+            U = randomizedResult.U;
+            singularValues = randomizedResult.singularValues;
+        } else {
+            // Exact SVD
+            SingularValueDecomposition_F64<DMatrixRMaj> svd = DecompositionFactory_DDRM.svd(matrix.numRows, matrix.numCols, true, true, true);
+            if (!svd.decompose(matrix)) {
+                throw new RuntimeException("SVD decomposition failed.");
+            }
+            U = svd.getU(null, false);
+            singularValues = svd.getSingularValues();
+        }
 
         PcaResult result = new PcaResult();
         result.sampleNames = sampleNames;
@@ -248,6 +259,59 @@ public class PopulationStructureAnalyzer {
         result.kinshipMatrix = computeKinshipVanRaden(dosageMatrix, ploidy);
 
         return result;
+    }
+
+    private static class PcaDecomposition {
+        DMatrixRMaj U;
+        double[] singularValues;
+    }
+
+    /**
+     * Randomized SVD implementation based on Halko et al. (2011).
+     * Faster for large matrices when only top K components are needed.
+     */
+    private PcaDecomposition computeRandomizedSVD(DMatrixRMaj A, int k, int p) {
+        int n = A.numRows;
+        int m = A.numCols;
+        int targetRank = Math.min(k + p, Math.min(n, m));
+
+        // 1. Generate random matrix Omega (m x targetRank)
+        DMatrixRMaj omega = new DMatrixRMaj(m, targetRank);
+        Random rnd = new Random(42);
+        for (int i = 0; i < m * targetRank; i++) {
+            omega.data[i] = rnd.nextGaussian();
+        }
+
+        // 2. Form Y = A * Omega (n x targetRank)
+        DMatrixRMaj Y = new DMatrixRMaj(n, targetRank);
+        CommonOps_DDRM.mult(A, omega, Y);
+
+        // 3. Compute QR decomposition of Y to get orthonormal basis Q
+        @SuppressWarnings("unchecked")
+        org.ejml.interfaces.decomposition.QRDecomposition<DMatrixRMaj> qr =
+                (org.ejml.interfaces.decomposition.QRDecomposition<DMatrixRMaj>) DecompositionFactory_DDRM.qr(n, targetRank);
+        if (!qr.decompose(Y)) throw new RuntimeException("QR failed in Randomized SVD");
+        DMatrixRMaj Q = qr.getQ(null, true); // Compact Q (n x targetRank)
+
+        // 4. Form B = Q' * A (targetRank x m)
+        DMatrixRMaj B = new DMatrixRMaj(targetRank, m);
+        CommonOps_DDRM.multTransA(Q, A, B);
+
+        // 5. Compute SVD of the small matrix B
+        SingularValueDecomposition_F64<DMatrixRMaj> svdB = DecompositionFactory_DDRM.svd(targetRank, m, true, false, true);
+        if (!svdB.decompose(B)) throw new RuntimeException("SVD failed in Randomized SVD");
+        
+        DMatrixRMaj Uhat = svdB.getU(null, false); // (targetRank x targetRank)
+        double[] s = svdB.getSingularValues();
+
+        // 6. Form U = Q * Uhat (n x targetRank)
+        DMatrixRMaj U = new DMatrixRMaj(n, targetRank);
+        CommonOps_DDRM.mult(Q, Uhat, U);
+
+        PcaDecomposition res = new PcaDecomposition();
+        res.U = U;
+        res.singularValues = s;
+        return res;
     }
 
     private double[][] computeKinshipVanRaden(List<double[]> dosageMatrix, int ploidy) {

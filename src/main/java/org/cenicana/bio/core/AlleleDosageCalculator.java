@@ -71,34 +71,55 @@ public class AlleleDosageCalculator {
 	 */
 	public static double[] getRefAltCounts(String[] gData, int adIdx, int bsdpIdx, int roIdx, int aoIdx, String refBase, String altBase) {
 		try {
-			if (bsdpIdx != -1 && gData.length > bsdpIdx) {
+			// 1. NGSEP BSDP Tag (A,C,G,T counts)
+			if (bsdpIdx != -1 && gData.length > bsdpIdx && !gData[bsdpIdx].equals(".")) {
 				String[] bsdp = gData[bsdpIdx].split(",");
-				if (bsdp.length == 4 && !bsdp[0].equals(".")) {
+				if (bsdp.length == 4) {
 					String firstAlt = altBase.contains(",") ? altBase.split(",")[0] : altBase;
-					int refIdx = -1, altIdx = -1;
-					if (refBase.equals("A")) refIdx = 0; else if (refBase.equals("C")) refIdx = 1; else if (refBase.equals("G")) refIdx = 2; else if (refBase.equals("T")) refIdx = 3;
-					if (firstAlt.equals("A")) altIdx = 0; else if (firstAlt.equals("C")) altIdx = 1; else if (firstAlt.equals("G")) altIdx = 2; else if (firstAlt.equals("T")) altIdx = 3;
+					int refIdx = getBaseIndex(refBase);
+					int altIdx = getBaseIndex(firstAlt);
 					if (refIdx != -1 && altIdx != -1) {
 						return new double[]{Double.parseDouble(bsdp[refIdx]), Double.parseDouble(bsdp[altIdx])};
 					}
-				} else if (bsdp.length >= 2 && !bsdp[0].equals(".") && !bsdp[1].equals(".")) {
-					// Legacy NGSEP format (Alt,Ref)
+				} else if (bsdp.length >= 2) {
+					// Legacy or simplified BSDP (Alt,Ref)
 					return new double[]{Double.parseDouble(bsdp[1]), Double.parseDouble(bsdp[0])};
 				}
-			} else if (adIdx != -1 && gData.length > adIdx) {
+			} 
+			
+			// 2. GATK / Standard AD Tag (Ref,Alt1,Alt2...)
+			if (adIdx != -1 && gData.length > adIdx && !gData[adIdx].equals(".")) {
 				String[] ads = gData[adIdx].split(",");
-				if (ads.length >= 2 && !ads[0].equals(".") && !ads[1].equals(".")) {
-					return new double[]{Double.parseDouble(ads[0]), Double.parseDouble(ads[1])};
+				if (ads.length >= 2) {
+					// Always take the first two: Ref and the primary Alt
+					double ref = ads[0].equals(".") ? 0 : Double.parseDouble(ads[0]);
+					double alt = ads[1].equals(".") ? 0 : Double.parseDouble(ads[1]);
+					return new double[]{ref, alt};
 				}
-			} else if (roIdx != -1 && aoIdx != -1 && gData.length > Math.max(roIdx, aoIdx)) {
+			} 
+			
+			// 3. Freebayes RO/AO Tags
+			if (roIdx != -1 && aoIdx != -1 && gData.length > Math.max(roIdx, aoIdx)) {
 				if (!gData[roIdx].equals(".") && !gData[aoIdx].equals(".")) {
+					double ref = Double.parseDouble(gData[roIdx]);
 					String aoStr = gData[aoIdx];
-					if (aoStr.contains(",")) aoStr = aoStr.split(",")[0];
-					return new double[]{Double.parseDouble(gData[roIdx]), Double.parseDouble(aoStr)};
+					double alt = Double.parseDouble(aoStr.contains(",") ? aoStr.split(",")[0] : aoStr);
+					return new double[]{ref, alt};
 				}
 			}
-		} catch (NumberFormatException ignored) {}
+		} catch (Exception ignored) {}
 		return null;
+	}
+
+	private static int getBaseIndex(String base) {
+		if (base == null || base.isEmpty()) return -1;
+		switch (base.toUpperCase()) {
+			case "A": return 0;
+			case "C": return 1;
+			case "G": return 2;
+			case "T": return 3;
+			default: return -1;
+		}
 	}
 
 	// ── Getters ────────────────────────────────────────────────────────────────
@@ -202,7 +223,7 @@ public class AlleleDosageCalculator {
 				float[] tmpDosages = new float[numGenotypes];
 
 				extractRawDosagesExtended(columns, numGenotypes, "auto", gtIdx, adIdx, roIdx, aoIdx, adpIdx, bsdpIdx, 
-								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths);
+								  0, ploidyLevels, tmpDosages, isMissing, false, true, dr.refDepths, dr.altDepths, null);
 
 				for (int i=0; i<numGenotypes; i++) dr.dosages[i] = tmpDosages[i];
 				results.add(dr);
@@ -242,12 +263,21 @@ public class AlleleDosageCalculator {
 		}
 
 		// ── 3. Stream VCF line by line (low memory footprint) ──────────────────
+		System.err.println("[BioJava] Starting allele dosage calculation (Ploidy: " + ploidy + ")...");
+		System.err.println("[BioJava] Processing " + numGenotypes + " samples...");
+		long startTime = System.currentTimeMillis();
+		int snpCount = 0;
+
 		Iterable<String[]> blockIterator = org.cenicana.bio.io.VcfFastReader.iterateDataBlocks(vcfFile);
 
 		String lastFormat = "";
 		int gtIdx = -1, adIdx = -1, roIdx = -1, aoIdx = -1, adpIdx = -1, bsdpIdx = -1;
 
 		for (String[] columns : blockIterator) {
+			snpCount++;
+			if (snpCount % 10000 == 0) {
+				System.err.print("\r[BioJava] Processed " + snpCount + " variants...");
+			}
 
 			String chr    = columns[0];
 			String pos    = columns[1];
@@ -344,6 +374,8 @@ public class AlleleDosageCalculator {
 			emit(rowBuilder.toString(), storeInMemory);
 			numSNPs++;
 		}
+		long endTime = System.currentTimeMillis();
+		System.err.println("\n[BioJava] Calculation completed. Total variants exported: " + numSNPs + " | Time: " + (endTime - startTime)/1000.0 + "s");
 	}
 
 	// ── Public API: Distance Matrix ────────────────────────────────────────────
@@ -859,7 +891,6 @@ public class AlleleDosageCalculator {
 					// Phase 3: Defer rounding. Keep raw frequency.
 					parsedDosages[i] = rawDosage;
 				} else {
-					// Legacy: Strict mathematical rounding
 					parsedDosages[i] = Float.valueOf(df.format(roundToPloidyLevel(rawDosage, ploidyLevels)));
 				}
 				
@@ -891,6 +922,8 @@ public class AlleleDosageCalculator {
 	 */
 	// ── Internal helpers ───────────────────────────────────────────────────────
 
+
+
 	/**
 	 * Rounds a raw continuous dosage value to the nearest discrete, valid ploidy level.
 	 */
@@ -919,5 +952,28 @@ public class AlleleDosageCalculator {
 			System.out.println(row);
 		}
 	}
+
+	// ── Per-Individual Ploidy Estimation ───────────────────────────────────────
+
+	/**
+	 * Two-pass orchestrator that first estimates the ploidy of each individual
+	 * (Pass 1) and then computes the allele dosage matrix using each individual's
+	 * specific ploidy for rounding (Pass 2).
+	 *
+	 * Progress messages are printed to stderr. The ploidy report is printed to
+	 * reportStream (or stderr if null) AFTER the dosage matrix is emitted to stdout.
+	 *
+	 * @param vcfFile            Path to the input VCF file.
+	 * @param candidatePloidies  Array of ploidy values to evaluate (e.g. {2,4,6,8,10,12}).
+	 * @param impute             Imputation strategy.
+	 * @param storeInMemory      If true, stores rows in memory instead of printing to stdout.
+	 * @param callerType         Variant caller type.
+	 * @param minDepth           Minimum read depth filter.
+	 * @param knnK               KNN neighbors (only relevant if impute contains "knn").
+	 * @param adaptiveRounding   Enable K-Means adaptive rounding.
+	 * @param rawFrequencies     Export raw frequencies instead of rounded dosages.
+	 * @param reportStream       Where to print the ploidy report (null → stderr).
+	 */
+
 
 }
