@@ -1,6 +1,8 @@
 package org.cenicana.bio.io;
 
+import org.cenicana.bio.core.GwasEngine;
 import org.cenicana.bio.core.GwasEngine.GwasHit;
+import org.cenicana.bio.core.GwasEngine.GwasInteraction;
 import java.io.*;
 import java.util.*;
 
@@ -10,7 +12,9 @@ import java.util.*;
  */
 public class GwasDashboardGenerator {
 
-    public void generate(List<GwasHit> hits, String traitName, String outputPath, int ploidy) throws IOException {
+    public void generate(GwasEngine.GwasResult result, String traitName, String outputPath, int ploidy) throws IOException {
+        List<GwasHit> hits = result.hits;
+        List<GwasInteraction> interactions = result.interactions;
         // Pre-process hits for Manhattan plot
         Map<String, Long> chromMaxPos = new TreeMap<>();
         for (GwasHit h : hits) {
@@ -53,6 +57,7 @@ public class GwasDashboardGenerator {
             pw.println("    <style>");
             pw.println("        :root { --primary: #4f46e5; --secondary: #9333ea; --bg: #f1f5f9; --card: rgba(255, 255, 255, 0.7); --text: #0f172a; --text-dim: #64748b; }");
             pw.println("        body { font-family: 'Outfit', sans-serif; margin: 0; background: var(--bg); color: var(--text); background-image: radial-gradient(circle at 50% -20%, #e0e7ff, var(--bg)); min-height: 100vh; }");
+            pw.println("        .card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }");
             pw.println("        .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }");
             pw.println("        .header { padding: 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }");
             pw.println("        h1 { margin: 0; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(to right, #4f46e5, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }");
@@ -63,23 +68,17 @@ public class GwasDashboardGenerator {
             pw.println("        .stat-val { font-size: 2rem; font-weight: 700; color: var(--primary); }");
             pw.println("        .stat-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }");
             pw.println("        .main-grid { display: grid; grid-template-columns: 2.5fr 1fr; gap: 30px; margin-bottom: 30px; }");
-            pw.println("        .card { padding: 30px; position: relative; overflow: hidden; }");
             pw.println("        .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: var(--text); }");
-            pw.println("        .controls { margin-bottom: 20px; display: flex; gap: 15px; }");
+            pw.println("        .toggle-container { background: #eee; border-radius: 30px; padding: 5px; display: flex; gap: 5px; }");
+            pw.println("        .toggle-container button { border: none; padding: 8px 20px; border-radius: 25px; cursor: pointer; transition: 0.3s; background: transparent; }");
+            pw.println("        .toggle-container button.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); }");
             pw.println("        select, input { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0,0,0,0.1); color: var(--text); padding: 10px 16px; border-radius: 12px; font-family: inherit; outline: none; }");
-            pw.println("        select:focus, input:focus { border-color: var(--primary); }");
             pw.println("        table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: -8px; }");
             pw.println("        th { text-align: left; padding: 16px; color: var(--text-dim); font-weight: 400; font-size: 0.85rem; }");
             pw.println("        td { padding: 16px; background: rgba(255,255,255,0.5); border-top: 1px solid rgba(0,0,0,0.02); border-bottom: 1px solid rgba(0,0,0,0.02); }");
-            pw.println("        td:first-child { border-radius: 12px 0 0 12px; border-left: 1px solid rgba(0,0,0,0.02); }");
-            pw.println("        td:last-child { border-radius: 0 12px 12px 0; border-right: 1px solid rgba(0,0,0,0.02); }");
-            pw.println("        tr:hover td { background: rgba(255,255,255,0.9); }");
             pw.println("        .badge { padding: 6px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; }");
-            pw.println("        .sig { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }");
+            pw.println("        .sig { background: #dcfce7; color: #15803d; }");
             pw.println("        .non-sig { background: #f1f5f9; color: var(--text-dim); }");
-            pw.println("        ::-webkit-scrollbar { width: 8px; }");
-            pw.println("        ::-webkit-scrollbar-track { background: transparent; }");
-            pw.println("        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }");
             pw.println("    </style>");
             pw.println("</head>");
             pw.println("<body>");
@@ -98,20 +97,37 @@ public class GwasDashboardGenerator {
 
             pw.println("        <div class='main-grid'>");
             pw.println("            <div class='glass card'>");
-            pw.println("                <div class='card-title'>Manhattan Discovery Plot</div>");
-            pw.println("                <div class='controls'>");
-            pw.println("                    <select id='viewMode' onchange='updateManhattan()'>");
-            pw.println("                        <option value='all'>Show All Sequences</option>");
-            pw.println("                        <option value='chroms' selected>Main Chromosomes</option>");
-            pw.println("                    </select>");
+            pw.println("                <div style='display:flex; justify-content:space-between; align-items:center;'>");
+            pw.println("                    <h2 style='margin:0; font-size:1.25rem;'>Manhattan Discovery Plot</h2>");
+            pw.println("                    <div class='toggle-container'>");
+            pw.println("                        <button id='btnLinear' class='active' onclick='showView(\"linear\")'>Lineal</button>");
+            pw.println("                        <button id='btnCircular' onclick='showView(\"circular\")'>Circular</button>");
+            pw.println("                    </div>");
             pw.println("                </div>");
-            pw.println("                <div id='manhattan' style='height: 550px;'></div>");
+            pw.println("                <div id='manhattanPlot' style='height:500px;'></div>");
+            pw.println("                <div id='circularPlot' style='height:600px; display:none;'></div>");
             pw.println("            </div>");
             pw.println("            <div class='glass card'>");
             pw.println("                <div class='card-title'>QQ Inflation</div>");
             pw.println("                <div id='qqplot' style='height: 500px;'></div>");
             pw.println("            </div>");
             pw.println("        </div>");
+            
+            if (interactions != null && !interactions.isEmpty()) {
+                pw.println("        <div class='glass card' style='margin-bottom:30px;'>");
+                pw.println("            <div class='card-title'>⚡ Sinergias Genéticas (Epistasia)</div>");
+                pw.println("            <div style='max-height:300px; overflow-y:auto;'>");
+                pw.println("                <table>");
+                pw.println("                    <thead><tr><th>Lead Marker</th><th>Interacts with</th><th>P-Value</th><th>Effect</th></tr></thead>");
+                pw.println("                    <tbody>");
+                for (GwasInteraction gi : interactions) {
+                    pw.println("                        <tr><td>" + gi.marker1 + "</td><td>" + gi.marker2 + "</td><td>" + String.format("%.2e", gi.pValue) + "</td><td>" + String.format("%.3f", gi.effect) + "</td></tr>");
+                }
+                pw.println("                    </tbody>");
+                pw.println("                </table>");
+                pw.println("            </div>");
+                pw.println("        </div>");
+            }
 
             pw.println("        <div class='glass card'>");
             pw.println("            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;'>");
@@ -173,16 +189,15 @@ public class GwasDashboardGenerator {
             pw.println("        const ticks = { val: [" + String.join(",", sortedChroms.stream().map(c -> String.valueOf(chromOffsets.get(c) + chromMaxPos.get(c)/2)).toArray(String[]::new)) + "], text: [" + String.join(",", sortedChroms.stream().map(c -> "'" + c + "'").toArray(String[]::new)) + "] };");
 
             pw.println("        function updateManhattan() {");
-            pw.println("            const mode = document.getElementById('viewMode').value;");
-            pw.println("            const filtered = all_data.filter(d => mode === 'all' || d.isChrom);");
-            pw.println("            Plotly.react('manhattan', [{");
+            pw.println("            const filtered = all_data.filter(d => d.isChrom);");
+            pw.println("            Plotly.react('manhattanPlot', [{");
             pw.println("                x: filtered.map(d => d.x), y: filtered.map(d => d.y), text: filtered.map(d => d.id),");
             pw.println("                mode: 'markers', type: 'scattergl', marker: { color: filtered.map(d => d.c), size: 6, opacity: 0.7 }");
             pw.println("            }], {");
             pw.println("                paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',");
-            pw.println("                xaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, tickvals: mode === 'chroms' ? ticks.val : null, ticktext: mode === 'chroms' ? ticks.text : null },");
+            pw.println("                xaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, tickvals: ticks.val, ticktext: ticks.text },");
             pw.println("                yaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, title: '-log10(p)' },");
-            pw.println("                margin: { t: 10, l: 50, r: 10, b: 50 }, hovermode: 'closest',");
+            pw.println("                margin: { t: 30, b: 40, l: 50, r: 20 }, hovermode: 'closest',");
             pw.println("                shapes: [{ type: 'line', x0: 0, x1: " + currentOffset + ", y0: bonferroni, y1: bonferroni, line: { color: '#ef4444', width: 2, dash: 'dash' } }]");
             pw.println("            }, { responsive: true, displayModeBar: false });");
             pw.println("        }");
@@ -232,6 +247,42 @@ public class GwasDashboardGenerator {
             pw.println("            </tr>`).join('');");
             pw.println("        }");
             pw.println("        renderTable();");
+            pw.println("");
+            pw.println("        function showView(view) {");
+            pw.println("            if (view === 'linear') {");
+            pw.println("                document.getElementById('manhattanPlot').style.display = 'block';");
+            pw.println("                document.getElementById('circularPlot').style.display = 'none';");
+            pw.println("                document.getElementById('btnLinear').classList.add('active');");
+            pw.println("                document.getElementById('btnCircular').classList.remove('active');");
+            pw.println("            } else {");
+            pw.println("                document.getElementById('manhattanPlot').style.display = 'none';");
+            pw.println("                document.getElementById('circularPlot').style.display = 'block';");
+            pw.println("                document.getElementById('btnLinear').classList.remove('active');");
+            pw.println("                document.getElementById('btnCircular').classList.add('active');");
+            pw.println("                renderCircular();");
+            pw.println("            }");
+            pw.println("        }");
+            pw.println("");
+            pw.println("        function renderCircular() {");
+            pw.println("            const chroms = [...new Set(all_data.map(d => d.chr))].sort();");
+            pw.println("            const traces = chroms.map((c, idx) => {");
+            pw.println("                const cData = all_data.filter(d => d.chr === c);");
+            pw.println("                const maxPos = Math.max(...cData.map(d => d.x));");
+            pw.println("                const offset = (idx / chroms.length) * 360;");
+            pw.println("                const span = (1 / chroms.length) * 340;");
+            pw.println("                return {");
+            pw.println("                    type: 'scatterpolar', mode: 'markers',");
+            pw.println("                    r: cData.map(d => d.y),");
+            pw.println("                    theta: cData.map(d => offset + ((d.x % maxPos) / maxPos) * span),");
+            pw.println("                    text: cData.map(d => `${d.id}<br>P: ${d.y.toFixed(2)}`),");
+            pw.println("                    name: c, marker: { size: 4 }");
+            pw.println("                };");
+            pw.println("            });");
+            pw.println("            Plotly.newPlot('circularPlot', traces, {");
+            pw.println("                polar: { radialaxis: { title: '-log10(p)' }, angularaxis: { showticklabels: false } },");
+            pw.println("                margin: { t: 40, b: 40 }");
+            pw.println("            }, { responsive: true, displayModeBar: false });");
+            pw.println("        }");
             pw.println("");
             pw.println("        function showSelectionAnalysis(markerId) {");
             pw.println("            const h = top_hits.find(x => x.id === markerId);");

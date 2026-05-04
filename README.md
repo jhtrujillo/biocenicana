@@ -289,4 +289,55 @@ java -jar target/biojava.jar annotate \
 
 ---
 
+## Step 13: Polyploid GWAS Suite (`gwas`)
+The most comprehensive module for genetic association in complex polyploids. It implements a high-performance **EMMAX (P3D)** linear mixed model engine capable of handling chromosome-specific kinship (LOCO), genomic windows (Haplotypes), and gene-gene interactions (Epistasis).
+
+```bash
+java -jar target/biojava.jar gwas \
+  -v population.vcf \
+  --pheno phenotypes.csv \
+  --trait yield \
+  --fixed location,year \
+  --loco \
+  --epistasis \
+  -w 10 \
+  -p 8 \
+  -o gwas_dashboard.html
+```
+
+### Advanced Analytical Features
+*   **EMMAX Engine**: Uses the P3D (Population Parameters Previously Determined) optimization to scan millions of markers in minutes.
+*   **LOCO Method (`--loco`)**: *Leave-One-Chromosome-Out*. Calculates a unique kinship matrix for each chromosome, excluding the markers of the chromosome under analysis. This eliminates "proximal contamination" and significantly increases the power to detect true QTLs.
+*   **Haplotype Blocks (`--window`)**: Instead of single SNPs, the engine groups $N$ markers into a sliding window and extracts the **First Principal Component (PC1)** via SVD to represent the local haplotype. Ideal for identifying regions under selection or blocks with high LD.
+*   **Targeted Epistasis (`--epistasis`)**: Automatically identifies the top 5 "Lead" markers and scans the entire genome for $G \times G$ interactions (synergies). Identifies where the combined effect of two genes is greater than the sum of their parts.
+*   **Categorical Fixed Effects (`--fixed`)**: Seamlessly integrates environmental variables (Locations, Replications, Years) into the model via automatic dummy encoding.
+*   **Smart Contig Grouping**: In fragmented genomes (scaffolds/contigs), the engine automatically clusters small sequences to optimize LOCO performance without losing resolution.
+
+### Interactive Discovery Dashboard
+The output `.html` file provides a professional research console:
+*   **Dual Manhattan View**: Toggle between a standard **Linear** view and a **Circular** (orbital) view for publication-quality genomic overviews.
+*   **Interactive Selection Analysis**: Click on any significant marker to instantly see:
+    *   **Boxplots**: Phenotype distribution by allele dosage.
+    *   **Selection Guide**: Automatic recommendation (e.g., *"Select individuals with Dosage 4 to increase the trait"*).
+    *   **Elite Candidates**: A dynamic table of individuals that carry the ideal genotype for that specific QTL.
+*   **Genotype Reconstruction**: Displays the exact allelic configuration (e.g., `AAAT`, `GGCC`) based on the ploidy level.
+*   **Epistasis Table**: A dedicated section for "Genetic Synergies" showing pairs of interacting genes.
+
+### Parameters
+| Flag | Description |
+|---|---|
+| `-v` / `--vcf` | **(Required)** Input VCF file |
+| `--pheno` | **(Required)** Phenotype file (CSV/TSV). Must include a `Sample` column |
+| `--trait` | **(Required)** Target trait name as found in the phenotype file |
+| `-p` / `--ploidy` | **(Required)** Ploidy level (e.g., `4` for potato, `10` for sugarcane) |
+| `--loco` | **(Optional)** Enable Leave-One-Chromosome-Out analysis (Recommended) |
+| `-w` / `--window` | **(Optional)** Window size for Haplotype blocks (Default: 1, SNP-based) |
+| `--epistasis` | **(Optional)** Run targeted GxG interaction scan for top hits |
+| `--fixed` | **(Optional)** Comma-separated list of fixed effect columns (e.g., `env,block`) |
+| `-k` / `--kinship` | **(Optional)** Path to pre-computed Kinship CSV |
+| `--maf` | **(Optional)** Minimum Allele Frequency filter (Default: 0.05) |
+| `-o` / `--output` | **(Optional)** Path for the interactive HTML dashboard |
+
+---
+
 *This software is licensed under the MIT License. Developed for Advanced Genomic Breeding.*

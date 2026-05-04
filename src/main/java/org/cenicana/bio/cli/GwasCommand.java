@@ -31,6 +31,12 @@ public class GwasCommand implements Callable<Integer> {
     @Option(names = "--loco", description = "Use Leave-One-Chromosome-Out (LOCO) method for better QTL detection")
     private boolean useLoco = false;
 
+    @Option(names = "--epistasis", description = "Run targeted epistasis scan for top hits")
+    private boolean runEpistasis = false;
+
+    @Option(names = {"-w", "--window"}, description = "Window size for haplotype-block analysis (default: 1 for single SNP)", defaultValue = "1")
+    private int windowSize = 1;
+
     @Option(names = {"-k", "--kinship"}, description = "Path to kinship matrix CSV (Optional, calculated if missing)")
     private String kinshipPath;
 
@@ -73,6 +79,8 @@ public class GwasCommand implements Callable<Integer> {
         GwasEngine engine = new GwasEngine(ploidy, sampleNames);
         engine.setKinship(kinship);
         engine.setLoco(useLoco);
+        engine.setWindowSize(windowSize);
+        engine.setRunEpistasis(runEpistasis);
         
         // Combine PCA + Fixed Effects
         if (pcaCovar != null || fixedCols != null) {
@@ -80,12 +88,12 @@ public class GwasCommand implements Callable<Integer> {
             engine.setCovariates(combinedCovar);
         }
         
-        List<GwasEngine.GwasHit> hits = engine.run(vcfPath, yValues, traitName);
+        GwasEngine.GwasResult result = engine.run(vcfPath, yValues, traitName);
 
         // 4. Generate Dashboard
         System.out.println("[GWAS] Generating interactive dashboard...");
         GwasDashboardGenerator visualizer = new GwasDashboardGenerator();
-        visualizer.generate(hits, traitName, outputPath, ploidy);
+        visualizer.generate(result, traitName, outputPath, ploidy);
 
         System.out.println("[GWAS] SUCCESS! Results saved to: " + outputPath);
         return 0;

@@ -4,6 +4,7 @@ import org.ejml.data.DMatrixRMaj;
 import org.ejml.dense.row.CommonOps_DDRM;
 import org.ejml.dense.row.factory.DecompositionFactory_DDRM;
 import org.ejml.interfaces.decomposition.EigenDecomposition_F64;
+import org.ejml.interfaces.decomposition.SingularValueDecomposition_F64;
 import org.cenicana.bio.utils.GwasMathUtils;
 import org.cenicana.bio.io.PhenotypeData;
 import java.io.*;
@@ -30,6 +31,18 @@ public class GwasEngine {
         public List<String>[] samplesByDosage; // To track elite candidates
     }
 
+    public static class GwasResult {
+        public List<GwasHit> hits;
+        public List<GwasInteraction> interactions = new ArrayList<>();
+    }
+
+    public static class GwasInteraction {
+        public String marker1;
+        public String marker2;
+        public double pValue;
+        public double effect;
+    }
+
     private static class MarkerData {
         String id;
         String chrom;
@@ -44,6 +57,8 @@ public class GwasEngine {
     private double[][] covariates; // Population structure (PCA) + Fixed effects
     private double[][] kinship;
     private boolean useLoco = false;
+    private boolean runEpistasis = false;
+    private int windowSize = 1;
     private int numThreads = Runtime.getRuntime().availableProcessors();
 
     public GwasEngine(int ploidy, String[] sampleNames) {
@@ -57,6 +72,14 @@ public class GwasEngine {
 
     public void setLoco(boolean useLoco) {
         this.useLoco = useLoco;
+    }
+
+    public void setRunEpistasis(boolean runEpistasis) {
+        this.runEpistasis = runEpistasis;
+    }
+
+    public void setWindowSize(int windowSize) {
+        this.windowSize = windowSize;
     }
 
     public void setCovariates(double[][] covariates) { this.covariates = covariates; }
@@ -102,7 +125,7 @@ public class GwasEngine {
         return combined;
     }
 
-    public List<GwasHit> run(String vcfPath, double[] yValues, String traitName) throws Exception {
+    public GwasResult run(String vcfPath, double[] yValues, String traitName) throws Exception {
         System.out.println("[GWAS] Loading variants and filtering...");
         
         // 1. Filter individuals with missing phenotypes
@@ -219,7 +242,46 @@ public class GwasEngine {
         }
 
         allHits.sort((a, b) -> Double.compare(a.pValue, b.pValue));
-        return allHits;
+        
+        GwasResult result = new GwasResult();
+        result.hits = allHits;
+
+        if (runEpistasis) {
+            // We need weights, U, Ystar, Wstar from the GLOBAL model for epistasis leads
+            // For simplicity in LOCO, we re-run a global kinship/decomposition if needed or use the last one
+            // Let's use the parameters from a global run
+            System.out.println("[GWAS] Running epistasis phase...");
+            List<double[]> allDosages = new ArrayList<>();
+            for (List<MarkerData> list : chromToMarkers.values()) {
+                for (MarkerData md : list) allDosages.add(md.dosages);
+            }
+            double[][] globalK = PopulationStructureAnalyzer.calculateVanRadenKinship(allDosages, ploidy);
+            
+            // Temporary block to get global decomposition
+            DMatrixRMaj K = new DMatrixRMaj(globalK);
+            EigenDecomposition_F64<DMatrixRMaj> evd = DecompositionFactory_DDRM.eig(nFiltered, true);
+            evd.decompose(K);
+            double[] lambdas = new double[nFiltered];
+            DMatrixRMaj U = new DMatrixRMaj(nFiltered, nFiltered);
+            for (int i = 0; i < nFiltered; i++) {
+                lambdas[i] = evd.getEigenvalue(i).getReal();
+                DMatrixRMaj v = evd.getEigenVector(i);
+                for (int j = 0; j < nFiltered; j++) U.set(j, i, v.get(j, 0));
+            }
+            DMatrixRMaj Ymat = new DMatrixRMaj(nFiltered, 1);
+            for (int i = 0; i < nFiltered; i++) Ymat.set(i, 0, Yf[i]);
+            DMatrixRMaj Ystar = new DMatrixRMaj(nFiltered, 1);
+            CommonOps_DDRM.multTransA(U, Ymat, Ystar);
+            DMatrixRMaj Wstar = new DMatrixRMaj(nFiltered, W.numCols);
+            CommonOps_DDRM.multTransA(U, W, Wstar);
+            double delta = 1.0; 
+            double[] weights = new double[nFiltered];
+            for (int i = 0; i < nFiltered; i++) weights[i] = 1.0 / (Math.max(1e-6, lambdas[i]) + delta);
+
+            result.interactions = runEpistasisScan(allHits, chromToMarkers, Yf, W, weights, U, Ystar, Wstar);
+        }
+
+        return result;
     }
 
     private void runChromBlock(Set<String> chromsToScan, Map<String, List<MarkerData>> chromToMarkers, double[][] kMatrix, 
@@ -260,9 +322,9 @@ public class GwasEngine {
             List<MarkerData> markers = chromToMarkers.get(chrom);
             if (markers == null) continue;
             
-            int batchSize = 1000;
-            for (int i = 0; i < markers.size(); i += batchSize) {
-                final List<MarkerData> batch = markers.subList(i, Math.min(i + batchSize, markers.size()));
+            // Sliding Window grouping
+            for (int i = 0; i < markers.size(); i += windowSize) {
+                final List<MarkerData> window = markers.subList(i, Math.min(i + windowSize, markers.size()));
                 executor.submit(() -> {
                     int q = Wstar.numCols;
                     DMatrixRMaj M = new DMatrixRMaj(nFiltered, q + 1);
@@ -274,8 +336,17 @@ public class GwasEngine {
                     DMatrixRMaj Xmat = new DMatrixRMaj(nFiltered, 1);
                     DMatrixRMaj Xstar = new DMatrixRMaj(nFiltered, 1);
 
-                    for (MarkerData md : batch) {
+                    if (window.size() == 1) {
+                        MarkerData md = window.get(0);
                         GwasHit hit = testModel(md.id, md.chrom, md.pos, md.ref, md.alt, md.dosages, filteredNames, Yf, Ystar, Wstar, U, weights, rssReduced, "Additive", M, MtVinv, LHS, RHS, beta, invLHS, Xmat, Xstar);
+                        allHits.add(hit);
+                    } else {
+                        double[] haploDosage = computeHaploDosage(window);
+                        MarkerData first = window.get(0);
+                        MarkerData last = window.get(window.size() - 1);
+                        String blockId = String.format("Block_%s:%d-%d", first.chrom, first.pos, last.pos);
+                        GwasHit hit = testModel(blockId, first.chrom, (first.pos + last.pos)/2, "Block", "Block", haploDosage, filteredNames, Yf, Ystar, Wstar, U, weights, rssReduced, "Haplotype", M, MtVinv, LHS, RHS, beta, invLHS, Xmat, Xstar);
+                        hit.markerId += " (" + window.size() + " SNPs)";
                         allHits.add(hit);
                     }
                 });
@@ -283,6 +354,38 @@ public class GwasEngine {
         }
         executor.shutdown();
         try { executor.awaitTermination(1, TimeUnit.HOURS); } catch (InterruptedException e) { e.printStackTrace(); }
+    }
+
+    private double[] computeHaploDosage(List<MarkerData> window) {
+        int n = window.get(0).dosages.length;
+        int m = window.size();
+        DMatrixRMaj mat = new DMatrixRMaj(n, m);
+        for (int j = 0; j < m; j++) {
+            double[] d = window.get(j).dosages;
+            for (int i = 0; i < n; i++) mat.set(i, j, d[i]);
+        }
+        
+        // Center the matrix for SVD
+        for (int j = 0; j < m; j++) {
+            double sum = 0;
+            for (int i = 0; i < n; i++) sum += mat.get(i, j);
+            double mean = sum / n;
+            for (int i = 0; i < n; i++) mat.set(i, j, mat.get(i, j) - mean);
+        }
+        
+        SingularValueDecomposition_F64<DMatrixRMaj> svd = DecompositionFactory_DDRM.svd(n, m, true, true, false);
+        if (!svd.decompose(mat)) return window.get(0).dosages;
+        
+        DMatrixRMaj U = svd.getU(null, false);
+        double[] pc1 = new double[n];
+        for (int i = 0; i < n; i++) pc1[i] = U.get(i, 0);
+        
+        // Scale to 0..ploidy range to maintain consistency with boxplots
+        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+        for (double v : pc1) { min = Math.min(min, v); max = Math.max(max, v); }
+        for (int i = 0; i < n; i++) pc1[i] = ((pc1[i] - min) / (max - min + 1e-10)) * ploidy;
+        
+        return pc1;
     }
 
     private double calculateRSS(DMatrixRMaj Ystar, DMatrixRMaj Wstar, double[] lambdas, double d) {
@@ -409,5 +512,101 @@ public class GwasEngine {
         double[] res = new double[X.length];
         for (int i = 0; i < X.length; i++) res[i] = X[i] >= threshold ? 1.0 : 0.0;
         return res;
+    }
+
+    public List<GwasInteraction> runEpistasisScan(List<GwasHit> topHits, Map<String, List<MarkerData>> chromToMarkers, double[] Yf, DMatrixRMaj W, double[] weights, DMatrixRMaj U, DMatrixRMaj Ystar, DMatrixRMaj Wstar) {
+        System.out.println("[GWAS] Starting targeted epistasis scan (Leads vs Genome)...");
+        List<GwasInteraction> interactions = Collections.synchronizedList(new ArrayList<>());
+        
+        // Take top 5 leads
+        List<GwasHit> leads = topHits.stream().limit(5).filter(h -> h.pValue < 1e-4).toList();
+        if (leads.isEmpty()) return interactions;
+
+        // Find MarkerData for leads
+        Map<String, double[]> leadDosages = new HashMap<>();
+        for (GwasHit h : leads) {
+            for (List<MarkerData> list : chromToMarkers.values()) {
+                for (MarkerData md : list) {
+                    if (md.id.equals(h.markerId)) leadDosages.put(md.id, md.dosages);
+                }
+            }
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        int n = Yf.length;
+        int q = Wstar.numCols;
+
+        for (String leadId : leadDosages.keySet()) {
+            double[] X1 = leadDosages.get(leadId);
+            DMatrixRMaj X1star = new DMatrixRMaj(n, 1);
+            CommonOps_DDRM.multTransA(U, new DMatrixRMaj(X1), X1star);
+
+            for (List<MarkerData> markers : chromToMarkers.values()) {
+                executor.submit(() -> {
+                    // Pre-allocate matrices per thread
+                    DMatrixRMaj M = new DMatrixRMaj(n, q + 3); // W + X1 + X2 + Xint
+                    DMatrixRMaj LHS = new DMatrixRMaj(q + 3, q + 3);
+                    DMatrixRMaj RHS = new DMatrixRMaj(q + 3, 1);
+                    DMatrixRMaj beta = new DMatrixRMaj(q + 3, 1);
+                    DMatrixRMaj invLHS = new DMatrixRMaj(q + 3, q + 3);
+                    DMatrixRMaj X2mat = new DMatrixRMaj(n, 1);
+                    DMatrixRMaj X2star = new DMatrixRMaj(n, 1);
+                    DMatrixRMaj Xintmat = new DMatrixRMaj(n, 1);
+                    DMatrixRMaj Xintstar = new DMatrixRMaj(n, 1);
+
+                    for (MarkerData md : markers) {
+                        if (md.id.equals(leadId)) continue;
+                        
+                        double[] X2 = md.dosages;
+                        double[] Xint = new double[n];
+                        for (int k = 0; k < n; k++) Xint[k] = X1[k] * X2[k];
+
+                        CommonOps_DDRM.multTransA(U, new DMatrixRMaj(X2), X2star);
+                        CommonOps_DDRM.multTransA(U, new DMatrixRMaj(Xint), Xintstar);
+
+                        CommonOps_DDRM.insert(Wstar, M, 0, 0);
+                        CommonOps_DDRM.insert(X1star, M, 0, q);
+                        CommonOps_DDRM.insert(X2star, M, 0, q + 1);
+                        CommonOps_DDRM.insert(Xintstar, M, 0, q + 2);
+
+                        LHS.zero(); RHS.zero();
+                        for (int k = 0; k < n; k++) {
+                            double w = weights[k];
+                            for (int r = 0; r < q + 3; r++) {
+                                RHS.add(r, 0, M.get(k, r) * w * Ystar.get(k, 0));
+                                for (int c = 0; c < q + 3; c++) LHS.add(r, c, M.get(k, r) * w * M.get(k, c));
+                            }
+                        }
+
+                        if (CommonOps_DDRM.solve(LHS, RHS, beta)) {
+                            CommonOps_DDRM.invert(LHS, invLHS);
+                            double bInt = beta.get(q + 2, 0);
+                            double rssFull = 0;
+                            for (int k = 0; k < n; k++) {
+                                double pred = 0;
+                                for (int r = 0; r < q + 3; r++) pred += M.get(k, r) * beta.get(r, 0);
+                                rssFull += Math.pow(Ystar.get(k, 0) - pred, 2) * weights[k];
+                            }
+                            double sigma2 = rssFull / (n - q - 3);
+                            double se = Math.sqrt(Math.abs(invLHS.get(q + 2, q + 2) * sigma2));
+                            double t = bInt / (se + 1e-15);
+                            double p = 2.0 * (1.0 - GwasMathUtils.tCDF(Math.abs(t), n - q - 3));
+
+                            if (p < 1e-4) {
+                                GwasInteraction gi = new GwasInteraction();
+                                gi.marker1 = leadId; gi.marker2 = md.id;
+                                gi.pValue = p; gi.effect = bInt;
+                                interactions.add(gi);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        executor.shutdown();
+        try { executor.awaitTermination(1, TimeUnit.HOURS); } catch (InterruptedException e) { e.printStackTrace(); }
+        
+        interactions.sort((a, b) -> Double.compare(a.pValue, b.pValue));
+        return interactions;
     }
 }

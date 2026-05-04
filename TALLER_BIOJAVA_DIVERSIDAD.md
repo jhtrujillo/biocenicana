@@ -321,5 +321,44 @@ BioJava es una navaja suiza para genómica de poliploides. Aquí tienes todos lo
 
 ---
 
+## 10. GWAS de Precisión y Selección Élite (NUEVO)
+
+El objetivo final de muchos programas de mejoramiento es identificar exactamente qué regiones del genoma conrolan rasgos de interés (azúcar, biomasa, resistencia). BioJava GWAS implementa modelos de última generación (EMMAX/P3D) optimizados para la complejidad de la caña de azúcar.
+
+### Comando de ejecución sugerido
+Utiliza el subcomando `gwas`. En este ejercicio activaremos todas las funciones avanzadas:
+
+```bash
+# Realizar GWAS con LOCO, Epistasia y Bloques de Haplotipos
+java -jar target/biojava.jar gwas \
+  -v benchmarks/sugarcane/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --pheno pheno_1940.csv \
+  --trait "Contenido.Azucar" \
+  --loco \
+  --epistasis \
+  -w 5 \
+  -p 10 \
+  -o taller_bioinformatica/gwas_premium_results.html
+```
+
+### Conceptos Clave del Taller:
+
+1.  **¿Por qué usar `--loco`?**: Al usar *Leave-One-Chromosome-Out*, evitas que el modelo "borre" la señal de los QTLs reales. Observa en el Manhattan Plot cómo los picos se vuelven más definidos.
+2.  **Análisis de Bloques (`-w 5`)**: Estamos agrupando los SNPs en ventanas de 5. Esto ayuda a capturar señales que un solo SNP no puede detectar por sí mismo.
+3.  **Detección de Sinergias (`--epistasis`)**: Revisa la nueva pestaña en el Dashboard. ¿Hay algún par de genes que interactúen significativamente? Esto te indica que esos dos genes deben estar presentes en el mismo parental para maximizar el rasgo.
+
+### Interpretación Estratégica en el Dashboard:
+
+*   **Vista Circular**: Cambia a la vista "Circular" para ver la distribución de asociaciones en todo el genoma de forma compacta.
+*   **Selección de Candidatos**: Haz clic en el marcador más alto. 
+    *   Mira el **Boxplot**: ¿Qué dosis alélica (0-10) da el mayor valor del rasgo? 
+    *   Revisa la tabla de **Candidatos Élite**: Esos son los individuos de tu población que ya tienen el "genotipo ideal" y que deberías usar como parentales en la próxima generación.
+
+---
+
 ## Conclusión
 El uso de la Suite BioJava permite a los mejoradores capturar la verdadera variación genética en poliploides, facilitando decisiones más precisas desde la estructura poblacional hasta la validación de marcadores funcionales en el laboratorio.
+
+---
+
+*Guía desarrollada para el programa de mejoramiento genético asistido por genómica.*
