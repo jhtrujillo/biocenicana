@@ -15,18 +15,12 @@ public class GwasDashboardGenerator {
     public void generate(GwasEngine.GwasResult result, String traitName, String outputPath, int ploidy) throws IOException {
         List<GwasHit> hits = result.hits;
         List<GwasInteraction> interactions = result.interactions;
-        // Pre-process hits for Manhattan plot
+        // 1. Calculate Chromosome Max Positions and Group Scaffolds
         Map<String, Long> chromMaxPos = new TreeMap<>();
         for (GwasHit h : hits) {
-            String chrom = h.chromosome.toLowerCase();
-            boolean isChromosome = chrom.startsWith("chr") || chrom.matches("\\d+") || chrom.startsWith("ch");
-            if (isChromosome) {
-                chromMaxPos.put(h.chromosome, Math.max(chromMaxPos.getOrDefault(h.chromosome, 0L), h.position));
-            }
+            chromMaxPos.put(h.chromosome, Math.max(chromMaxPos.getOrDefault(h.chromosome, 0L), h.position));
         }
 
-        Map<String, Long> chromOffsets = new HashMap<>();
-        long currentOffset = 0;
         List<String> sortedChroms = new ArrayList<>(chromMaxPos.keySet());
         sortedChroms.sort((a, b) -> {
             try {
@@ -38,13 +32,45 @@ public class GwasDashboardGenerator {
             }
         });
 
-        for (String chrom : sortedChroms) {
+        Map<String, Long> chromOffsets = new LinkedHashMap<>();
+        long currentOffset = 0;
+        List<String> mainChroms = new ArrayList<>();
+        List<String> scaffolds = new ArrayList<>();
+        
+        for (String c : sortedChroms) {
+            String lower = c.toLowerCase();
+            if (lower.startsWith("chr") || lower.startsWith("ch") || lower.matches("\\d+")) {
+                mainChroms.add(c);
+            } else {
+                scaffolds.add(c);
+            }
+        }
+
+        for (String chrom : mainChroms) {
             chromOffsets.put(chrom, currentOffset);
             currentOffset += chromMaxPos.get(chrom) + 5_000_000;
         }
 
+        if (!scaffolds.isEmpty()) {
+            long scaffoldBaseOffset = currentOffset;
+            for (String chrom : scaffolds) {
+                chromOffsets.put(chrom, scaffoldBaseOffset);
+            }
+        }
+
         // Calculate Lambda GC
         double lambdaGC = calculateLambdaGC(hits);
+
+        // Calculate FDR Threshold for plot (the cutoff point)
+        double fdrThresholdLogP = Double.MAX_VALUE;
+        int fdrCount = 0;
+        for (GwasHit h : hits) {
+            if (h.qValue < 0.05) {
+                fdrCount++;
+                fdrThresholdLogP = Math.min(fdrThresholdLogP, -Math.log10(h.pValue));
+            }
+        }
+        if (fdrCount == 0) fdrThresholdLogP = 0;
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(outputPath))) {
             pw.println("<!DOCTYPE html>");
@@ -55,8 +81,11 @@ public class GwasDashboardGenerator {
             pw.println("    <script src='https://cdn.plot.ly/plotly-2.24.1.min.js'></script>");
             pw.println("    <link href='https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap' rel='stylesheet'>");
             pw.println("    <style>");
-            pw.println("        :root { --primary: #4f46e5; --secondary: #9333ea; --bg: #f1f5f9; --card: rgba(255, 255, 255, 0.7); --text: #0f172a; --text-dim: #64748b; }");
-            pw.println("        body { font-family: 'Outfit', sans-serif; margin: 0; background: var(--bg); color: var(--text); background-image: radial-gradient(circle at 50% -20%, #e0e7ff, var(--bg)); min-height: 100vh; }");
+            pw.println("        :root { --primary: #4f46e5; --secondary: #3b82f6; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --text-dim: #64748b; }");
+            pw.println("        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }");
+            pw.println("        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }");
+            pw.println("        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }");
+            pw.println("        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }");
             pw.println("        .card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }");
             pw.println("        .glass { background: var(--card); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }");
             pw.println("        .header { padding: 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }");
@@ -82,6 +111,7 @@ public class GwasDashboardGenerator {
             pw.println("    </style>");
             pw.println("</head>");
             pw.println("<body>");
+            pw.println("    <div id='loader'><div class='spinner'></div><p style='margin-top:20px; font-weight:600; color:var(--primary)'>Procesando Datos Genómicos...</p></div>");
             pw.println("    <div class='header'>");
             pw.println("        <div><h1>" + traitName + " <span style='font-weight:300; font-size:1.2rem; opacity:0.6; color:var(--text)'>| GWAS Insight</span></h1></div>");
             pw.println("        <div style='opacity: 0.8'><img src='https://www.cenicana.org/wp-content/uploads/2021/04/Logo-Cenicana-color.png' height='45'></div>");
@@ -90,9 +120,33 @@ public class GwasDashboardGenerator {
             
             pw.println("        <div class='stats-grid'>");
             pw.println("            <div class='glass stat-card'><div class='stat-val'>" + hits.size() + "</div><div class='stat-label'>Total Variants</div></div>");
-            pw.println("            <div class='glass stat-card'><div class='stat-val'>" + String.format("%.3f", lambdaGC) + "</div><div class='stat-label'>Lambda GC</div></div>");
-            pw.println("            <div class='glass stat-card'><div class='stat-val' id='sigCount'>0</div><div class='stat-label'>Significant (Bonferroni)</div></div>");
-            pw.println("            <div class='glass stat-card'><div class='stat-val' style='color:var(--secondary)'>EMMAX</div><div class='stat-label'>Engine</div></div>");
+            
+            // Dynamic Lambda GC interpretation
+            String lambdaStatus;
+            String lambdaColor;
+            String lambdaDesc;
+            if (lambdaGC < 0.9) {
+                lambdaStatus = "CONSERVATIVE";
+                lambdaColor = "#3b82f6";
+                lambdaDesc = "Over-correction: Real peaks might be hidden.";
+            } else if (lambdaGC > 1.1) {
+                lambdaStatus = "INFLATED";
+                lambdaColor = "#ef4444";
+                lambdaDesc = "Inflation: Possible false positives.";
+            } else {
+                lambdaStatus = "IDEAL";
+                lambdaColor = "#10b981";
+                lambdaDesc = "Perfectly controlled population structure.";
+            }
+            
+            pw.println("            <div class='glass stat-card'>");
+            pw.println("                <div class='stat-val' style='color:" + lambdaColor + "'>" + String.format("%.3f", lambdaGC) + "</div>");
+            pw.println("                <div class='stat-label'>Lambda GC | <span style='font-weight:700'>" + lambdaStatus + "</span></div>");
+            pw.println("                <div style='font-size:0.7rem; color:var(--text-dim); margin-top:5px;'>" + lambdaDesc + "</div>");
+            pw.println("            </div>");
+
+            pw.println("            <div class='glass stat-card'><div class='stat-val' id='sigCount'>0</div><div class='stat-label'>Significant (Bonf)</div></div>");
+            pw.println("            <div class='glass stat-card'><div class='stat-val' style='color:var(--secondary)'>" + fdrCount + "</div><div class='stat-label'>Significant (FDR)</div></div>");
             pw.println("        </div>");
 
             pw.println("        <div class='main-grid'>");
@@ -132,8 +186,11 @@ public class GwasDashboardGenerator {
             pw.println("        <div class='glass card'>");
             pw.println("            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;'>");
             pw.println("                <div class='card-title'>Associated Markers</div>");
-            pw.println("                <div style='display: flex; gap: 12px;'>");
-            pw.println("                    <input type='text' id='search' placeholder='Search marker...' onkeyup='filterTable()'>");
+            pw.println("                <div style='display: flex; gap: 12px; align-items: center;'>");
+            pw.println("                    <label style='font-size:0.85rem; color:var(--text-dim); display:flex; align-items:center; gap:6px;'>");
+            pw.println("                        <input type='checkbox' id='leadsOnly' onchange='renderTable()' style='width:16px; height:16px;'> Solo Leads (Clumping 5Mb)");
+            pw.println("                    </label>");
+            pw.println("                    <input type='text' id='search' placeholder='Search marker...' onkeyup='renderTable()'>");
             pw.println("                    <select id='pageSize' onchange='renderTable()'>");
             pw.println("                        <option value='20'>20 Results</option>");
             pw.println("                        <option value='50' selected>50 Results</option>");
@@ -142,7 +199,7 @@ public class GwasDashboardGenerator {
             pw.println("                </div>");
             pw.println("            </div>");
             pw.println("            <div style='overflow-x: auto;'>");
-            pw.println("                <table><thead><tr><th>MARKER</th><th>CHR</th><th>POSITION</th><th>MODEL</th><th>EFFECT</th><th>R²</th><th>P-VALUE</th></tr></thead>");
+            pw.println("                <table><thead><tr><th>MARKER</th><th>CHR</th><th>POSITION</th><th>BEST MODEL</th><th>AIC</th><th>EFFECT</th><th>R²</th><th>Q-VALUE (FDR)</th><th>P-VALUE</th></tr></thead>");
             pw.println("                <tbody id='tableBody'></tbody></table>");
             pw.println("            </div>");
             pw.println("        </div>");
@@ -159,6 +216,8 @@ public class GwasDashboardGenerator {
             pw.println("    </div>");
 
             pw.println("    <script>");
+            pw.println("        window.onload = () => document.getElementById('loader').style.opacity = '0';");
+            pw.println("        setTimeout(() => document.getElementById('loader').style.display = 'none', 500);");
             pw.println("        const totalM = " + hits.size() + ";");
             pw.println("        const palette = ['#4f46e5', '#7c3aed', '#db2777', '#dc2626', '#d97706', '#059669', '#0891b2', '#2563eb'];");
             pw.println("        const bonferroni = " + (-Math.log10(0.05 / Math.max(1, hits.size()))) + ";");
@@ -168,86 +227,111 @@ public class GwasDashboardGenerator {
             for (int j = 0; j < hits.size(); j++) {
                 GwasHit h = hits.get(j);
                 double logP = -Math.log10(h.pValue);
+                double displayLogP = Math.min(logP, 80.0); // Cap visual at 80
                 if (h.pValue < (0.05 / hits.size())) sigCount++;
 
                 if (h.pValue > 0.05 && j % 10 != 0) continue;
 
-                String chrom = h.chromosome.toLowerCase();
-                boolean isChrom = chrom.startsWith("chr") || chrom.matches("\\d+") || chrom.startsWith("ch");
                 long offset = chromOffsets.getOrDefault(h.chromosome, 0L);
-                
                 String chromNum = h.chromosome.replaceAll("\\D", "");
-                int cIdx = chromNum.isEmpty() ? h.hashCode() : Integer.parseInt(chromNum);
-                String color = isChrom ? "palette[" + (Math.abs(cIdx) % 8) + "]" : "'#94a3b8'";
+                int cIdx = chromNum.isEmpty() ? h.chromosome.hashCode() : Integer.parseInt(chromNum);
+                String color = "palette[" + (Math.abs(cIdx) % 8) + "]";
+                String displayChrom = scaffolds.contains(h.chromosome) ? "Scaffold" : h.chromosome;
+                String symbol = "circle";
+                if (h.model != null) {
+                    switch (h.model.toString()) {
+                        case "ADDITIVE": symbol = "triangle-up"; break;
+                        case "SIMPLEX_DOMINANT": symbol = "circle"; break;
+                        case "DUPLEX_DOMINANT": symbol = "square"; break;
+                        case "SIMPLEX_DOMINANT_REF": symbol = "circle-open"; break;
+                        case "DUPLEX_DOMINANT_REF": symbol = "square-open"; break;
+                        case "GENERAL": symbol = "diamond"; break;
+                    }
+                }
 
-                pw.print("{x:" + (offset + h.position) + ",y:" + logP + ",id:'" + h.markerId + "',chr:'" + h.chromosome + "',c:" + color + ",isChrom:" + isChrom + "}");
+                pw.print("{x:" + (offset + h.position) + ",y:" + displayLogP + ",id:'" + h.markerId + "',chr:'" + displayChrom + "',c:" + color + ",s:'" + symbol + "'}");
                 if (j < hits.size() - 1) pw.print(",");
             }
             pw.println("        ];");
             pw.println("        document.getElementById('sigCount').innerText = '" + sigCount + "';");
 
-            pw.println("        const ticks = { val: [" + String.join(",", sortedChroms.stream().map(c -> String.valueOf(chromOffsets.get(c) + chromMaxPos.get(c)/2)).toArray(String[]::new)) + "], text: [" + String.join(",", sortedChroms.stream().map(c -> "'" + c + "'").toArray(String[]::new)) + "] };");
+            pw.println("        const ticks = { val: [" + String.join(",", mainChroms.stream().map(c -> String.valueOf(chromOffsets.get(c) + chromMaxPos.get(c)/2)).toArray(String[]::new)) + "], text: [" + String.join(",", mainChroms.stream().map(c -> "'" + c + "'").toArray(String[]::new)) + "] };");
 
             pw.println("        function updateManhattan() {");
-            pw.println("            const filtered = all_data.filter(d => d.isChrom);");
             pw.println("            Plotly.react('manhattanPlot', [{");
-            pw.println("                x: filtered.map(d => d.x), y: filtered.map(d => d.y), text: filtered.map(d => d.id),");
-            pw.println("                mode: 'markers', type: 'scattergl', marker: { color: filtered.map(d => d.c), size: 6, opacity: 0.7 }");
+            pw.println("                x: all_data.map(d => d.x), y: all_data.map(d => d.y), text: all_data.map(d => d.id),");
+            pw.println("                mode: 'markers', type: 'scattergl', marker: { color: all_data.map(d => d.c), size: 7, opacity: 0.7, symbol: all_data.map(d => d.s) }");
             pw.println("            }], {");
             pw.println("                paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',");
             pw.println("                xaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, tickvals: ticks.val, ticktext: ticks.text },");
             pw.println("                yaxis: { gridcolor: 'rgba(0,0,0,0.05)', tickfont: {color: '#64748b'}, title: '-log10(p)' },");
-            pw.println("                margin: { t: 30, b: 40, l: 50, r: 20 }, hovermode: 'closest',");
-            pw.println("                shapes: [{ type: 'line', x0: 0, x1: " + currentOffset + ", y0: bonferroni, y1: bonferroni, line: { color: '#ef4444', width: 2, dash: 'dash' } }]");
+            pw.println("                margin: { t: 50, b: 40, l: 50, r: 20 }, hovermode: 'closest',");
+            pw.println("                shapes: [");
+            pw.println("                    { type: 'line', x0: 0, x1: " + currentOffset + ", y0: bonferroni, y1: bonferroni, line: { color: '#ef4444', width: 2, dash: 'dash' } },");
+            pw.println("                    { type: 'line', x0: 0, x1: " + currentOffset + ", y0: " + fdrThresholdLogP + ", y1: " + fdrThresholdLogP + ", line: { color: '#3b82f6', width: 2, dash: 'dot' } }");
+            pw.println("                ],");
+            pw.println("                annotations: [");
+            pw.println("                    { x: " + currentOffset + ", y: bonferroni, xref: 'x', yref: 'y', text: 'Bonferroni', showarrow: false, xanchor: 'right', yanchor: 'bottom', font: {color: '#ef4444', size: 10} },");
+            pw.println("                    { x: " + currentOffset + ", y: " + fdrThresholdLogP + ", xref: 'x', yref: 'y', text: 'FDR 0.05', showarrow: false, xanchor: 'right', yanchor: 'bottom', font: {color: '#3b82f6', size: 10} },");
+            pw.println("                    { x: 0.05, y: 1.05, xref: 'paper', yref: 'paper', text: '▲ Additive | ● Simplex Dom | ■ Duplex Dom | ♦ General', showarrow: false, font: {size: 11, color: '#4f46e5'}, xanchor: 'left' }");
+            pw.println("                ]");
             pw.println("            }, { responsive: true, displayModeBar: false });");
             pw.println("        }");
             pw.println("        updateManhattan();");
 
+
             pw.println("        const top_hits = [");
-            for (int j = 0; j < Math.min(1000, hits.size()); j++) {
+            for (int j = 0; j < Math.min(2000, hits.size()); j++) {
                 GwasHit h = hits.get(j);
-                pw.print("{id:'" + h.markerId + "',chr:'" + h.chromosome + "',pos:" + h.position + ",ref:'" + h.refAllele + "',alt:'" + h.altAllele + "',model:'" + h.model + "',eff:" + h.effect + ",r2:" + h.r2 + ",p:" + h.pValue);
-                if (h.phenotypesByDosage != null && j < 100) {
-                    pw.print(",dist:[");
-                    for (int d = 0; d < h.phenotypesByDosage.length; d++) {
-                        pw.print("[");
-                        for (int k = 0; k < h.phenotypesByDosage[d].size(); k++) {
-                            pw.print(h.phenotypesByDosage[d].get(k));
-                            if (k < h.phenotypesByDosage[d].size() - 1) pw.print(",");
-                        }
-                        pw.print("]");
-                        if (d < h.phenotypesByDosage.length - 1) pw.print(",");
-                    }
-                    pw.print("],samples:[");
-                    for (int d = 0; d < h.samplesByDosage.length; d++) {
-                        pw.print("[");
-                        for (int k = 0; k < h.samplesByDosage[d].size(); k++) {
-                            pw.print("'" + h.samplesByDosage[d].get(k) + "'");
-                            if (k < h.samplesByDosage[d].size() - 1) pw.print(",");
-                        }
-                        pw.print("]");
-                        if (d < h.samplesByDosage.length - 1) pw.print(",");
-                    }
-                    pw.print("]");
+                if (!h.isBestModel && h.pValue > 1e-4) continue;
+                pw.print("{id:'" + h.markerId + "',chr:'" + h.chromosome + "',pos:" + h.position + ",ref:'" + h.refAllele + "',alt:'" + h.altAllele + "',model:'" + h.model + "',eff:" + h.effect + ",r2:" + h.r2 + ",p:" + h.pValue + ",q:" + h.qValue + ",aic:" + h.aic + ",isBest:" + h.isBestModel);
+                if (h.phenotypesByDosage != null && j < 150) {
+                    pw.print(",dist:[" + formatDosages(h.phenotypesByDosage) + "],samples:[" + formatSamples(h.samplesByDosage) + "]");
                 }
                 pw.print("}");
-                if (j < Math.min(1000, hits.size()) - 1) pw.print(",");
+                if (j < Math.min(2000, hits.size()) - 1) pw.print(",");
             }
             pw.println("        ];");
 
+            pw.println("        function getLeads(data) {");
+            pw.println("            const significant = data.filter(h => h.p < (0.05 / totalM)).sort((a,b) => a.p - b.p);");
+            pw.println("            const leads = [];");
+            pw.println("            const windowBP = 5000000; // 5MB window");
+            pw.println("            significant.forEach(h => {");
+            pw.println("                const isProximal = leads.some(l => l.chr === h.chr && Math.abs(l.pos - h.pos) < windowBP);");
+            pw.println("                if (!isProximal) leads.push(h);");
+            pw.println("            });");
+            pw.println("            return leads;");
+            pw.println("        }");
+
             pw.println("        function renderTable() {");
-            pw.println("            const q = document.getElementById('search').value.toLowerCase();");
-            pw.println("            const size = parseInt(document.getElementById('pageSize').value);");
-            pw.println("            const filtered = top_hits.filter(h => h.id.toLowerCase().includes(q)).slice(0, size);");
-            pw.println("            document.getElementById('tableBody').innerHTML = filtered.map(h => `<tr onclick=\"showSelectionAnalysis('${h.id}')\" style='cursor:pointer'>");
-            pw.println("                <td style='font-weight:600; color:var(--text)'>${h.id}</td><td>${h.chr}</td><td>${h.pos.toLocaleString()}</td>");
-            pw.println("                <td style='color:var(--text-dim)'>${h.model}</td><td style='font-family:monospace'>${h.eff.toFixed(4)}</td>");
-            pw.println("                <td style='font-weight:600; color:var(--secondary)'>${(h.r2 * 100).toFixed(1)}%</td>");
-            pw.println("                <td><span class='badge ${h.p < (0.05/ totalM) ? \"sig\" : \"non-sig\"}'>${h.p.toExponential(2)}</span></td>");
-            pw.println("            </tr>`).join('');");
+            pw.println("            const loader = document.getElementById('loader');");
+            pw.println("            if(loader) loader.style.display = 'flex';");
+            pw.println("            setTimeout(() => {");
+            pw.println("                const q = document.getElementById('search').value.toLowerCase();");
+            pw.println("                const size = parseInt(document.getElementById('pageSize').value);");
+            pw.println("                const leadsOnly = document.getElementById('leadsOnly').checked;");
+            pw.println("                ");
+            pw.println("                let filtered = top_hits.filter(h => h.isBest && h.id.toLowerCase().includes(q));");
+            pw.println("                if (leadsOnly) {");
+            pw.println("                    filtered = getLeads(filtered);");
+            pw.println("                }");
+            pw.println("                ");
+            pw.println("                const sliced = filtered.slice(0, size);");
+            pw.println("                document.getElementById('tableBody').innerHTML = sliced.map(h => `<tr onclick=\"showSelectionAnalysis('${h.id}')\" style='cursor:pointer'>");
+            pw.println("                    <td style='font-weight:600; color:var(--text)'>${h.id}</td><td>${h.chr}</td><td>${h.pos.toLocaleString()}</td>");
+            pw.println("                    <td><span class='badge' style='background:#e0e7ff; color:#3730a3'>${h.model}</span></td>");
+            pw.println("                    <td style='color:var(--text-dim); font-size:0.8rem'>${h.aic.toFixed(1)}</td>");
+            pw.println("                    <td style='font-family:monospace'>${h.eff.toFixed(4)}</td>");
+            pw.println("                    <td style='font-weight:600; color:var(--secondary)'>${(h.r2 * 100).toFixed(1)}%</td>");
+            pw.println("                    <td style='color:${h.q < 0.05 ? \"#15803d\" : \"inherit\"}'>${h.q.toExponential(2)}</td>");
+            pw.println("                    <td><span class='badge ${h.p < (0.05/ totalM) ? \"sig\" : \"non-sig\"}'>${h.p.toExponential(2)}</span></td>");
+            pw.println("                </tr>`).join('');");
+            pw.println("                if(loader) loader.style.display = 'none';");
+            pw.println("            }, 50);");
             pw.println("        }");
             pw.println("        renderTable();");
-            pw.println("");
+
             pw.println("        function showView(view) {");
             pw.println("            if (view === 'linear') {");
             pw.println("                document.getElementById('manhattanPlot').style.display = 'block';");
@@ -399,17 +483,44 @@ public class GwasDashboardGenerator {
         return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
     }
 
+    private String formatDosages(List<Double>[] dist) {
+        StringBuilder sb = new StringBuilder();
+        for (int d = 0; d < dist.length; d++) {
+            sb.append("[");
+            for (int k = 0; k < dist[d].size(); k++) {
+                sb.append(dist[d].get(k));
+                if (k < dist[d].size() - 1) sb.append(",");
+            }
+            sb.append("]");
+            if (d < dist.length - 1) sb.append(",");
+        }
+        return sb.toString();
+    }
+
+    private String formatSamples(List<String>[] samples) {
+        StringBuilder sb = new StringBuilder();
+        for (int d = 0; d < samples.length; d++) {
+            sb.append("[");
+            for (int k = 0; k < samples[d].size(); k++) {
+                sb.append("'").append(samples[d].get(k)).append("'");
+                if (k < samples[d].size() - 1) sb.append(",");
+            }
+            sb.append("]");
+            if (d < samples.length - 1) sb.append(",");
+        }
+        return sb.toString();
+    }
+
     private String getRankedPValuesJson(List<GwasHit> hits) {
-        double[] pValues = hits.stream().mapToDouble(h -> h.pValue).sorted().toArray();
+        // Use only best models for QQ plot to avoid redundancy
+        double[] pValues = hits.stream().filter(h -> h.isBestModel).mapToDouble(h -> h.pValue).sorted().toArray();
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < pValues.length; i++) {
-            // Thinning: all significant and a subset of others
             if (pValues[i] > 0.05 && i % 40 != 0) continue;
-            
             sb.append("{\"p\":").append(pValues[i]).append(",\"r\":").append(i + 1).append("}");
             if (i < pValues.length - 1) sb.append(",");
         }
-        if (sb.charAt(sb.length()-1) == ',') sb.setLength(sb.length()-1);
+        if (sb.length() > 1 && sb.charAt(sb.length()-1) == ',') sb.setLength(sb.length()-1);
         sb.append("]");
         return sb.toString();
     }

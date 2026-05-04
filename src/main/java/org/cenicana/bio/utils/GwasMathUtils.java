@@ -167,4 +167,9 @@ public class GwasMathUtils {
         if (z >= 0) return ans;
         else return -ans;
     }
+    public static double fCDF(double f, double df1, double df2) {
+        if (f <= 0) return 0.0;
+        double x = (df1 * f) / (df1 * f + df2);
+        return betaIncomplete(x, df1 / 2.0, df2 / 2.0);
+    }
 }
