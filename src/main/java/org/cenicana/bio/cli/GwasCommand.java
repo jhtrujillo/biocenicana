@@ -62,7 +62,7 @@ public class GwasCommand implements Callable<Integer> {
     private String fixedEffects;
 
     @Option(names = {
-            "--models" }, description = "Genetic models to test: ADDITIVE, SIMPLEX_DOMINANT, DUPLEX_DOMINANT, SIMPLEX_DOMINANT_REF, DUPLEX_DOMINANT_REF, GENERAL (default: ADDITIVE)", split = ",")
+            "--models" }, description = "Genetic models to test: ADDITIVE, SIMPLEX_DOMINANT, DUPLEX_DOMINANT, TRIPLEX_DOMINANT, SIMPLEX_DOMINANT_REF, DUPLEX_DOMINANT_REF, TRIPLEX_DOMINANT_REF, GENERAL (default: ADDITIVE)", split = ",")
     private List<GwasEngine.GeneticModel> geneticModels = List.of(GwasEngine.GeneticModel.ADDITIVE);
 
     @Option(names = {

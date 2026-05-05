@@ -18,8 +18,8 @@ import java.util.concurrent.*;
 public class GwasEngine {
 
     public enum GeneticModel {
-        ADDITIVE, SIMPLEX_DOMINANT, DUPLEX_DOMINANT, 
-        SIMPLEX_DOMINANT_REF, DUPLEX_DOMINANT_REF, GENERAL
+        ADDITIVE, SIMPLEX_DOMINANT, DUPLEX_DOMINANT, TRIPLEX_DOMINANT,
+        SIMPLEX_DOMINANT_REF, DUPLEX_DOMINANT_REF, TRIPLEX_DOMINANT_REF, GENERAL
     }
 
     public static class GwasHit {
@@ -242,6 +242,16 @@ public class GwasEngine {
             }
         }
 
+        // 3.5 Pre-calculate Global Kinship if not provided (Needed as fallback for LOCO or for Global mode)
+        if (kinship == null) {
+            System.out.println("[GWAS] Computing global VanRaden kinship matrix...");
+            List<double[]> allDosages = new ArrayList<>();
+            for (List<MarkerData> list : chromToMarkers.values()) {
+                for (MarkerData md : list) allDosages.add(md.dosages);
+            }
+            kinship = PopulationStructureAnalyzer.calculateVanRadenKinship(allDosages, ploidy);
+        }
+
         List<GwasHit> allHits = Collections.synchronizedList(new ArrayList<>());
         String[] filteredNames = new String[nFiltered];
         for (int i = 0; i < nFiltered; i++) filteredNames[i] = sampleNames[validIndices.get(i)];
@@ -249,19 +259,12 @@ public class GwasEngine {
         if (!useLoco) {
             // GLOBAL MODE
             System.out.println("[GWAS] Running Global Analysis...");
-            if (kinship == null) {
-                List<double[]> allDosages = new ArrayList<>();
-                for (List<MarkerData> list : chromToMarkers.values()) {
-                    for (MarkerData md : list) allDosages.add(md.dosages);
-                }
-                kinship = PopulationStructureAnalyzer.calculateVanRadenKinship(allDosages, ploidy);
-            }
             runChromBlock(chromToMarkers.keySet(), chromToMarkers, kinship, nFiltered, filteredNames, Yf, W, allHits);
         } else {
             // LOCO MODE
             System.out.println("[GWAS] Running LOCO Analysis (Leave-One-Chromosome-Out)...");
             for (String groupName : locoGroups.keySet()) {
-                System.out.println("[GWAS] Analyzing Group: " + groupName + " (LOCO)");
+                System.out.print("[GWAS] Analyzing Group: " + groupName + " (LOCO) -> ");
                 
                 // Build Kinship excluding markers in THIS group
                 List<double[]> dosagesExcl = new ArrayList<>();
@@ -272,6 +275,12 @@ public class GwasEngine {
                 }
                 
                 double[][] locoKinship = PopulationStructureAnalyzer.calculateVanRadenKinship(dosagesExcl, ploidy);
+                if (locoKinship == null) {
+                    System.out.println("Using global kinship (no other markers to exclude).");
+                    locoKinship = kinship;
+                } else {
+                    System.out.println("Using specific LOCO kinship.");
+                }
                 
                 // Scan the markers in this group (could be one chrom or many small contigs)
                 Map<String, List<MarkerData>> markersInGroup = new HashMap<>();
@@ -363,7 +372,8 @@ public class GwasEngine {
         DMatrixRMaj Wstar = new DMatrixRMaj(nFiltered, W.numCols);
         CommonOps_DDRM.multTransA(U, W, Wstar);
 
-        double delta = 1.0; 
+        double delta = estimateDeltaREML(Ystar, Wstar, lambdas);
+        System.out.printf("[GWAS] Estimated REML Delta (VarE / VarG): %.4f%n", delta);
         double[] weights = new double[nFiltered];
         for (int i = 0; i < nFiltered; i++) weights[i] = 1.0 / (Math.max(1e-6, lambdas[i]) + delta);
         final double rssReduced = calculateRSS(Ystar, Wstar, lambdas, delta);
@@ -470,6 +480,35 @@ public class GwasEngine {
         return rss;
     }
 
+    private double estimateDeltaREML(DMatrixRMaj Ystar, DMatrixRMaj Wstar, double[] lambdas) {
+        int n = Ystar.numRows;
+        int q = Wstar.numCols;
+        
+        java.util.function.DoubleFunction<Double> negLogLikelihood = (delta) -> {
+            double rss = calculateRSS(Ystar, Wstar, lambdas, delta);
+            if (rss >= 1e10 || rss <= 0) return 1e10; 
+            
+            double sumLogH = 0;
+            DMatrixRMaj WtDW = new DMatrixRMaj(q, q);
+            for (int i = 0; i < n; i++) {
+                double w = 1.0 / (lambdas[i] + delta);
+                sumLogH += Math.log(lambdas[i] + delta);
+                for (int j = 0; j < q; j++) {
+                    for (int k = 0; k < q; k++) {
+                        WtDW.add(j, k, Wstar.get(i, j) * w * Wstar.get(i, k));
+                    }
+                }
+            }
+            
+            double detWtDW = CommonOps_DDRM.det(WtDW);
+            if (detWtDW <= 0) return 1e10; 
+            
+            return (n - q) * Math.log(rss) + sumLogH + Math.log(detWtDW);
+        };
+
+        return org.cenicana.bio.utils.GwasMathUtils.brentOptimize(1e-4, 1000.0, 1e-4, negLogLikelihood);
+    }
+
     private GwasHit testModel(String id, String chrom, long pos, String ref, String alt, double[] X, int df, String[] filteredNames, double[] Yf, DMatrixRMaj Ystar, DMatrixRMaj Wstar, DMatrixRMaj U, double[] weights, double rssReduced, String modelName,
                               DMatrixRMaj M, DMatrixRMaj MtVinv, DMatrixRMaj LHS, DMatrixRMaj RHS, DMatrixRMaj beta, DMatrixRMaj invLHS, DMatrixRMaj Xmat, DMatrixRMaj Xstar) {
         int n = Yf.length;
@@ -551,8 +590,10 @@ public class GwasEngine {
             case ADDITIVE: return dosages;
             case SIMPLEX_DOMINANT: return recode(dosages, 1.0);
             case DUPLEX_DOMINANT: return recode(dosages, 2.0);
+            case TRIPLEX_DOMINANT: return recode(dosages, 3.0);
             case SIMPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 1);
             case DUPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 2);
+            case TRIPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 3);
             case GENERAL:
                 Set<Integer> unique = new TreeSet<>();
                 for (double d : dosages) unique.add((int)Math.round(d));

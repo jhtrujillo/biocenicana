@@ -243,8 +243,10 @@ public class GwasDashboardGenerator {
                         case "ADDITIVE": symbol = "triangle-up"; break;
                         case "SIMPLEX_DOMINANT": symbol = "circle"; break;
                         case "DUPLEX_DOMINANT": symbol = "square"; break;
+                        case "TRIPLEX_DOMINANT": symbol = "cross"; break;
                         case "SIMPLEX_DOMINANT_REF": symbol = "circle-open"; break;
                         case "DUPLEX_DOMINANT_REF": symbol = "square-open"; break;
+                        case "TRIPLEX_DOMINANT_REF": symbol = "cross-open"; break;
                         case "GENERAL": symbol = "diamond"; break;
                     }
                 }
@@ -273,7 +275,7 @@ public class GwasDashboardGenerator {
             pw.println("                annotations: [");
             pw.println("                    { x: " + currentOffset + ", y: bonferroni, xref: 'x', yref: 'y', text: 'Bonferroni', showarrow: false, xanchor: 'right', yanchor: 'bottom', font: {color: '#ef4444', size: 10} },");
             pw.println("                    { x: " + currentOffset + ", y: " + fdrThresholdLogP + ", xref: 'x', yref: 'y', text: 'FDR 0.05', showarrow: false, xanchor: 'right', yanchor: 'bottom', font: {color: '#3b82f6', size: 10} },");
-            pw.println("                    { x: 0.05, y: 1.05, xref: 'paper', yref: 'paper', text: '▲ Additive | ● Simplex Dom | ■ Duplex Dom | ♦ General', showarrow: false, font: {size: 11, color: '#4f46e5'}, xanchor: 'left' }");
+            pw.println("                    { x: 0.05, y: 1.05, xref: 'paper', yref: 'paper', text: '▲ Add | ● 1-Dom | ■ 2-Dom | ✖ 3-Dom | ♦ Gen', showarrow: false, font: {size: 11, color: '#4f46e5'}, xanchor: 'left' }");
             pw.println("                ]");
             pw.println("            }, { responsive: true, displayModeBar: false });");
             pw.println("        }");
