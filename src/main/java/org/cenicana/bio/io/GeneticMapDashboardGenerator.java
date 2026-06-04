@@ -289,44 +289,44 @@ public class GeneticMapDashboardGenerator {
 
     private static String buildCss() {
         return "*{box-sizing:border-box;margin:0;padding:0}" +
-            "body{font-family:'Segoe UI',Arial,sans-serif;background:#0f1117;color:#e0e0e0;min-height:100vh}" +
-            ".header{background:linear-gradient(135deg,#1a1d2e,#16213e);padding:20px 30px;border-bottom:2px solid #2a3f6f}" +
-            ".header-title{font-size:24px;font-weight:700;color:#7eb8f7}" +
-            ".header-sub{font-size:13px;color:#8899aa;margin-top:4px}" +
-            ".stats-bar{display:flex;gap:16px;padding:16px 30px;background:#13162a;flex-wrap:wrap}" +
-            ".stat-card{background:#1e2235;border:1px solid #2a3f6f;border-radius:10px;padding:14px 20px;min-width:120px;text-align:center}" +
-            ".stat-val{font-size:26px;font-weight:700;color:#7eb8f7}" +
-            ".stat-lbl{font-size:11px;color:#8899aa;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}" +
-            ".chr-legend{display:flex;gap:8px;padding:10px 30px;background:#13162a;flex-wrap:wrap;border-bottom:1px solid #1e2235}" +
-            ".chr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid transparent;transition:all .2s}" +
-            ".chr-chip.active{border-color:#fff4}" +
+            "body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f7fa;color:#2c3e50;min-height:100vh}" +
+            ".header{background:linear-gradient(135deg,#1a6b9a,#2980b9);padding:20px 30px;border-bottom:2px solid #2471a3}" +
+            ".header-title{font-size:24px;font-weight:700;color:#ffffff}" +
+            ".header-sub{font-size:13px;color:#d6eaf8;margin-top:4px}" +
+            ".stats-bar{display:flex;gap:16px;padding:16px 30px;background:#eaf4fb;flex-wrap:wrap;border-bottom:1px solid #d5e8f5}" +
+            ".stat-card{background:#ffffff;border:1px solid #aed6f1;border-radius:10px;padding:14px 20px;min-width:120px;text-align:center;box-shadow:0 1px 4px #0001}" +
+            ".stat-val{font-size:26px;font-weight:700;color:#1a6b9a}" +
+            ".stat-lbl{font-size:11px;color:#7f8c8d;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}" +
+            ".chr-legend{display:flex;gap:8px;padding:10px 30px;background:#eaf4fb;flex-wrap:wrap;border-bottom:1px solid #d5e8f5}" +
+            ".chr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid transparent;transition:all .2s;color:#2c3e50;background:#fff;box-shadow:0 1px 3px #0001}" +
+            ".chr-chip.active{border-color:#2980b9;background:#eaf4fb}" +
             ".chr-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}" +
-            ".tabs{display:flex;gap:4px;padding:12px 30px 0;background:#13162a;border-bottom:2px solid #2a3f6f}" +
-            ".tab{background:#1e2235;border:1px solid #2a3f6f;border-bottom:none;border-radius:8px 8px 0 0;padding:9px 20px;cursor:pointer;color:#8899aa;font-size:13px;transition:all .2s}" +
-            ".tab:hover{background:#253050;color:#c0d8f8}" +
-            ".tab.active{background:#0f1117;color:#7eb8f7;font-weight:600}" +
+            ".tabs{display:flex;gap:4px;padding:12px 30px 0;background:#eaf4fb;border-bottom:2px solid #aed6f1}" +
+            ".tab{background:#d6eaf8;border:1px solid #aed6f1;border-bottom:none;border-radius:8px 8px 0 0;padding:9px 20px;cursor:pointer;color:#5d6d7e;font-size:13px;transition:all .2s}" +
+            ".tab:hover{background:#aed6f1;color:#1a5276}" +
+            ".tab.active{background:#f5f7fa;color:#1a6b9a;font-weight:600;border-color:#aed6f1}" +
             ".tab-content{display:none;padding:24px 30px}" +
             ".tab-content.active{display:block}" +
-            ".controls{display:flex;align-items:center;gap:16px;margin-bottom:16px;font-size:13px;color:#8899aa;flex-wrap:wrap}" +
-            ".controls select,.controls input[type=number]{background:#1e2235;border:1px solid #2a3f6f;border-radius:6px;color:#e0e0e0;padding:4px 8px}" +
-            ".controls input[type=range]{accent-color:#7eb8f7}" +
-            "#lg-canvas-wrap{overflow:auto;max-height:72vh}" +
+            ".controls{display:flex;align-items:center;gap:16px;margin-bottom:16px;font-size:13px;color:#5d6d7e;flex-wrap:wrap}" +
+            ".controls select,.controls input[type=number]{background:#fff;border:1px solid #aed6f1;border-radius:6px;color:#2c3e50;padding:4px 8px}" +
+            ".controls input[type=range]{accent-color:#2980b9}" +
+            "#lg-canvas-wrap{overflow:auto;max-height:72vh;background:#fff;border:1px solid #d5e8f5;border-radius:8px;padding:8px}" +
             "#lg-canvas{display:flex;gap:12px;align-items:flex-start;padding:10px;min-width:max-content}" +
             ".lg-col{display:flex;flex-direction:column;align-items:center;min-width:28px}" +
-            ".lg-label{font-size:10px;font-weight:600;color:#7eb8f7;margin-bottom:4px;white-space:nowrap;text-align:center}" +
-            ".lg-chr-badge{font-size:9px;color:#aabbcc;margin-bottom:3px;white-space:nowrap}" +
-            ".lg-bar-wrap{position:relative;width:18px;border-radius:4px;background:#1e2235;border:1px solid #2a3f6f}" +
+            ".lg-label{font-size:10px;font-weight:600;color:#1a6b9a;margin-bottom:4px;white-space:nowrap;text-align:center}" +
+            ".lg-chr-badge{font-size:9px;color:#7f8c8d;margin-bottom:3px;white-space:nowrap}" +
+            ".lg-bar-wrap{position:relative;width:18px;border-radius:4px;background:#d5e8f5;border:1px solid #aed6f1}" +
             ".lg-marker{position:absolute;left:-1px;right:-1px;height:3px;border-radius:1px;cursor:pointer;transition:opacity .15s}" +
-            ".lg-marker:hover{opacity:1!important;outline:1px solid #fff4;z-index:10}" +
-            ".lg-len{font-size:9px;color:#556677;margin-top:3px}" +
-            ".tooltip{position:fixed;background:#1e2235;border:1px solid #2a3f6f;border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;display:none;z-index:1000;max-width:270px;line-height:1.6}" +
-            ".tooltip b{color:#7eb8f7}" +
+            ".lg-marker:hover{opacity:1!important;outline:1px solid #0004;z-index:10}" +
+            ".lg-len{font-size:9px;color:#95a5a6;margin-top:3px}" +
+            ".tooltip{position:fixed;background:#fff;border:1px solid #aed6f1;border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;display:none;z-index:1000;max-width:270px;line-height:1.6;box-shadow:0 4px 12px #0002;color:#2c3e50}" +
+            ".tooltip b{color:#1a6b9a}" +
             "table{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}" +
-            "th{background:#1e2235;color:#7eb8f7;padding:10px 14px;text-align:left;border-bottom:2px solid #2a3f6f}" +
-            "td{padding:8px 14px;border-bottom:1px solid #1e2235;color:#c0d0e0}" +
-            "tr:hover td{background:#1a1f35}" +
+            "th{background:#eaf4fb;color:#1a6b9a;padding:10px 14px;text-align:left;border-bottom:2px solid #aed6f1}" +
+            "td{padding:8px 14px;border-bottom:1px solid #eaf4fb;color:#2c3e50}" +
+            "tr:hover td{background:#f0f8ff}" +
             ".bar-inline{display:inline-block;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}" +
-            ".gene-legend{display:flex;gap:16px;padding:8px 30px;background:#13162a;font-size:12px;color:#8899aa;border-bottom:1px solid #1e2235}" +
+            ".gene-legend{display:flex;gap:16px;padding:8px 30px;background:#eaf4fb;font-size:12px;color:#5d6d7e;border-bottom:1px solid #d5e8f5}" +
             ".gene-legend-item{display:flex;align-items:center;gap:6px}" +
             ".gene-dot{width:12px;height:4px;border-radius:2px}";
     }
@@ -435,11 +435,11 @@ public class GeneticMapDashboardGenerator {
             "      hovertemplate:'%{text}<extra></extra>'};\n" +
             "  });\n" +
             "  Plotly.newPlot('corr-plot',traces,{\n" +
-            "    paper_bgcolor:'#0f1117',plot_bgcolor:'#13162a',\n" +
-            "    font:{color:'#c0d0e0',size:12},\n" +
-            "    xaxis:{title:'Posición física (Mb)',gridcolor:'#1e2235',zerolinecolor:'#2a3f6f'},\n" +
-            "    yaxis:{title:'Posición genética (cM)',gridcolor:'#1e2235',zerolinecolor:'#2a3f6f'},\n" +
-            "    legend:{bgcolor:'#1e2235',bordercolor:'#2a3f6f',borderwidth:1},\n" +
+            "    paper_bgcolor:'#ffffff',plot_bgcolor:'#f5f7fa',\n" +
+            "    font:{color:'#2c3e50',size:12},\n" +
+            "    xaxis:{title:'Posición física (Mb)',gridcolor:'#e8eef5',zerolinecolor:'#aed6f1'},\n" +
+            "    yaxis:{title:'Posición genética (cM)',gridcolor:'#e8eef5',zerolinecolor:'#aed6f1'},\n" +
+            "    legend:{bgcolor:'#ffffff',bordercolor:'#aed6f1',borderwidth:1},\n" +
             "    title:{text:'Correlación posición física vs genética por cromosoma',font:{color:'#7eb8f7'}},\n" +
             "    margin:{t:50,r:30,b:60,l:70}\n" +
             "  },{responsive:true});\n" +
@@ -450,10 +450,10 @@ public class GeneticMapDashboardGenerator {
             "function renderHeatmap(){\n" +
             "  if(heatDone) return; heatDone=true;\n" +
             "  Plotly.newPlot('heat-plot',[{z:HEATMAP.matrix,x:HEATMAP.chroms,y:HEATMAP.lgs,\n" +
-            "    type:'heatmap',colorscale:[[0,'#13162a'],[.01,'#1a2744'],[.3,'#2a5298'],[.6,'#7eb8f7'],[1,'#f7c948']],\n" +
+            "    type:'heatmap',colorscale:[[0,'#ffffff'],[.01,'#d6eaf8'],[.3,'#7fb3d3'],[.6,'#1a6b9a'],[1,'#e74c3c']],\n" +
             "    hovertemplate:'LG: %{y}<br>%{x}<br>Marcadores: %{z}<extra></extra>'}],{\n" +
-            "    paper_bgcolor:'#0f1117',plot_bgcolor:'#13162a',\n" +
-            "    font:{color:'#c0d0e0',size:11},\n" +
+            "    paper_bgcolor:'#ffffff',plot_bgcolor:'#f5f7fa',\n" +
+            "    font:{color:'#2c3e50',size:11},\n" +
             "    xaxis:{title:'Cromosoma físico',tickangle:-45},\n" +
             "    yaxis:{title:'Grupo de Ligamiento',autorange:'reversed'},\n" +
             "    title:{text:'Distribución de marcadores: LG vs Cromosoma físico',font:{color:'#7eb8f7'}},\n" +
@@ -475,12 +475,12 @@ public class GeneticMapDashboardGenerator {
             "     marker:{color:top.map(s=>chrColor(s.dominant)),opacity:.5},yaxis:'y2',\n" +
             "     hovertemplate:'%{x}: %{y:.1f} cM<extra></extra>'}\n" +
             "  ],{\n" +
-            "    paper_bgcolor:'#0f1117',plot_bgcolor:'#13162a',barmode:'group',\n" +
-            "    font:{color:'#c0d0e0',size:11},\n" +
+            "    paper_bgcolor:'#ffffff',plot_bgcolor:'#f5f7fa',barmode:'group',\n" +
+            "    font:{color:'#2c3e50',size:11},\n" +
             "    xaxis:{title:'Grupo de Ligamiento',tickangle:-45},\n" +
-            "    yaxis:{title:'N° Marcadores',gridcolor:'#1e2235'},\n" +
-            "    yaxis2:{title:'Longitud (cM)',overlaying:'y',side:'right',gridcolor:'#1e2235'},\n" +
-            "    legend:{bgcolor:'#1e2235',bordercolor:'#2a3f6f',borderwidth:1},\n" +
+            "    yaxis:{title:'N° Marcadores',gridcolor:'#e8eef5'},\n" +
+            "    yaxis2:{title:'Longitud (cM)',overlaying:'y',side:'right',gridcolor:'#e8eef5'},\n" +
+            "    legend:{bgcolor:'#ffffff',bordercolor:'#aed6f1',borderwidth:1},\n" +
             "    title:{text:'Top 30 LGs — marcadores coloreados por cromosoma dominante',font:{color:'#7eb8f7'}},\n" +
             "    margin:{t:50,r:80,b:90,l:60}\n" +
             "  },{responsive:true});\n" +
@@ -580,11 +580,11 @@ public class GeneticMapDashboardGenerator {
             "  });\n" +
             "  Plotly.newPlot('genes-plot',traces,{\n" +
             "    barmode:'stack',\n" +
-            "    paper_bgcolor:'#0f1117',plot_bgcolor:'#13162a',\n" +
-            "    font:{color:'#c0d0e0',size:12},\n" +
+            "    paper_bgcolor:'#ffffff',plot_bgcolor:'#f5f7fa',\n" +
+            "    font:{color:'#2c3e50',size:12},\n" +
             "    xaxis:{title:'Grupo de Ligamiento',tickangle:-45},\n" +
-            "    yaxis:{title:'N° Genes Candidatos',gridcolor:'#1e2235'},\n" +
-            "    legend:{bgcolor:'#1e2235',bordercolor:'#2a3f6f',borderwidth:1},\n" +
+            "    yaxis:{title:'N° Genes Candidatos',gridcolor:'#e8eef5'},\n" +
+            "    legend:{bgcolor:'#ffffff',bordercolor:'#aed6f1',borderwidth:1},\n" +
             "    title:{text:'Distribución de genes de sacarosa por LG y presión selectiva',font:{color:'#7eb8f7'}},\n" +
             "    margin:{t:50,r:30,b:100,l:60}\n" +
             "  },{responsive:true});\n" +
