@@ -17,6 +17,7 @@ echo "============================================================"
 VCF="benchmarks/vcfs/mapa_genetico/AllSamples_variants_geneticmap_pseudochromosomes_standarfilters_minInd_85_single_dosage.vcf"
 GFF="benchmarks/genomas/1940/CC-01-1940.gff3"
 GENES="data/genes_informe_kaks.txt"  # 32 genes del informe Ka/Ks CC 01-1940 vs R570
+PARENTS="CC_011940,CC_01746"          # parentales a excluir del mapa
 OUT="genomica_comparativa/mapa_genetico"
 PYTHON=".venv/bin/python"
 
@@ -49,7 +50,8 @@ java -Xmx8g -jar target/biojava.jar genetic-map \
   --min-lg-markers $MIN_LG \
   --lod $LOD \
   --max-r $MAX_R \
-  --mapping-function $MAPPING_FUNC
+  --mapping-function $MAPPING_FUNC \
+  --exclude "$PARENTS"
 
 echo "  ✓ Mapa: $OUT/mapa_biparental.map"
 

@@ -20,11 +20,13 @@ public class GeneticMapEngine {
     private double sdChi2PThreshold = 0.05;
     private int thinKb = 0;
     private boolean pseudoOnly = false;
-    private int minLgMarkers = 1; // minimum markers per LG to include in output
+    private int minLgMarkers = 1;
+    private Set<String> excludeSamples = new HashSet<>();
 
     public void setThinKb(int thinKb) { this.thinKb = thinKb; }
     public void setPseudoOnly(boolean pseudoOnly) { this.pseudoOnly = pseudoOnly; }
     public void setMinLgMarkers(int minLgMarkers) { this.minLgMarkers = minLgMarkers; }
+    public void setExcludeSamples(Set<String> names) { this.excludeSamples = names; }
 
     private static final int MEMORY_WARN_THRESHOLD = 5000;
     private static final int MEMORY_HARD_LIMIT = 25000;
@@ -168,6 +170,7 @@ public class GeneticMapEngine {
     private List<Marker> parseVcf(String vcfPath) throws IOException {
         List<Marker> markers = new ArrayList<>();
         String[] sampleNames = null;
+        int[] includedIndices = null;
         int discardedSingleDose = 0;
         int totalParsed = 0;
 
@@ -178,13 +181,29 @@ public class GeneticMapEngine {
                 if (line.startsWith("#")) {
                     String[] cols = line.split("\t");
                     sampleNames = Arrays.copyOfRange(cols, 9, cols.length);
+                    // Build inclusion index: positions to keep (excludes parents)
+                    if (!excludeSamples.isEmpty()) {
+                        List<Integer> kept = new ArrayList<>();
+                        for (int k = 0; k < sampleNames.length; k++) {
+                            if (!excludeSamples.contains(sampleNames[k])) kept.add(k);
+                        }
+                        includedIndices = kept.stream().mapToInt(Integer::intValue).toArray();
+                        String[] filtered = new String[kept.size()];
+                        for (int k = 0; k < kept.size(); k++) filtered[k] = sampleNames[kept.get(k)];
+                        sampleNames = filtered;
+                        System.out.printf("[MapEngine] Excluding %d samples: %s. Keeping %d individuals.%n",
+                                excludeSamples.size(), excludeSamples, sampleNames.length);
+                    }
                     continue;
                 }
 
                 String[] cols = line.split("\t");
                 if (cols.length < 10) continue;
 
-                int numSamples = cols.length - 9;
+                // Use filtered indices if parents were excluded
+                int[] colIndices = (includedIndices != null) ? includedIndices
+                        : java.util.stream.IntStream.range(0, cols.length - 9).toArray();
+                int numSamples = colIndices.length;
 
                 String chr = cols[0];
                 long pos = Long.parseLong(cols[1]);
@@ -201,9 +220,10 @@ public class GeneticMapEngine {
                 }
 
                 Marker marker = new Marker(id, chr, pos, numSamples);
-                for (int i = 9; i < cols.length; i++) {
-                    String sampleData = cols[i];
-                    int sampleIdx = i - 9;
+                for (int si = 0; si < colIndices.length; si++) {
+                    int i = colIndices[si] + 9;
+                    String sampleData = cols.length > i ? cols[i] : ".";
+                    int sampleIdx = si;
 
                     if (sampleData.startsWith(".")) {
                         marker.dosages[sampleIdx] = Double.NaN;

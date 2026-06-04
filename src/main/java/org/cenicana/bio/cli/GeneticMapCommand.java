@@ -4,6 +4,7 @@ import org.cenicana.bio.core.GeneticMapEngine;
 import org.cenicana.bio.io.GeneticMapDashboardGenerator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 @Command(name = "genetic-map",
@@ -51,6 +52,9 @@ public class GeneticMapCommand implements Callable<Integer> {
     @Option(names = {"--genes-map"}, description = "TSV file with gene positions on the map (output of map_genes_to_map.py). Overlays candidate genes on the visual dashboard.")
     private String genesMapFile;
 
+    @Option(names = {"--exclude"}, description = "Comma-separated sample names to exclude from the map (e.g. parents). Example: --exclude CC_011940,CC_01746", defaultValue = "")
+    private String excludeSamples;
+
     @Override
     public Integer call() throws Exception {
         System.out.println("=================================================");
@@ -66,6 +70,8 @@ public class GeneticMapCommand implements Callable<Integer> {
         System.out.println("Physical thinning:  " + (thinKb > 0 ? thinKb + " kb" : "NO"));
         System.out.println("Pseudo-chr only:    " + (pseudoOnly ? "YES" : "NO"));
         System.out.println("Min LG markers:     " + minLgMarkers);
+        if (!excludeSamples.isEmpty())
+            System.out.println("Exclude samples:    " + excludeSamples);
         System.out.println("=================================================\n");
 
         long startTime = System.currentTimeMillis();
@@ -76,6 +82,10 @@ public class GeneticMapCommand implements Callable<Integer> {
         engine.setThinKb(thinKb);
         engine.setPseudoOnly(pseudoOnly);
         engine.setMinLgMarkers(minLgMarkers);
+        if (!excludeSamples.isEmpty()) {
+            Set<String> excluded = new HashSet<>(Arrays.asList(excludeSamples.split(",")));
+            engine.setExcludeSamples(excluded);
+        }
         engine.buildMap(inputFile, outputFile);
 
         if (vizOutput != null && !vizOutput.isEmpty()) {
