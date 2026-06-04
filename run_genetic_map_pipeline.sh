@@ -49,11 +49,9 @@ java -Xmx8g -jar target/biojava.jar genetic-map \
   --min-lg-markers $MIN_LG \
   --lod $LOD \
   --max-r $MAX_R \
-  --mapping-function $MAPPING_FUNC \
-  --viz "$OUT/visor_mapa.html"
+  --mapping-function $MAPPING_FUNC
 
 echo "  ✓ Mapa: $OUT/mapa_biparental.map"
-echo "  ✓ Visor: $OUT/visor_mapa.html"
 
 # ── Paso 3: Ubicar genes de sacarosa en el mapa ───────────────────────────────
 echo ""
@@ -64,6 +62,24 @@ $PYTHON scripts/map_genes_to_map.py \
   --gff   "$GFF" \
   --genes "$GENES" \
   --output "$OUT/genes_en_mapa.tsv"
+
+# Regenerar visor con genes superpuestos
+echo ""
+echo "[Paso 3b] Generando visor con genes candidatos..."
+java -jar target/biojava.jar genetic-map \
+  -i "$VCF" \
+  -p $PLOIDY \
+  -o "$OUT/mapa_biparental.map" \
+  --pseudo-only \
+  --thin-kb $THIN_KB \
+  --min-lg-markers $MIN_LG \
+  --lod $LOD \
+  --max-r $MAX_R \
+  --mapping-function $MAPPING_FUNC \
+  --genes-map "$OUT/genes_en_mapa.tsv" \
+  --viz "$OUT/visor_mapa.html" 2>/dev/null || true
+
+echo "  ✓ Visor: $OUT/visor_mapa.html"
 
 echo ""
 echo "============================================================"

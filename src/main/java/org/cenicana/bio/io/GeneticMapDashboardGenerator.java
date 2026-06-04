@@ -42,14 +42,56 @@ public class GeneticMapDashboardGenerator {
         return markers;
     }
 
-    public static void generate(String mapPath, String outputHtmlPath) throws IOException {
+    /** Gene entry loaded from genes_en_mapa.tsv */
+    public static class GeneEntry {
+        public String id, lg, chr, funcion, categoria;
+        public double posCm;
+        public GeneEntry(String id, String lg, double posCm, String chr, String funcion, String categoria) {
+            this.id = id; this.lg = lg; this.posCm = posCm;
+            this.chr = chr; this.funcion = funcion; this.categoria = categoria;
+        }
+    }
+
+    public static List<GeneEntry> readGenes(String genesPath) throws IOException {
+        List<GeneEntry> genes = new ArrayList<>();
+        if (genesPath == null || genesPath.isEmpty()) return genes;
+        Path p = Paths.get(genesPath);
+        if (!Files.exists(p)) { System.err.println("[MapViz] Genes file not found: " + genesPath); return genes; }
+        try (BufferedReader br = Files.newBufferedReader(p)) {
+            String line; boolean header = true;
+            while ((line = br.readLine()) != null) {
+                if (header) { header = false; continue; }
+                String[] c = line.split("\t");
+                if (c.length < 8) continue;
+                try {
+                    String id       = c[0];
+                    String chr      = c[1];
+                    String lg       = c.length > 5 ? c[5] : "N/A";
+                    double cm       = c.length > 6 && !c[6].equals("N/A") ? Double.parseDouble(c[6]) : -1;
+                    String funcion  = c.length > 14 ? c[14] : "";
+                    String categoria = c.length > 15 ? c[15] : "";
+                    if (!lg.equals("N/A") && cm >= 0)
+                        genes.add(new GeneEntry(id, lg, cm, chr, funcion, categoria));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        System.out.println("[MapViz] " + genes.size() + " genes loaded for overlay.");
+        return genes;
+    }
+
+    public static void generate(String mapPath, String outputHtmlPath, String genesMapFile) throws IOException {
         List<MapMarker> markers = readMap(mapPath);
         if (markers.isEmpty()) { System.err.println("[MapViz] No markers found."); return; }
-        Files.writeString(Paths.get(outputHtmlPath), buildHtml(markers, mapPath));
+        List<GeneEntry> genes = readGenes(genesMapFile);
+        Files.writeString(Paths.get(outputHtmlPath), buildHtml(markers, genes, mapPath));
         System.out.println("[MapViz] Interactive map dashboard written to: " + outputHtmlPath);
     }
 
-    private static String buildHtml(List<MapMarker> markers, String mapPath) {
+    public static void generate(String mapPath, String outputHtmlPath) throws IOException {
+        generate(mapPath, outputHtmlPath, null);
+    }
+
+    private static String buildHtml(List<MapMarker> markers, List<GeneEntry> genes, String mapPath) {
         Map<String, List<MapMarker>> byLg = new LinkedHashMap<>();
         for (MapMarker m : markers) byLg.computeIfAbsent(m.lg, k -> new ArrayList<>()).add(m);
 
@@ -81,6 +123,7 @@ public class GeneticMapDashboardGenerator {
         String heatmapJson   = buildHeatmapJson(lgsSorted, chromList, byLg);
         String chromListJson = chromList.stream().map(c -> "\"" + c + "\"")
                                 .collect(Collectors.joining(",", "[", "]"));
+        String genesJson     = buildGenesJson(genes);
 
         return "<!DOCTYPE html>\n<html lang='es'>\n<head>\n" +
             "<meta charset='UTF-8'>\n<meta name='viewport' content='width=device-width,initial-scale=1'>\n" +
@@ -100,8 +143,16 @@ public class GeneticMapDashboardGenerator {
             "</div>\n" +
             // Chromosome legend
             "<div class='chr-legend' id='chrLegend'></div>\n" +
+            (genes.isEmpty() ? "" :
+            "<div class='gene-legend'>" +
+            "<span>Genes candidatos:</span>" +
+            "<div class='gene-legend-item'><div class='gene-dot' style='background:#e74c3c'></div>Selección positiva</div>" +
+            "<div class='gene-legend-item'><div class='gene-dot' style='background:#f7c948'></div>Neutral</div>" +
+            "<div class='gene-legend-item'><div class='gene-dot' style='background:#58d68d'></div>Purificadora</div>" +
+            "</div>\n") +
             "<div class='tabs'>\n" +
             "  <button class='tab active' onclick='showTab(\"lg-view\",this)'>📊 Grupos de Ligamiento</button>\n" +
+            "  <button class='tab' onclick='showTab(\"genes-view\",this)'>🧬 Genes Candidatos</button>\n" +
             "  <button class='tab' onclick='showTab(\"corr-view\",this)'>📈 Físico vs Genético</button>\n" +
             "  <button class='tab' onclick='showTab(\"heat-view\",this)'>🗺️ Sintenia LG–Cromosoma</button>\n" +
             "  <button class='tab' onclick='showTab(\"stats-view\",this)'>📋 Estadísticas</button>\n" +
@@ -121,6 +172,7 @@ public class GeneticMapDashboardGenerator {
             "  </div>\n" +
             "  <div id='lg-canvas-wrap'><div id='lg-canvas'></div></div>\n" +
             "</div>\n" +
+            "<div id='genes-view' class='tab-content'><div id='genes-plot' style='height:500px'></div><div id='genes-table-wrap'></div></div>\n" +
             "<div id='corr-view' class='tab-content'><div id='corr-plot' style='height:600px'></div></div>\n" +
             "<div id='heat-view' class='tab-content'><div id='heat-plot' style='height:600px'></div></div>\n" +
             "<div id='stats-view' class='tab-content'>" +
@@ -133,6 +185,7 @@ public class GeneticMapDashboardGenerator {
             "const LG_STATS=" + lgStatsJson + ";\n" +
             "const HEATMAP=" + heatmapJson + ";\n" +
             "const CHROMS=" + chromListJson + ";\n" +
+            "const GENES=" + genesJson + ";\n" +
             buildJs() +
             "\n</script>\n</body>\n</html>";
     }
@@ -182,6 +235,22 @@ public class GeneticMapDashboardGenerator {
               .append("\"dominant\":\"").append(dominant).append("\",")
               .append("\"domPct\":").append(String.format("%.0f", domPct)).append(",")
               .append("\"chrMap\":").append(chrMapJson).append("}");
+        }
+        return sb.append("]").toString();
+    }
+
+    private static String buildGenesJson(List<GeneEntry> genes) {
+        if (genes.isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < genes.size(); i++) {
+            GeneEntry g = genes.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{\"id\":\"").append(esc(g.id)).append("\",")
+              .append("\"lg\":\"").append(esc(g.lg)).append("\",")
+              .append("\"cm\":").append(g.posCm).append(",")
+              .append("\"chr\":\"").append(esc(g.chr)).append("\",")
+              .append("\"funcion\":\"").append(esc(g.funcion.replaceAll("%2C", ","))).append("\",")
+              .append("\"categoria\":\"").append(esc(g.categoria)).append("\"}");
         }
         return sb.append("]").toString();
     }
@@ -253,7 +322,10 @@ public class GeneticMapDashboardGenerator {
             "th{background:#1e2235;color:#7eb8f7;padding:10px 14px;text-align:left;border-bottom:2px solid #2a3f6f}" +
             "td{padding:8px 14px;border-bottom:1px solid #1e2235;color:#c0d0e0}" +
             "tr:hover td{background:#1a1f35}" +
-            ".bar-inline{display:inline-block;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}";
+            ".bar-inline{display:inline-block;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}" +
+            ".gene-legend{display:flex;gap:16px;padding:8px 30px;background:#13162a;font-size:12px;color:#8899aa;border-bottom:1px solid #1e2235}" +
+            ".gene-legend-item{display:flex;align-items:center;gap:6px}" +
+            ".gene-dot{width:12px;height:4px;border-radius:2px}";
     }
 
     // ── JavaScript ─────────────────────────────────────────────────────────
@@ -422,6 +494,111 @@ public class GeneticMapDashboardGenerator {
             "  html+='</tbody></table>';\n" +
             "  document.getElementById('stats-table-wrap').innerHTML=html;\n" +
             "}\n\n" +
+
+            "// ── Gene category colors ────────────────────────────────────\n" +
+            "function geneColor(cat){\n" +
+            "  if(cat&&cat.toLowerCase().includes('positiva')) return '#e74c3c';\n" +
+            "  if(cat&&cat.toLowerCase().includes('neutral'))  return '#f7c948';\n" +
+            "  if(cat&&cat.toLowerCase().includes('purificadora')) return '#58d68d';\n" +
+            "  return '#c0c0c0';\n" +
+            "}\n\n" +
+
+            "// ── Overlay genes on LG bars (called inside renderLgMap) ────\n" +
+            "function overlayGenes(wrap, lg, maxCm, scale){\n" +
+            "  if(!GENES||GENES.length===0) return;\n" +
+            "  GENES.filter(g=>g.lg===lg&&g.cm>=0&&g.cm<=maxCm).forEach(g=>{\n" +
+            "    const pct=maxCm>0?(g.cm/maxCm)*100:0;\n" +
+            "    const pin=document.createElement('div');\n" +
+            "    pin.style.cssText='position:absolute;left:-4px;right:-4px;height:5px;border-radius:2px;z-index:5;cursor:pointer;';\n" +
+            "    pin.style.top=pct+'%';\n" +
+            "    pin.style.background=geneColor(g.categoria);\n" +
+            "    pin.style.boxShadow='0 0 4px '+geneColor(g.categoria);\n" +
+            "    pin.addEventListener('mousemove',e=>{\n" +
+            "      tip.innerHTML='<b style=\"color:'+geneColor(g.categoria)+'\">'+ g.id+'</b><br>'\n" +
+            "        +g.lg+' · '+g.cm.toFixed(2)+' cM<br>'\n" +
+            "        +'<small>'+g.funcion+'</small><br>'\n" +
+            "        +'<span style=\"color:'+geneColor(g.categoria)+'\">'+g.categoria+'</span>';\n" +
+            "      tip.style.display='block';\n" +
+            "      tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px';\n" +
+            "    });\n" +
+            "    pin.addEventListener('mouseleave',hideTip);\n" +
+            "    wrap.appendChild(pin);\n" +
+            "  });\n" +
+            "}\n\n" +
+
+            "// Patch renderLgMap to call overlayGenes\n" +
+            "const _origRenderLgMap=renderLgMap;\n" +
+            "renderLgMap=function(){\n" +
+            "  _origRenderLgMap();\n" +
+            "  if(!GENES||GENES.length===0) return;\n" +
+            "  // Re-attach gene overlays after map renders\n" +
+            "  document.querySelectorAll('.lg-col').forEach(col=>{\n" +
+            "    const lbl=col.querySelector('.lg-label');\n" +
+            "    if(!lbl) return;\n" +
+            "    const lg=lbl.textContent.trim();\n" +
+            "    const wrap=col.querySelector('.lg-bar-wrap');\n" +
+            "    if(!wrap) return;\n" +
+            "    const stat=LG_STATS.find(s=>s.lg===lg);\n" +
+            "    if(!stat) return;\n" +
+            "    overlayGenes(wrap,lg,stat.length,parseInt(document.getElementById('cmScale').value)||5);\n" +
+            "  });\n" +
+            "};\n\n" +
+
+            "// ── Genes tab ────────────────────────────────────────────────\n" +
+            "let genesDone=false;\n" +
+            "function renderGenes(){\n" +
+            "  if(genesDone) return; genesDone=true;\n" +
+            "  if(!GENES||GENES.length===0){\n" +
+            "    document.getElementById('genes-table-wrap').innerHTML='<p style=\"color:#556677;padding:20px\">No se cargaron genes candidatos. Usa --genes-map al generar el visor.</p>';\n" +
+            "    return;\n" +
+            "  }\n" +
+            "  // Bar chart: genes per LG colored by category\n" +
+            "  const cats=['Positiva','Neutral','Purificadora'];\n" +
+            "  const colors={'Positiva':'#e74c3c','Neutral':'#f7c948','Purificadora':'#58d68d'};\n" +
+            "  const lgSet=[...new Set(GENES.map(g=>g.lg))].sort((a,b)=>{\n" +
+            "    const na=parseInt(a.replace(/\\D/g,'')),nb=parseInt(b.replace(/\\D/g,''));\n" +
+            "    return na-nb;\n" +
+            "  });\n" +
+            "  const traces=cats.map(cat=>{\n" +
+            "    return{x:lgSet,\n" +
+            "      y:lgSet.map(lg=>GENES.filter(g=>g.lg===lg&&g.categoria&&g.categoria.includes(cat.toLowerCase())).length),\n" +
+            "      name:cat,type:'bar',marker:{color:colors[cat]},\n" +
+            "      hovertemplate:'%{x}: %{y} genes '+cat+'<extra></extra>'};\n" +
+            "  });\n" +
+            "  Plotly.newPlot('genes-plot',traces,{\n" +
+            "    barmode:'stack',\n" +
+            "    paper_bgcolor:'#0f1117',plot_bgcolor:'#13162a',\n" +
+            "    font:{color:'#c0d0e0',size:12},\n" +
+            "    xaxis:{title:'Grupo de Ligamiento',tickangle:-45},\n" +
+            "    yaxis:{title:'N° Genes Candidatos',gridcolor:'#1e2235'},\n" +
+            "    legend:{bgcolor:'#1e2235',bordercolor:'#2a3f6f',borderwidth:1},\n" +
+            "    title:{text:'Distribución de genes de sacarosa por LG y presión selectiva',font:{color:'#7eb8f7'}},\n" +
+            "    margin:{t:50,r:30,b:100,l:60}\n" +
+            "  },{responsive:true});\n" +
+            "  // Table\n" +
+            "  const sorted=[...GENES].sort((a,b)=>{\n" +
+            "    const order={'positiva':0,'neutral':1,'purificadora':2};\n" +
+            "    const ca=(a.categoria||'').toLowerCase(); const cb=(b.categoria||'').toLowerCase();\n" +
+            "    const oa=Object.keys(order).find(k=>ca.includes(k));\n" +
+            "    const ob=Object.keys(order).find(k=>cb.includes(k));\n" +
+            "    return (order[oa]||9)-(order[ob]||9)||a.lg.localeCompare(b.lg,undefined,{numeric:true});\n" +
+            "  });\n" +
+            "  let html='<table><thead><tr><th>Gen</th><th>LG</th><th>Pos (cM)</th><th>Presión Ka/Ks</th><th>Función</th></tr></thead><tbody>';\n" +
+            "  sorted.forEach(g=>{\n" +
+            "    const col=geneColor(g.categoria);\n" +
+            "    const dot='<div style=\"display:inline-block;width:10px;height:10px;border-radius:50%;background:'+col+';margin-right:6px\"></div>';\n" +
+            "    html+='<tr><td><b>'+g.id+'</b></td><td>'+g.lg+'</td><td>'+g.cm.toFixed(2)+'</td><td>'+dot+g.categoria+'</td><td><small>'+g.funcion+'</small></td></tr>';\n" +
+            "  });\n" +
+            "  html+='</tbody></table>';\n" +
+            "  document.getElementById('genes-table-wrap').innerHTML=html;\n" +
+            "}\n\n" +
+
+            "// Patch showTab to handle genes-view\n" +
+            "const _origShowTab=showTab;\n" +
+            "showTab=function(id,btn){\n" +
+            "  _origShowTab(id,btn);\n" +
+            "  if(id==='genes-view') renderGenes();\n" +
+            "};\n\n" +
 
             "// Init\n" +
             "buildLegend();\n" +

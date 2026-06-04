@@ -48,6 +48,9 @@ public class GeneticMapCommand implements Callable<Integer> {
     @Option(names = {"--min-lg-markers"}, description = "Minimum number of markers a Linkage Group must have to be included in the output. Default: 1 (all LGs).", defaultValue = "1")
     private int minLgMarkers;
 
+    @Option(names = {"--genes-map"}, description = "TSV file with gene positions on the map (output of map_genes_to_map.py). Overlays candidate genes on the visual dashboard.")
+    private String genesMapFile;
+
     @Override
     public Integer call() throws Exception {
         System.out.println("=================================================");
@@ -77,7 +80,7 @@ public class GeneticMapCommand implements Callable<Integer> {
 
         if (vizOutput != null && !vizOutput.isEmpty()) {
             System.out.println("\n[MapViz] Generating interactive HTML dashboard...");
-            GeneticMapDashboardGenerator.generate(outputFile, vizOutput);
+            GeneticMapDashboardGenerator.generate(outputFile, vizOutput, genesMapFile);
         }
 
         long endTime = System.currentTimeMillis();
