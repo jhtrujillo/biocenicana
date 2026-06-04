@@ -129,7 +129,6 @@ public class GeneticMapDashboardGenerator {
             "<meta charset='UTF-8'>\n<meta name='viewport' content='width=device-width,initial-scale=1'>\n" +
             "<title>BioJava — Mapa Genético</title>\n" +
             "<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>\n" +
-            "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'></script>\n" +
             "<style>" + buildCss() + "</style>\n</head>\n<body>\n" +
             "<div class='header'>\n" +
             "  <div class='header-title'>🧬 Mapa Genético Interactivo</div>\n" +
@@ -626,61 +625,127 @@ public class GeneticMapDashboardGenerator {
             "  if(id==='genes-view') renderGenes();\n" +
             "};\n\n" +
 
-            "// ── PNG Export ───────────────────────────────────────────────\n" +
-            "async function exportMapPng(byChr){\n" +
-            "  const scale = parseInt(document.getElementById('pngScale').value)||2;\n" +
-            "  const chrFilter = document.getElementById('chrFilter').value;\n" +
-            "  const canvas = document.getElementById('lg-canvas');\n" +
+            "// ── PNG Export (SVG → Canvas → PNG) ─────────────────────────\n" +
+            "const BAR_W=20, GAP=14, PAD_TOP=60, PAD_BOT=40, PAD_LEFT=20, PAD_RIGHT=120;\n" +
             "\n" +
-            "  if(!byChr){\n" +
-            "    // Export full visible map\n" +
-            "    const btn = event.target;\n" +
-            "    btn.textContent = '⏳ Generando...';\n" +
-            "    btn.disabled = true;\n" +
-            "    html2canvas(canvas,{\n" +
-            "      scale: scale,\n" +
-            "      backgroundColor: '#ffffff',\n" +
-            "      useCORS: true,\n" +
-            "      logging: false\n" +
-            "    }).then(c=>{\n" +
-            "      const suffix = chrFilter==='all' ? 'completo' : 'chr'+chrFilter;\n" +
-            "      downloadPng(c, 'mapa_genetico_'+suffix+'.png');\n" +
-            "      btn.textContent = '⬇ PNG mapa completo';\n" +
-            "      btn.disabled = false;\n" +
-            "    });\n" +
-            "  } else {\n" +
-            "    // Export one PNG per chromosome\n" +
-            "    const btn = event.target;\n" +
-            "    btn.textContent = '⏳ Generando...';\n" +
-            "    btn.disabled = true;\n" +
-            "    const chroms = chrFilter==='all' ? CHROMS : [chrFilter];\n" +
-            "    let done = 0;\n" +
-            "    for(const chr of chroms){\n" +
-            "      // Filter map to show only this chromosome\n" +
-            "      document.getElementById('chrFilter').value = chr;\n" +
-            "      renderLgMap();\n" +
-            "      await new Promise(r=>setTimeout(r,300)); // wait for render\n" +
-            "      await html2canvas(canvas,{\n" +
-            "        scale: scale,\n" +
-            "        backgroundColor: '#ffffff',\n" +
-            "        useCORS: true,\n" +
-            "        logging: false\n" +
-            "      }).then(c=>downloadPng(c,'mapa_genetico_chr'+chr+'.png'));\n" +
-            "      done++;\n" +
-            "      btn.textContent = '⏳ '+done+'/'+chroms.length+' cromosomas...';\n" +
-            "    }\n" +
-            "    // Restore original filter\n" +
-            "    document.getElementById('chrFilter').value = chrFilter;\n" +
-            "    renderLgMap();\n" +
-            "    btn.textContent = '⬇ PNG por cromosoma';\n" +
-            "    btn.disabled = false;\n" +
+            "function buildMapSvg(chrFilter){\n" +
+            "  const scale = parseInt(document.getElementById('cmScale').value)||5;\n" +
+            "  const showNames = document.getElementById('showGeneNames') && document.getElementById('showGeneNames').checked;\n" +
+            "  const byLg={};\n" +
+            "  MARKERS.forEach(m=>{if(!byLg[m.lg])byLg[m.lg]=[];byLg[m.lg].push(m);});\n" +
+            "  // filter LGs by dominant chr\n" +
+            "  const lgs = LG_STATS.filter(s=>{\n" +
+            "    if(chrFilter&&chrFilter!=='all') return s.dominant===chrFilter;\n" +
+            "    return true;\n" +
+            "  }).sort((a,b)=>parseInt(a.lg.replace(/\\D/g,''))-parseInt(b.lg.replace(/\\D/g,'')));\n" +
+            "\n" +
+            "  if(lgs.length===0) return null;\n" +
+            "  const maxCmAll = Math.max(...lgs.map(s=>s.length));\n" +
+            "  const svgH = PAD_TOP + maxCmAll*scale + PAD_BOT;\n" +
+            "  const svgW = PAD_LEFT + lgs.length*(BAR_W+GAP) + PAD_RIGHT;\n" +
+            "  let svg = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"'+svgW+'\" height=\"'+svgH+'\">';\n" +
+            "  svg += '<rect width=\"'+svgW+'\" height=\"'+svgH+'\" fill=\"#ffffff\"/>';\n" +
+            "  // Title\n" +
+            "  const title = chrFilter&&chrFilter!=='all' ? 'Mapa Genético — chr'+chrFilter : 'Mapa Genético Completo';\n" +
+            "  svg += '<text x=\"'+(svgW/2)+'\" y=\"22\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"14\" font-weight=\"bold\" fill=\"#1a6b9a\">'+title+'</text>';\n" +
+            "  // cM axis labels\n" +
+            "  const cmStep = maxCmAll>200?50:maxCmAll>100?25:10;\n" +
+            "  for(let cm=0;cm<=maxCmAll;cm+=cmStep){\n" +
+            "    const y=PAD_TOP+cm*scale;\n" +
+            "    svg+='<line x1=\"'+PAD_LEFT+'\" y1=\"'+y+'\" x2=\"'+(PAD_LEFT+lgs.length*(BAR_W+GAP))+'\" y2=\"'+y+'\" stroke=\"#e0eaf5\" stroke-width=\"1\" stroke-dasharray=\"3,3\"/>';\n" +
+            "    svg+='<text x=\"'+(PAD_LEFT-4)+'\" y=\"'+(y+4)+'\" text-anchor=\"end\" font-family=\"Arial\" font-size=\"9\" fill=\"#95a5a6\">'+cm+'</text>';\n" +
             "  }\n" +
+            "  // Draw LGs\n" +
+            "  lgs.forEach((stat,idx)=>{\n" +
+            "    const x = PAD_LEFT + idx*(BAR_W+GAP);\n" +
+            "    const barH = stat.length*scale;\n" +
+            "    const barColor = chrColor(stat.dominant)+'33'; // 20% opacity\n" +
+            "    const borderColor = chrColor(stat.dominant);\n" +
+            "    // Bar background\n" +
+            "    svg+='<rect x=\"'+x+'\" y=\"'+PAD_TOP+'\" width=\"'+BAR_W+'\" height=\"'+barH+'\" fill=\"'+barColor+'\" stroke=\"'+borderColor+'\" stroke-width=\"1\" rx=\"3\"/>';\n" +
+            "    // LG label\n" +
+            "    svg+='<text x=\"'+(x+BAR_W/2)+'\" y=\"'+(PAD_TOP-8)+'\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"8\" font-weight=\"bold\" fill=\"#1a6b9a\">'+stat.lg+'</text>';\n" +
+            "    // Chr badge\n" +
+            "    svg+='<text x=\"'+(x+BAR_W/2)+'\" y=\"'+(PAD_TOP-18)+'\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"7\" fill=\"'+borderColor+'\">c'+stat.dominant+'</text>';\n" +
+            "    // Length\n" +
+            "    svg+='<text x=\"'+(x+BAR_W/2)+'\" y=\"'+(PAD_TOP+barH+12)+'\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"8\" fill=\"#95a5a6\">'+stat.length.toFixed(0)+'cM</text>';\n" +
+            "    // Markers\n" +
+            "    (byLg[stat.lg]||[]).forEach(m=>{\n" +
+            "      const my = PAD_TOP + (stat.length>0?(m.cm/stat.length)*barH:0);\n" +
+            "      svg+='<rect x=\"'+(x-1)+'\" y=\"'+(my-1)+'\" width=\"'+(BAR_W+2)+'\" height=\"3\" fill=\"'+chrColor(m.chr)+'\" rx=\"1\"/>';\n" +
+            "    });\n" +
+            "    // Gene pins\n" +
+            "    const geneList = GENES.filter(g=>g.lg===stat.lg&&g.cm>=0&&g.cm<=stat.length);\n" +
+            "    geneList.forEach(g=>{\n" +
+            "      const gy = PAD_TOP + (stat.length>0?(g.cm/stat.length)*barH:0);\n" +
+            "      const gc = geneColor(g.categoria);\n" +
+            "      svg+='<rect x=\"'+(x-3)+'\" y=\"'+(gy-2)+'\" width=\"'+(BAR_W+6)+'\" height=\"4\" fill=\"'+gc+'\" rx=\"2\"/>';\n" +
+            "      if(showNames){\n" +
+            "        const name=g.id.replace(/\\.\\d+$/,'');\n" +
+            "        svg+='<text x=\"'+(x+BAR_W+4)+'\" y=\"'+(gy+3)+'\" font-family=\"Arial\" font-size=\"8\" font-weight=\"bold\" fill=\"'+gc+'\">'+name+'</text>';\n" +
+            "      }\n" +
+            "    });\n" +
+            "  });\n" +
+            "  // Legend\n" +
+            "  const lex=svgW-PAD_RIGHT+8, ley=PAD_TOP;\n" +
+            "  svg+='<text x=\"'+lex+'\" y=\"'+ley+'\" font-family=\"Arial\" font-size=\"9\" font-weight=\"bold\" fill=\"#2c3e50\">Marcadores:</text>';\n" +
+            "  svg+='<rect x=\"'+lex+'\" y=\"'+(ley+6)+'\" width=\"14\" height=\"3\" fill=\"#7eb8f7\"/>'\n" +
+            "    +'<text x=\"'+(lex+18)+'\" y=\"'+(ley+10)+'\" font-family=\"Arial\" font-size=\"8\" fill=\"#5d6d7e\">SNP</text>';\n" +
+            "  if(GENES&&GENES.length>0){\n" +
+            "    svg+='<text x=\"'+lex+'\" y=\"'+(ley+26)+'\" font-family=\"Arial\" font-size=\"9\" font-weight=\"bold\" fill=\"#2c3e50\">Genes Ka/Ks:</text>';\n" +
+            "    [['#e74c3c','Positiva'],['#f7c948','Neutral'],['#58d68d','Purificadora']].forEach(([c,l],i)=>{\n" +
+            "      svg+='<rect x=\"'+lex+'\" y=\"'+(ley+32+i*14)+'\" width=\"14\" height=\"4\" fill=\"'+c+'\" rx=\"2\"/>'\n" +
+            "        +'<text x=\"'+(lex+18)+'\" y=\"'+(ley+37+i*14)+'\" font-family=\"Arial\" font-size=\"8\" fill=\"#5d6d7e\">'+l+'</text>';\n" +
+            "    });\n" +
+            "  }\n" +
+            "  svg += '</svg>';\n" +
+            "  return {svg, svgW, svgH};\n" +
             "}\n\n" +
-            "function downloadPng(canvas, filename){\n" +
-            "  const a = document.createElement('a');\n" +
-            "  a.href = canvas.toDataURL('image/png');\n" +
-            "  a.download = filename;\n" +
-            "  a.click();\n" +
+            "function svgToPng(svgStr, svgW, svgH, scale, filename){\n" +
+            "  const blob = new Blob([svgStr],{type:'image/svg+xml'});\n" +
+            "  const url  = URL.createObjectURL(blob);\n" +
+            "  const img  = new Image();\n" +
+            "  img.onload = ()=>{\n" +
+            "    const c = document.createElement('canvas');\n" +
+            "    c.width  = svgW * scale;\n" +
+            "    c.height = svgH * scale;\n" +
+            "    const ctx = c.getContext('2d');\n" +
+            "    ctx.fillStyle = '#ffffff';\n" +
+            "    ctx.fillRect(0,0,c.width,c.height);\n" +
+            "    ctx.drawImage(img, 0, 0, c.width, c.height);\n" +
+            "    const a = document.createElement('a');\n" +
+            "    a.href = c.toDataURL('image/png');\n" +
+            "    a.download = filename;\n" +
+            "    a.click();\n" +
+            "    URL.revokeObjectURL(url);\n" +
+            "  };\n" +
+            "  img.src = url;\n" +
+            "}\n\n" +
+            "function exportMapPng(byChr){\n" +
+            "  const scale     = parseInt(document.getElementById('pngScale').value)||2;\n" +
+            "  const chrFilter = document.getElementById('chrFilter').value;\n" +
+            "  const btn       = event.target;\n" +
+            "  btn.disabled    = true;\n" +
+            "  if(!byChr){\n" +
+            "    const result = buildMapSvg(chrFilter);\n" +
+            "    if(!result){btn.disabled=false;return;}\n" +
+            "    const suffix = chrFilter==='all'?'completo':'chr'+chrFilter;\n" +
+            "    svgToPng(result.svg, result.svgW, result.svgH, scale, 'mapa_genetico_'+suffix+'.png');\n" +
+            "    setTimeout(()=>{btn.disabled=false;},500);\n" +
+            "  } else {\n" +
+            "    const chroms = CHROMS;\n" +
+            "    let i=0;\n" +
+            "    const orig = btn.textContent;\n" +
+            "    function next(){\n" +
+            "      if(i>=chroms.length){btn.disabled=false;btn.textContent=orig;return;}\n" +
+            "      const chr=chroms[i++];\n" +
+            "      btn.textContent='⏳ chr'+chr+' ('+i+'/'+chroms.length+')';\n" +
+            "      const result=buildMapSvg(chr);\n" +
+            "      if(result) svgToPng(result.svg,result.svgW,result.svgH,scale,'mapa_genetico_chr'+chr+'.png');\n" +
+            "      setTimeout(next, 600);\n" +
+            "    }\n" +
+            "    next();\n" +
+            "  }\n" +
             "}\n\n" +
 
             "// Init\n" +
