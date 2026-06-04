@@ -169,6 +169,9 @@ public class GeneticMapDashboardGenerator {
             " <span id='cmScaleVal'>5</span> px/cM</label>\n" +
             "    <label style='margin-left:16px'><input type='checkbox' id='showChrLabel' checked onchange='renderLgMap()'>" +
             " Mostrar cromosoma dominante</label>\n" +
+            (genes.isEmpty() ? "" :
+            "    <label style='margin-left:16px'><input type='checkbox' id='showGeneNames' checked onchange='renderLgMap()'>" +
+            " Mostrar nombres de genes</label>\n") +
             "  </div>\n" +
             "  <div id='lg-canvas-wrap'><div id='lg-canvas'></div></div>\n" +
             "</div>\n" +
@@ -503,21 +506,31 @@ public class GeneticMapDashboardGenerator {
             "  return '#c0c0c0';\n" +
             "}\n\n" +
 
-            "// ── Overlay genes on LG bars (called inside renderLgMap) ────\n" +
-            "function overlayGenes(wrap, lg, maxCm, scale){\n" +
+            "// ── Overlay genes on LG bars ─────────────────────────────────\n" +
+            "function overlayGenes(wrap, lg, maxCm, scale, showNames){\n" +
             "  if(!GENES||GENES.length===0) return;\n" +
             "  GENES.filter(g=>g.lg===lg&&g.cm>=0&&g.cm<=maxCm).forEach(g=>{\n" +
             "    const pct=maxCm>0?(g.cm/maxCm)*100:0;\n" +
+            "    const color=geneColor(g.categoria);\n" +
             "    const pin=document.createElement('div');\n" +
-            "    pin.style.cssText='position:absolute;left:-4px;right:-4px;height:5px;border-radius:2px;z-index:5;cursor:pointer;';\n" +
+            "    pin.style.cssText='position:absolute;left:-2px;right:-2px;height:4px;border-radius:2px;z-index:5;cursor:pointer;';\n" +
             "    pin.style.top=pct+'%';\n" +
-            "    pin.style.background=geneColor(g.categoria);\n" +
-            "    pin.style.boxShadow='0 0 4px '+geneColor(g.categoria);\n" +
+            "    pin.style.background=color;\n" +
+            "    pin.style.boxShadow='0 0 5px '+color;\n" +
+            "    if(showNames){\n" +
+            "      const lbl=document.createElement('div');\n" +
+            "      lbl.style.cssText='position:absolute;left:22px;white-space:nowrap;font-size:9px;font-weight:600;pointer-events:none;z-index:6;transform:translateY(-50%);';\n" +
+            "      lbl.style.top=pct+'%';\n" +
+            "      lbl.style.color=color;\n" +
+            "      lbl.textContent=g.id.replace(/\\.\\d+$/,'');\n" +
+            "      wrap.parentElement.style.position='relative';\n" +
+            "      wrap.parentElement.appendChild(lbl);\n" +
+            "    }\n" +
             "    pin.addEventListener('mousemove',e=>{\n" +
-            "      tip.innerHTML='<b style=\"color:'+geneColor(g.categoria)+'\">'+ g.id+'</b><br>'\n" +
+            "      tip.innerHTML='<b style=\"color:'+color+'\">'+g.id+'</b><br>'\n" +
             "        +g.lg+' · '+g.cm.toFixed(2)+' cM<br>'\n" +
             "        +'<small>'+g.funcion+'</small><br>'\n" +
-            "        +'<span style=\"color:'+geneColor(g.categoria)+'\">'+g.categoria+'</span>';\n" +
+            "        +'<span style=\"color:'+color+'\">'+g.categoria+'</span>';\n" +
             "      tip.style.display='block';\n" +
             "      tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px';\n" +
             "    });\n" +
@@ -531,7 +544,7 @@ public class GeneticMapDashboardGenerator {
             "renderLgMap=function(){\n" +
             "  _origRenderLgMap();\n" +
             "  if(!GENES||GENES.length===0) return;\n" +
-            "  // Re-attach gene overlays after map renders\n" +
+            "  const showNames=document.getElementById('showGeneNames')&&document.getElementById('showGeneNames').checked;\n" +
             "  document.querySelectorAll('.lg-col').forEach(col=>{\n" +
             "    const lbl=col.querySelector('.lg-label');\n" +
             "    if(!lbl) return;\n" +
@@ -540,7 +553,7 @@ public class GeneticMapDashboardGenerator {
             "    if(!wrap) return;\n" +
             "    const stat=LG_STATS.find(s=>s.lg===lg);\n" +
             "    if(!stat) return;\n" +
-            "    overlayGenes(wrap,lg,stat.length,parseInt(document.getElementById('cmScale').value)||5);\n" +
+            "    overlayGenes(wrap,lg,stat.length,parseInt(document.getElementById('cmScale').value)||5,showNames);\n" +
             "  });\n" +
             "};\n\n" +
 
