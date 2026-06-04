@@ -24,17 +24,25 @@ def normalize_chr(name: str) -> str:
     return n
 
 
-def load_gene_ids(genes_file: str) -> list:
-    """Load gene IDs from a file (one per line, ignores # comments)."""
+def load_gene_ids(genes_file: str) -> tuple:
+    """
+    Load gene IDs from a file (one per line, ignores # comments).
+    Supports optional second TSV column for category (e.g. Positiva/Neutral/Purificadora).
+    Returns: (list of ids, dict id->categoria)
+    """
     ids = []
+    categories = {}
     with open(genes_file) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            # Support TSV: take first column
-            ids.append(line.split("\t")[0])
-    return ids
+            parts = line.split("\t")
+            gene_id = parts[0]
+            ids.append(gene_id)
+            if len(parts) >= 2:
+                categories[gene_id] = parts[1].strip()
+    return ids, categories
 
 
 def load_gff3_coords(gff_path: str, gene_ids: list) -> dict:
@@ -150,8 +158,8 @@ def interpolate_cm(gene_pos: int, markers: list):
 
 def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
     print(f"[Phase 2] Loading gene list: {genes_file}")
-    gene_ids = load_gene_ids(genes_file)
-    print(f"[Phase 2] {len(gene_ids)} gene IDs loaded")
+    gene_ids, categories = load_gene_ids(genes_file)
+    print(f"[Phase 2] {len(gene_ids)} gene IDs loaded ({len(categories)} with category)")
 
     coords = load_gff3_coords(gff_path, gene_ids)
 
@@ -166,6 +174,7 @@ def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
     positioned  = 0
 
     for gene_id in gene_ids:
+        cat = categories.get(gene_id, "")
         if gene_id not in coords:
             no_coords += 1
             results.append({
@@ -173,7 +182,8 @@ def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
                 "Gene_Mid_Phys": "N/A", "LG_Asignado": "N/A", "Pos_cM": "N/A",
                 "Marcador_Izq": "N/A", "Pos_Izq_bp": "N/A", "Pos_Izq_cM": "N/A",
                 "Marcador_Der": "N/A", "Pos_Der_bp": "N/A", "Pos_Der_cM": "N/A",
-                "Dist_Marcador_bp": "N/A", "Funcion": "N/A", "Estado": "Sin coordenadas GFF3"
+                "Dist_Marcador_bp": "N/A", "Funcion": "N/A",
+                "Categoria": cat, "Estado": "Sin coordenadas GFF3"
             })
             continue
 
@@ -212,6 +222,7 @@ def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
             "Pos_Der_cM":    right[1] if right else "N/A",
             "Dist_Marcador_bp": dist if dist is not None else "N/A",
             "Funcion":        note,
+            "Categoria":      cat,
             "Estado":         "Interpolado"  if (left and right) else
                               "Extrapolado"
         })
@@ -235,7 +246,7 @@ def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
     fields = ["Gene","Chr_Phys","Start","End","Gene_Mid_Phys","LG_Asignado",
               "Pos_cM","Marcador_Izq","Pos_Izq_bp","Pos_Izq_cM",
               "Marcador_Der","Pos_Der_bp","Pos_Der_cM","Dist_Marcador_bp",
-              "Funcion","Estado"]
+              "Funcion","Categoria","Estado"]
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
         writer.writeheader()

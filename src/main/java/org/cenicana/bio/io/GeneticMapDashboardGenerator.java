@@ -68,8 +68,8 @@ public class GeneticMapDashboardGenerator {
                     String chr      = c[1];
                     String lg       = c.length > 5 ? c[5] : "N/A";
                     double cm       = c.length > 6 && !c[6].equals("N/A") ? Double.parseDouble(c[6]) : -1;
-                    String funcion  = c.length > 14 ? c[14] : "";
-                    String categoria = c.length > 15 ? c[15] : "";
+                    String funcion   = c.length > 14 ? c[14] : "";
+                    String categoria = c.length > 15 ? c[15] : ""; // col 15 = Categoria
                     if (!lg.equals("N/A") && cm >= 0)
                         genes.add(new GeneEntry(id, lg, cm, chr, funcion, categoria));
                 } catch (NumberFormatException ignored) {}
