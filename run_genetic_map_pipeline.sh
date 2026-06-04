@@ -15,6 +15,11 @@ echo "============================================================"
 
 # ── Rutas ────────────────────────────────────────────────────────────────────
 VCF="benchmarks/vcfs/mapa_genetico/AllSamples_variants_geneticmap_pseudochromosomes_standarfilters_minInd_85_single_dosage.vcf"
+
+#VCF="benchmarks/vcfs/mapa_genetico/AllSamples_variants_geneticmap_contigs_standarfilters_single_doses.vcf"
+
+
+
 GFF="benchmarks/genomas/1940/CC-01-1940.gff3"
 GENES="data/genes_informe_kaks.txt"  # 32 genes del informe Ka/Ks CC 01-1940 vs R570
 PARENTS="CC_011940,CC_01746"          # parentales a excluir del mapa
