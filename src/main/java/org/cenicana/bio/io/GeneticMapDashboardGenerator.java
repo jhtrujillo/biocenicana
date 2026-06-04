@@ -328,7 +328,7 @@ public class GeneticMapDashboardGenerator {
             ".lg-label{font-size:10px;font-weight:600;color:#1a6b9a;margin-bottom:4px;white-space:nowrap;text-align:center}" +
             ".lg-chr-badge{font-size:9px;color:#7f8c8d;margin-bottom:3px;white-space:nowrap}" +
             ".lg-bar-wrap{position:relative;width:18px;border-radius:4px;background:#d5e8f5;border:1px solid #aed6f1}" +
-            ".lg-marker{position:absolute;left:-1px;right:-1px;height:3px;border-radius:1px;cursor:pointer;transition:opacity .15s}" +
+            ".lg-marker{position:absolute;left:-1px;right:-1px;height:2px;border-radius:1px;cursor:pointer;background:#a0b8d0;transition:opacity .15s}" +
             ".lg-marker:hover{opacity:1!important;outline:1px solid #0004;z-index:10}" +
             ".lg-len{font-size:9px;color:#95a5a6;margin-top:3px}" +
             ".tooltip{position:fixed;background:#fff;border:1px solid #aed6f1;border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;display:none;z-index:1000;max-width:270px;line-height:1.6;box-shadow:0 4px 12px #0002;color:#2c3e50}" +
@@ -408,7 +408,7 @@ public class GeneticMapDashboardGenerator {
             "      const pct=maxCm>0?(m.cm/maxCm)*100:0;\n" +
             "      const tick=document.createElement('div'); tick.className='lg-marker';\n" +
             "      tick.style.top=pct+'%';\n" +
-            "      tick.style.background=chrColor(m.chr);\n" +
+            "      tick.style.background='#7fa8c8';\n" +
             "      tick.style.opacity='0.85';\n" +
             "      tick.addEventListener('mousemove',e=>showTip(e,m,stat));\n" +
             "      tick.addEventListener('mouseleave',hideTip);\n" +
@@ -525,10 +525,10 @@ public class GeneticMapDashboardGenerator {
             "    const pct=maxCm>0?(g.cm/maxCm)*100:0;\n" +
             "    const color=geneColor(g.categoria);\n" +
             "    const pin=document.createElement('div');\n" +
-            "    pin.style.cssText='position:absolute;left:-2px;right:-2px;height:4px;border-radius:2px;z-index:5;cursor:pointer;';\n" +
-            "    pin.style.top=pct+'%';\n" +
+            "    pin.style.cssText='position:absolute;left:-4px;right:-4px;height:6px;border-radius:2px;z-index:6;cursor:pointer;border:1.5px solid #fff;';\n" +
+            "    pin.style.top='calc('+pct+'% - 2px)';\n" +
             "    pin.style.background=color;\n" +
-            "    pin.style.boxShadow='0 0 5px '+color;\n" +
+            "    pin.style.boxShadow='0 0 6px '+color+', 0 1px 3px #0003';\n" +
             "    if(showNames){\n" +
             "      const lbl=document.createElement('div');\n" +
             "      lbl.style.cssText='position:absolute;left:22px;white-space:nowrap;font-size:9px;font-weight:600;pointer-events:none;z-index:6;transform:translateY(-50%);';\n" +
@@ -672,14 +672,14 @@ public class GeneticMapDashboardGenerator {
             "    // Markers\n" +
             "    (byLg[stat.lg]||[]).forEach(m=>{\n" +
             "      const my = PAD_TOP + (stat.length>0?(m.cm/stat.length)*barH:0);\n" +
-            "      svg+='<rect x=\"'+(x-1)+'\" y=\"'+(my-1)+'\" width=\"'+(BAR_W+2)+'\" height=\"3\" fill=\"'+chrColor(m.chr)+'\" rx=\"1\"/>';\n" +
+            "      svg+='<rect x=\"'+x+'\" y=\"'+(my-1)+'\" width=\"'+BAR_W+'\" height=\"2\" fill=\"#7fa8c8\" rx=\"1\"/>';\n" +
             "    });\n" +
             "    // Gene pins\n" +
             "    const geneList = GENES.filter(g=>g.lg===stat.lg&&g.cm>=0&&g.cm<=stat.length);\n" +
             "    geneList.forEach(g=>{\n" +
             "      const gy = PAD_TOP + (stat.length>0?(g.cm/stat.length)*barH:0);\n" +
             "      const gc = geneColor(g.categoria);\n" +
-            "      svg+='<rect x=\"'+(x-3)+'\" y=\"'+(gy-2)+'\" width=\"'+(BAR_W+6)+'\" height=\"4\" fill=\"'+gc+'\" rx=\"2\"/>';\n" +
+            "      svg+='<rect x=\"'+(x-4)+'\" y=\"'+(gy-3)+'\" width=\"'+(BAR_W+8)+'\" height=\"6\" fill=\"'+gc+'\" stroke=\"white\" stroke-width=\"1.5\" rx=\"2\"/>';\n" +
             "      if(showNames){\n" +
             "        const name=g.id.replace(/\\.\\d+$/,'');\n" +
             "        svg+='<text x=\"'+(x+BAR_W+4)+'\" y=\"'+(gy+3)+'\" font-family=\"Arial\" font-size=\"8\" font-weight=\"bold\" fill=\"'+gc+'\">'+name+'</text>';\n" +
