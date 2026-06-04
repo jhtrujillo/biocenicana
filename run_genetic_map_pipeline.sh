@@ -16,6 +16,7 @@ echo "============================================================"
 # ── Rutas ────────────────────────────────────────────────────────────────────
 VCF="benchmarks/vcfs/mapa_genetico/AllSamples_variants_geneticmap_pseudochromosomes_standarfilters_minInd_85_single_dosage.vcf"
 GFF="benchmarks/genomas/1940/CC-01-1940.gff3"
+GENES="data/sugar_gene_ids.txt"   # lista de genes de sacarosa (uno por línea)
 OUT="genomica_comparativa/mapa_genetico"
 PYTHON=".venv/bin/python"
 
@@ -59,8 +60,9 @@ echo ""
 echo "[Paso 3/3] Ubicando genes de sacarosa en el mapa..."
 
 $PYTHON scripts/map_genes_to_map.py \
-  --map "$OUT/mapa_biparental.map" \
-  --gff "$GFF" \
+  --map   "$OUT/mapa_biparental.map" \
+  --gff   "$GFF" \
+  --genes "$GENES" \
   --output "$OUT/genes_en_mapa.tsv"
 
 echo ""

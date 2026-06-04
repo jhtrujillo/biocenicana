@@ -2,9 +2,14 @@
 """
 Phase 2: Position candidate genes on the genetic linkage map.
 
-For each candidate gene (known physical coordinates from GFF3), finds the
-nearest flanking markers in the genetic map and interpolates the cM position.
-Handles chromosome name normalization (chr01 ↔ 1).
+Reads gene IDs from a file, extracts physical coordinates from the GFF3,
+then finds the nearest flanking markers in the genetic map and interpolates
+the cM position.
+
+Handles:
+  - Gene-level IDs (CC00g352050) → looks up mRNA children in GFF3
+  - Transcript-level IDs (CC01t039050.1) → looks up directly in GFF3
+  - Chromosome name normalization (chr01 ↔ 1)
 """
 
 import argparse
@@ -13,45 +18,88 @@ import sys
 from collections import defaultdict
 
 
-# ── Candidate genes (physical coordinates from CC 01-1940 GFF3) ─────────────
-CANDIDATE_GENES = [
-    # Confirmed in both presentation and informe
-    ("CC01t039050.1", "chr01", 55618891, 55625629, "Sucrose synthase 2 (SuSy2)",          "Purificadora"),
-    ("CC01t042770.1", "chr01", 60506673, 60519537, "Sucrose synthase 4",                  "Presentacion"),
-    ("CC01t044570.1", "chr01", 62833534, 62834770, "Alkaline/neutral invertase",          "Purificadora"),
-    ("CC03t157420.1", "chr03", 24241458, 24246070, "Neutral/alkaline invertase, mitoc.",  "Presentacion"),
-    ("CC03t185480.1", "chr03", 62738478, 62743743, "Sucrose-phosphate synthase (SPS)",    "Neutral"),
-    ("CC03t185500.1", "chr03", 62761410, 62766866, "putative SPS",                        "Presentacion"),
-    ("CC04t207510.1", "chr04", 25129201, 25134796, "Neutral/alkaline invertase 3, clp",   "Purificadora"),
-    ("CC04t208410.1", "chr04", 26667005, 26670298, "Cytosolic invertase 1",               "Purificadora"),
-    ("CC04t230890.1", "chr04", 55774345, 55777956, "Sucrose synthase (SuSy)",             "Neutral"),
-    ("CC04t196460.1", "chr04",  6117451,  6122149, "putative Alkaline/neutral invertase", "Presentacion"),
-    ("CC04t199390.1", "chr04", 10079686, 10086951, "Sucrose-phosphate synthase",          "Presentacion"),
-    ("CC04t217770.1", "chr04", 39342372, 39345580, "Cytosolic invertase 1",               "Presentacion"),
-    ("CC05t236990.1", "chr05",  8919861,  8922720, "Alkaline/neutral invertase",          "Purificadora"),
-    ("CC09t347620.1", "chr09", 31997030, 32014463, "putative SPS4",                       "Neutral"),
-    ("CC10t084020.1", "chr10", 27527598, 27532806, "Sucrose-phosphate synthase",          "Neutral"),
-    ("CC10t092720.1", "chr10", 40579110, 40588278, "Sucrose synthase",                    "Presentacion"),
-    ("CC10t092800.1", "chr10", 40651907, 40661068, "Sucrose synthase (SuSy)",             "Positiva"),
-    # New from Ka/Ks informe (not in presentation)
-    ("CC06t277320.1", "chr06",      None,     None, "Beta-fructofuranosidase (Invertasa)", "Positiva Ka/Ks=29.2"),
-    ("CC03t152280.1", "chr03",      None,     None, "Sugar transporter ERD6-like 5",       "Positiva Ka/Ks=25.9"),
-    ("CC03t152310.1", "chr03",      None,     None, "Sugar transporter ERD6-like 5",       "Positiva Ka/Ks=19.6"),
-    ("CC04t193040.1", "chr04",      None,     None, "Alkaline/neutral invertase",          "Positiva Ka/Ks=20.6"),
-]
-
-
 def normalize_chr(name: str) -> str:
-    """Normalize chromosome names: 'chr01' -> '1', 'chr1' -> '1', '1' -> '1'."""
+    """Normalize chromosome names: 'chr01' -> '1', '1' -> '1'."""
     n = name.lower().lstrip("chr").lstrip("0") or "0"
     return n
 
 
-def load_map(map_path: str):
+def load_gene_ids(genes_file: str) -> list:
+    """Load gene IDs from a file (one per line, ignores # comments)."""
+    ids = []
+    with open(genes_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            # Support TSV: take first column
+            ids.append(line.split("\t")[0])
+    return ids
+
+
+def load_gff3_coords(gff_path: str, gene_ids: list) -> dict:
     """
-    Returns:
-        markers_by_chr: dict[chr_normalized -> sorted list of (pos_phys, cM, LG, marker_id)]
+    Extract physical coordinates from GFF3 for a list of gene IDs.
+    Supports both gene-level (CCxxgxxxxxx) and transcript-level (CCxxtxxxxxx.x) IDs.
+    Returns dict: gene_id -> (chr, start, end, strand, note)
     """
+    target_genes  = set(gene_ids)
+    # Also build transcript → gene mapping for gene-level IDs
+    gene_to_mrna  = defaultdict(list)   # gene_id -> [transcript_id, ...]
+    coords        = {}                  # gene_id or transcript_id -> (chr, start, end, strand, note)
+
+    print(f"[Phase 2] Reading GFF3: {gff_path}")
+    with open(gff_path) as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            cols = line.strip().split("\t")
+            if len(cols) < 9:
+                continue
+
+            feat_type = cols[2]
+            if feat_type not in ("gene", "mRNA"):
+                continue
+
+            chr_   = cols[0]
+            start  = int(cols[3])
+            end    = int(cols[4])
+            strand = cols[6]
+            attrs  = {a.split("=")[0]: a.split("=")[1]
+                      for a in cols[8].split(";") if "=" in a}
+
+            feat_id = attrs.get("ID", "")
+            parent  = attrs.get("Parent", "")
+            note    = attrs.get("Note", "")
+
+            if feat_type == "gene" and feat_id in target_genes:
+                coords[feat_id] = (chr_, start, end, strand, note)
+
+            if feat_type == "mRNA":
+                # Store transcript coords
+                if feat_id in target_genes:
+                    coords[feat_id] = (chr_, start, end, strand, note)
+                # Link transcript to parent gene
+                if parent in target_genes:
+                    gene_to_mrna[parent].append(feat_id)
+                    # Use transcript coords for the gene if not already set
+                    if parent not in coords:
+                        coords[parent] = (chr_, start, end, strand, note)
+
+    # For gene-level IDs with no direct match, try first transcript
+    for gene_id in target_genes:
+        if gene_id not in coords and gene_id in gene_to_mrna:
+            first_t = gene_to_mrna[gene_id][0]
+            if first_t in coords:
+                coords[gene_id] = coords[first_t]
+
+    found = sum(1 for g in target_genes if g in coords)
+    print(f"[Phase 2] {found}/{len(target_genes)} genes found in GFF3")
+    return coords
+
+
+def load_map(map_path: str) -> dict:
+    """Returns markers_by_chr: dict[chr_normalized -> sorted list of (pos, cM, LG, marker_id)]"""
     markers_by_chr = defaultdict(list)
     with open(map_path) as f:
         reader = csv.DictReader(f, delimiter="\t")
@@ -63,26 +111,16 @@ def load_map(map_path: str):
                 continue
             chr_norm = normalize_chr(row["Chr_Phys"])
             markers_by_chr[chr_norm].append((pos, cm, row["LinkageGroup"], row["Marker"]))
-
-    # Sort each chromosome list by physical position
     for chr_norm in markers_by_chr:
         markers_by_chr[chr_norm].sort(key=lambda x: x[0])
-
     return markers_by_chr
 
 
 def interpolate_cm(gene_pos: int, markers: list):
-    """
-    Given a sorted list of (pos_phys, cM, LG, marker_id) on the same chromosome,
-    find the two flanking markers and interpolate the cM position.
-
-    Returns:
-        (cm_interp, lg, left_marker, right_marker, dist_nearest_bp)
-    """
+    """Find flanking markers and interpolate cM position."""
     if not markers:
         return None, None, None, None, None
 
-    # Find flanking markers
     left = None
     right = None
     for m in markers:
@@ -95,149 +133,123 @@ def interpolate_cm(gene_pos: int, markers: list):
     if left is None and right is None:
         return None, None, None, None, None
 
-    # Both flanks available → linear interpolation
     if left is not None and right is not None:
         span_bp = right[0] - left[0]
         span_cm = right[1] - left[1]
-        if span_bp > 0:
-            frac = (gene_pos - left[0]) / span_bp
-            cm_interp = left[1] + frac * span_cm
-        else:
-            cm_interp = left[1]
-        dist_nearest = min(abs(gene_pos - left[0]), abs(gene_pos - right[0]))
-        # Use LG of the nearest marker
+        frac = (gene_pos - left[0]) / span_bp if span_bp > 0 else 0
+        cm_interp = left[1] + frac * span_cm
+        dist = min(abs(gene_pos - left[0]), abs(gene_pos - right[0]))
         lg = left[2] if abs(gene_pos - left[0]) <= abs(gene_pos - right[0]) else right[2]
-        return round(cm_interp, 2), lg, left, right, dist_nearest
+        return round(cm_interp, 2), lg, left, right, dist
 
-    # Only left flank (gene is beyond last marker)
     if left is not None:
-        dist = gene_pos - left[0]
-        return round(left[1], 2), left[2], left, None, dist
+        return round(left[1], 2), left[2], left, None, gene_pos - left[0]
 
-    # Only right flank (gene is before first marker)
-    dist = right[0] - gene_pos
-    return round(right[1], 2), right[2], None, right, dist
+    return round(right[1], 2), right[2], None, right, right[0] - gene_pos
 
 
-def run(map_path: str, output_path: str, gff_path: str = None):
-    print("[Phase 2] Loading genetic map...")
+def run(map_path: str, gff_path: str, genes_file: str, output_path: str):
+    print(f"[Phase 2] Loading gene list: {genes_file}")
+    gene_ids = load_gene_ids(genes_file)
+    print(f"[Phase 2] {len(gene_ids)} gene IDs loaded")
+
+    coords = load_gff3_coords(gff_path, gene_ids)
+
+    print(f"[Phase 2] Loading genetic map: {map_path}")
     markers_by_chr = load_map(map_path)
     total_markers = sum(len(v) for v in markers_by_chr.values())
-    print(f"[Phase 2] {total_markers} markers across {len(markers_by_chr)} chromosomes loaded.")
-
-    # Optionally update gene positions from GFF3
-    gff_positions = {}
-    if gff_path:
-        print(f"[Phase 2] Reading gene positions from GFF3: {gff_path}")
-        try:
-            with open(gff_path) as f:
-                for line in f:
-                    if line.startswith("#") or "\tmRNA\t" not in line:
-                        continue
-                    cols = line.strip().split("\t")
-                    if len(cols) < 9:
-                        continue
-                    attrs = {a.split("=")[0]: a.split("=")[1]
-                             for a in cols[8].split(";") if "=" in a}
-                    gene_id = attrs.get("ID", "")
-                    if gene_id:
-                        gff_positions[gene_id] = (cols[0], int(cols[3]), int(cols[4]))
-        except FileNotFoundError:
-            print(f"[Phase 2] GFF3 not found, using built-in coordinates.")
+    print(f"[Phase 2] {total_markers} markers across {len(markers_by_chr)} chromosomes")
 
     results = []
-    for gene_id, chr_name, start, end, func, category in CANDIDATE_GENES:
-        # Override positions if GFF3 provided
-        if gene_id in gff_positions:
-            chr_name, start, end = gff_positions[gene_id]
+    no_coords   = 0
+    no_markers  = 0
+    positioned  = 0
 
-        if start is None:
+    for gene_id in gene_ids:
+        if gene_id not in coords:
+            no_coords += 1
             results.append({
-                "Gene": gene_id, "Funcion": func, "Categoria_KaKs": category,
-                "Chr_Phys": chr_name, "Start_Phys": "N/A", "End_Phys": "N/A",
+                "Gene": gene_id, "Chr_Phys": "N/A", "Start": "N/A", "End": "N/A",
                 "Gene_Mid_Phys": "N/A", "LG_Asignado": "N/A", "Pos_cM": "N/A",
                 "Marcador_Izq": "N/A", "Pos_Izq_bp": "N/A", "Pos_Izq_cM": "N/A",
                 "Marcador_Der": "N/A", "Pos_Der_bp": "N/A", "Pos_Der_cM": "N/A",
-                "Distancia_Marcador_Cercano_bp": "N/A", "Estado": "Sin coordenadas físicas"
+                "Dist_Marcador_bp": "N/A", "Funcion": "N/A", "Estado": "Sin coordenadas GFF3"
             })
             continue
 
-        gene_mid = (start + end) // 2
+        chr_name, start, end, strand, note = coords[gene_id]
+        gene_mid  = (start + end) // 2
         chr_norm  = normalize_chr(chr_name)
         chr_markers = markers_by_chr.get(chr_norm, [])
 
         if not chr_markers:
+            no_markers += 1
             results.append({
-                "Gene": gene_id, "Funcion": func, "Categoria_KaKs": category,
-                "Chr_Phys": chr_name, "Start_Phys": start, "End_Phys": end,
+                "Gene": gene_id, "Chr_Phys": chr_name, "Start": start, "End": end,
                 "Gene_Mid_Phys": gene_mid, "LG_Asignado": "N/A", "Pos_cM": "N/A",
                 "Marcador_Izq": "N/A", "Pos_Izq_bp": "N/A", "Pos_Izq_cM": "N/A",
                 "Marcador_Der": "N/A", "Pos_Der_bp": "N/A", "Pos_Der_cM": "N/A",
-                "Distancia_Marcador_Cercano_bp": "N/A",
-                "Estado": f"Sin marcadores en {chr_name} (chr_norm={chr_norm})"
+                "Dist_Marcador_bp": "N/A", "Funcion": note, "Estado": "Sin marcadores en chr"
             })
             continue
 
-        cm_interp, lg, left, right, dist = interpolate_cm(gene_mid, chr_markers)
+        cm, lg, left, right, dist = interpolate_cm(gene_mid, chr_markers)
+        positioned += 1
 
         results.append({
-            "Gene":                          gene_id,
-            "Funcion":                       func,
-            "Categoria_KaKs":               category,
-            "Chr_Phys":                     chr_name,
-            "Start_Phys":                   start,
-            "End_Phys":                     end,
-            "Gene_Mid_Phys":               gene_mid,
-            "LG_Asignado":                  lg if lg else "N/A",
-            "Pos_cM":                       cm_interp if cm_interp is not None else "N/A",
-            "Marcador_Izq":                 left[3] if left else "N/A",
-            "Pos_Izq_bp":                   left[0] if left else "N/A",
-            "Pos_Izq_cM":                   left[1] if left else "N/A",
-            "Marcador_Der":                 right[3] if right else "N/A",
-            "Pos_Der_bp":                   right[0] if right else "N/A",
-            "Pos_Der_cM":                   right[1] if right else "N/A",
-            "Distancia_Marcador_Cercano_bp": dist if dist is not None else "N/A",
-            "Estado":                       "Interpolado" if (left and right) else
-                                            ("Extrapolado_izq" if left else "Extrapolado_der")
+            "Gene":           gene_id,
+            "Chr_Phys":       chr_name,
+            "Start":          start,
+            "End":            end,
+            "Gene_Mid_Phys": gene_mid,
+            "LG_Asignado":   lg if lg else "N/A",
+            "Pos_cM":         cm if cm is not None else "N/A",
+            "Marcador_Izq":  left[3]  if left  else "N/A",
+            "Pos_Izq_bp":    left[0]  if left  else "N/A",
+            "Pos_Izq_cM":    left[1]  if left  else "N/A",
+            "Marcador_Der":  right[3] if right else "N/A",
+            "Pos_Der_bp":    right[0] if right else "N/A",
+            "Pos_Der_cM":    right[1] if right else "N/A",
+            "Dist_Marcador_bp": dist if dist is not None else "N/A",
+            "Funcion":        note,
+            "Estado":         "Interpolado"  if (left and right) else
+                              "Extrapolado"
         })
 
     # Print summary
-    print("\n" + "="*90)
-    print(f"{'Gen':<20} {'Chr':<7} {'Mid(bp)':<12} {'LG':>6} {'cM':>8} {'Dist(bp)':>10}  Función")
-    print("="*90)
+    print(f"\n[Phase 2] Posicionados: {positioned}/{len(gene_ids)} genes")
+    print(f"[Phase 2] Sin coordenadas GFF3: {no_coords}")
+    print(f"[Phase 2] Sin marcadores en cromosoma: {no_markers}")
+
+    # LG distribution
+    lg_counts = defaultdict(int)
     for r in results:
-        print(f"{r['Gene']:<20} {str(r['Chr_Phys']):<7} {str(r['Gene_Mid_Phys']):<12} "
-              f"{str(r['LG_Asignado']):>6} {str(r['Pos_cM']):>8} "
-              f"{str(r['Distancia_Marcador_Cercano_bp']):>10}  {r['Funcion'][:40]}")
-    print("="*90)
+        if r["LG_Asignado"] != "N/A":
+            lg_counts[r["LG_Asignado"]] += 1
+    if lg_counts:
+        print(f"\n[Phase 2] Distribución por LG (top 15):")
+        for lg, n in sorted(lg_counts.items(), key=lambda x: -x[1])[:15]:
+            print(f"  {lg}: {n} genes")
 
     # Write TSV
-    fieldnames = ["Gene","Funcion","Categoria_KaKs","Chr_Phys","Start_Phys","End_Phys",
-                  "Gene_Mid_Phys","LG_Asignado","Pos_cM","Marcador_Izq","Pos_Izq_bp",
-                  "Pos_Izq_cM","Marcador_Der","Pos_Der_bp","Pos_Der_cM",
-                  "Distancia_Marcador_Cercano_bp","Estado"]
+    fields = ["Gene","Chr_Phys","Start","End","Gene_Mid_Phys","LG_Asignado",
+              "Pos_cM","Marcador_Izq","Pos_Izq_bp","Pos_Izq_cM",
+              "Marcador_Der","Pos_Der_bp","Pos_Der_cM","Dist_Marcador_bp",
+              "Funcion","Estado"]
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+        writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
         writer.writeheader()
         writer.writerows(results)
-
     print(f"\n[Phase 2] Results written to: {output_path}")
-
-    # Stats
-    positioned = sum(1 for r in results if r["LG_Asignado"] != "N/A")
-    no_markers = sum(1 for r in results if "Sin marcadores" in str(r["Estado"]))
-    print(f"[Phase 2] {positioned}/{len(results)} genes positioned on the map.")
-    if no_markers:
-        print(f"[Phase 2] {no_markers} genes on chromosomes with no map markers.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Position candidate genes on the genetic linkage map (Phase 2)."
+        description="Position genes from a list onto the genetic linkage map."
     )
     parser.add_argument("--map",    required=True, help="Genetic map .map file")
+    parser.add_argument("--gff",    required=True, help="GFF3 file with gene coordinates")
+    parser.add_argument("--genes",  required=True, help="File with gene IDs (one per line)")
     parser.add_argument("--output", required=True, help="Output TSV file")
-    parser.add_argument("--gff",    default=None,  help="GFF3 to override gene coordinates (optional)")
     args = parser.parse_args()
-
-    run(args.map, args.output, args.gff)
+    run(args.map, args.gff, args.genes, args.output)
