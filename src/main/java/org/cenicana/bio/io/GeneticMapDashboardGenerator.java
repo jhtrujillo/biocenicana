@@ -129,6 +129,7 @@ public class GeneticMapDashboardGenerator {
             "<meta charset='UTF-8'>\n<meta name='viewport' content='width=device-width,initial-scale=1'>\n" +
             "<title>BioJava — Mapa Genético</title>\n" +
             "<script src='https://cdn.plot.ly/plotly-2.27.0.min.js'></script>\n" +
+            "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'></script>\n" +
             "<style>" + buildCss() + "</style>\n</head>\n<body>\n" +
             "<div class='header'>\n" +
             "  <div class='header-title'>🧬 Mapa Genético Interactivo</div>\n" +
@@ -172,6 +173,18 @@ public class GeneticMapDashboardGenerator {
             (genes.isEmpty() ? "" :
             "    <label style='margin-left:16px'><input type='checkbox' id='showGeneNames' checked onchange='renderLgMap()'>" +
             " Mostrar nombres de genes</label>\n") +
+            "    <div style='margin-left:auto;display:flex;gap:8px;align-items:center'>\n" +
+            "      <label style='font-size:12px'>Resolución:\n" +
+            "        <select id='pngScale' style='margin-left:4px;padding:3px 6px;border:1px solid #aed6f1;border-radius:4px;font-size:12px'>\n" +
+            "          <option value='1'>1x (pantalla)</option>\n" +
+            "          <option value='2' selected>2x (HD)</option>\n" +
+            "          <option value='3'>3x (Full HD)</option>\n" +
+            "          <option value='4'>4x (Ultra HD)</option>\n" +
+            "        </select>\n" +
+            "      </label>\n" +
+            "      <button onclick='exportMapPng(false)' style='padding:6px 14px;background:#1a6b9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px'>⬇ PNG mapa completo</button>\n" +
+            "      <button onclick='exportMapPng(true)'  style='padding:6px 14px;background:#2980b9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px'>⬇ PNG por cromosoma</button>\n" +
+            "    </div>\n" +
             "  </div>\n" +
             "  <div id='lg-canvas-wrap'><div id='lg-canvas'></div></div>\n" +
             "</div>\n" +
@@ -612,6 +625,63 @@ public class GeneticMapDashboardGenerator {
             "  _origShowTab(id,btn);\n" +
             "  if(id==='genes-view') renderGenes();\n" +
             "};\n\n" +
+
+            "// ── PNG Export ───────────────────────────────────────────────\n" +
+            "async function exportMapPng(byChr){\n" +
+            "  const scale = parseInt(document.getElementById('pngScale').value)||2;\n" +
+            "  const chrFilter = document.getElementById('chrFilter').value;\n" +
+            "  const canvas = document.getElementById('lg-canvas');\n" +
+            "\n" +
+            "  if(!byChr){\n" +
+            "    // Export full visible map\n" +
+            "    const btn = event.target;\n" +
+            "    btn.textContent = '⏳ Generando...';\n" +
+            "    btn.disabled = true;\n" +
+            "    html2canvas(canvas,{\n" +
+            "      scale: scale,\n" +
+            "      backgroundColor: '#ffffff',\n" +
+            "      useCORS: true,\n" +
+            "      logging: false\n" +
+            "    }).then(c=>{\n" +
+            "      const suffix = chrFilter==='all' ? 'completo' : 'chr'+chrFilter;\n" +
+            "      downloadPng(c, 'mapa_genetico_'+suffix+'.png');\n" +
+            "      btn.textContent = '⬇ PNG mapa completo';\n" +
+            "      btn.disabled = false;\n" +
+            "    });\n" +
+            "  } else {\n" +
+            "    // Export one PNG per chromosome\n" +
+            "    const btn = event.target;\n" +
+            "    btn.textContent = '⏳ Generando...';\n" +
+            "    btn.disabled = true;\n" +
+            "    const chroms = chrFilter==='all' ? CHROMS : [chrFilter];\n" +
+            "    let done = 0;\n" +
+            "    for(const chr of chroms){\n" +
+            "      // Filter map to show only this chromosome\n" +
+            "      document.getElementById('chrFilter').value = chr;\n" +
+            "      renderLgMap();\n" +
+            "      await new Promise(r=>setTimeout(r,300)); // wait for render\n" +
+            "      await html2canvas(canvas,{\n" +
+            "        scale: scale,\n" +
+            "        backgroundColor: '#ffffff',\n" +
+            "        useCORS: true,\n" +
+            "        logging: false\n" +
+            "      }).then(c=>downloadPng(c,'mapa_genetico_chr'+chr+'.png'));\n" +
+            "      done++;\n" +
+            "      btn.textContent = '⏳ '+done+'/'+chroms.length+' cromosomas...';\n" +
+            "    }\n" +
+            "    // Restore original filter\n" +
+            "    document.getElementById('chrFilter').value = chrFilter;\n" +
+            "    renderLgMap();\n" +
+            "    btn.textContent = '⬇ PNG por cromosoma';\n" +
+            "    btn.disabled = false;\n" +
+            "  }\n" +
+            "}\n\n" +
+            "function downloadPng(canvas, filename){\n" +
+            "  const a = document.createElement('a');\n" +
+            "  a.href = canvas.toDataURL('image/png');\n" +
+            "  a.download = filename;\n" +
+            "  a.click();\n" +
+            "}\n\n" +
 
             "// Init\n" +
             "buildLegend();\n" +
