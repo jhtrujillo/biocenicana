@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """intersect_sv_blocks.py
 Simple intersection of SV regions with block orientation data.
-For demonstration, it joins SV records with block orientation by chromosome
-(and adds a placeholder for genes). Output written to
-`genomica_comparativa/r570/tables/sv_block_overlap.tsv`.
 """
-import os, csv, pandas as pd
+import os, sys, argparse, pandas as pd
 
 def main():
-    # Paths
-    sv_path = os.path.abspath('genomica_comparativa/r570/tables/sv_regions.bed')
-    block_path = os.path.abspath('data/block_orientation.tsv')  # output from block_orientation.py
-    out_path = os.path.abspath('genomica_comparativa/r570/tables/sv_block_overlap.tsv')
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    parser = argparse.ArgumentParser(description="Intersect SV regions with block orientation data")
+    parser.add_argument("--sv", default="genomica_comparativa/r570/tables/sv_regions.bed", help="Path to SV regions BED/TSV")
+    parser.add_argument("--orient", default="data/block_orientation.tsv", help="Path to block orientation TSV")
+    parser.add_argument("--output", default="genomica_comparativa/r570/tables/sv_block_overlap.tsv", help="Path to output TSV")
+    args = parser.parse_args()
+
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     # Load SVs
-    sv_df = pd.read_csv(sv_path, sep='\t', header=0)
+    sv_df = pd.read_csv(args.sv, sep='\t', header=0)
     # Load block orientation (contains Chr1, Chr2 fields)
-    block_df = pd.read_csv(block_path, sep='\t', header=0)
+    block_df = pd.read_csv(args.orient, sep='\t', header=0)
 
     # Simplistic join on chromosome matching (Chr1 or Chr2)
     merged = []
@@ -35,8 +34,9 @@ def main():
                 'OrphanFlag': 'NA'  # placeholder – real implementation would check PAV list
             })
     out_df = pd.DataFrame(merged)
-    out_df.to_csv(out_path, sep='\t', index=False)
-    print(f"SV‑block overlap written to {out_path}")
+    out_df.to_csv(args.output, sep='\t', index=False)
+    print(f"SV‑block overlap written to {args.output}")
 
 if __name__ == '__main__':
     main()
+

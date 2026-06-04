@@ -8,20 +8,33 @@ Outputs (genomica_comparativa/r570/plots/):
   3. gene_sv_snp_network.html  – Sankey: chromosomes → block type → sugar/non-sugar
   4. sv_gene_table.html        – filterable DataTable with all gene records
 """
-import os, sys
+import os, sys, argparse
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-BASE      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ORIENT    = os.path.join(BASE, 'data', 'block_orientation.tsv')
-RANGES    = os.path.join(BASE, 'data', 'block_ranges.tsv')
-REPORT    = os.path.join(BASE, 'genomica_comparativa', 'r570', 'reporte_comparativo.tsv')
-SUGAR_IDS = os.path.join(BASE, 'data', 'sugar_gene_ids.txt')
-SNP_OVL   = os.path.join(BASE, 'genomica_comparativa', 'r570', 'tables', 'sugar_snp_overlap.tsv')
-GO_TSV    = os.path.join(BASE, 'genomica_comparativa', 'r570', 'tables', 'go_enrichment.tsv')
-OUT_DIR   = os.path.join(BASE, 'genomica_comparativa', 'r570', 'plots')
+# Argument parsing
+parser = argparse.ArgumentParser(description="Generate 4 standalone Plotly HTML files for structural change analysis.")
+parser.add_argument("--orient", default="data/block_orientation.tsv", help="Block orientation TSV")
+parser.add_argument("--ranges", default="data/block_ranges.tsv", help="Block ranges TSV")
+parser.add_argument("--report", default="genomica_comparativa/r570/reporte_comparativo.tsv", help="Comparative report TSV")
+parser.add_argument("--sugar-ids", default="data/sugar_gene_ids.txt", help="Sugar gene IDs file")
+parser.add_argument("--snp-ovl", default="genomica_comparativa/r570/tables/sugar_snp_overlap.tsv", help="Sugar SNP overlap TSV")
+parser.add_argument("--go-tsv", default="genomica_comparativa/r570/tables/go_enrichment.tsv", help="GO enrichment TSV")
+parser.add_argument("--out-dir", default="genomica_comparativa/r570/plots", help="Output directory for plots")
+parser.add_argument("--name1", default="CC 1940", help="Genome 1 name")
+parser.add_argument("--name2", default="R570", help="Genome 2 name")
+args = parser.parse_args()
+
+ORIENT    = args.orient
+RANGES    = args.ranges
+REPORT    = args.report
+SUGAR_IDS = args.sugar_ids
+SNP_OVL   = args.snp_ovl
+GO_TSV    = args.go_tsv
+OUT_DIR   = args.out_dir
 os.makedirs(OUT_DIR, exist_ok=True)
+
 
 DARK_BG  = '#0f172a'
 CARD_BG  = '#1e293b'
@@ -100,7 +113,8 @@ def plot_orientation():
 
     fig.update_layout(
         title=dict(
-            text='Orientación de Bloques Sinténicos — CC 1940 vs R570',
+            text=f'Orientación de Bloques Sinténicos — {args.name1} vs {args.name2}',
+
             font=dict(size=20, color=TEXT, family='Inter, sans-serif'),
             x=0.5
         ),
@@ -171,15 +185,16 @@ def plot_dotplot():
 
     fig.update_layout(
         title=dict(
-            text='Dot-Plot de Colinealidad — CC 1940 vs R570<br>'
+            text=f'Dot-Plot de Colinealidad — {args.name1} vs {args.name2}<br>'
                  '<sup>Top 12 pares cromosómicos · tamaño ∝ longitud del bloque</sup>',
             font=dict(size=18, color=TEXT, family='Inter, sans-serif'),
             x=0.5
         ),
-        xaxis=dict(title='Posición genómica CC 1940 (bp)',
+        xaxis=dict(title=f'Posición genómica {args.name1} (bp)',
                    gridcolor='#1e293b', color=MUTED, showgrid=True),
-        yaxis=dict(title='Posición genómica R570 (bp)',
+        yaxis=dict(title=f'Posición genómica {args.name2} (bp)',
                    gridcolor='#1e293b', color=MUTED, showgrid=True),
+
         paper_bgcolor=DARK_BG,
         plot_bgcolor='#0f1f35',
         font=dict(color=TEXT, family='Inter, sans-serif'),
@@ -314,7 +329,7 @@ def plot_table():
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Genes & Cambios Estructurales — CC 1940 vs R570</title>
+  <title>Genes & Cambios Estructurales — {args.name1} vs {args.name2}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -359,7 +374,8 @@ def plot_table():
 </head>
 <body>
 <div class="header">
-  <h1>🧬 Genes &amp; Cambios Estructurales — CC 1940 vs R570</h1>
+  <h1>🧬 Genes &amp; Cambios Estructurales — {args.name1} vs {args.name2}</h1>
+
   <p>Tabla interactiva con orientación de bloques, estado sinténico y anotación de genes de azúcar
      (mostrando hasta 10,000 registros)</p>
 </div>
@@ -475,6 +491,131 @@ def plot_table():
     print(f'✓ {out}')
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5. inversions_sizes.html
+# ─────────────────────────────────────────────────────────────────────────────
+def plot_inversion_sizes():
+    # Load block ranges & orientation
+    df = ranges_df.copy()
+    if 'Size1' not in df.columns:
+        df['Size1'] = df['End1'] - df['Start1']
+    if 'Size2' not in df.columns:
+        df['Size2'] = df['End2'] - df['Start2']
+
+    # Merge NumGenes from orient_df
+    if 'NumGenes' not in df.columns and 'NumGenes' in orient_df.columns:
+        df = df.merge(orient_df[['Block_ID', 'NumGenes']], on='Block_ID', how='left')
+
+    # Filter inverted blocks
+    inv_df = df[df['Orientation'].str.lower().isin(['inverted', 'minus'])].copy()
+    direct_df = df[df['Orientation'].str.lower().isin(['direct', 'plus'])].copy()
+
+    # Create subplots
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            'Distribución de Tamaños (Directo vs Invertido)',
+            'Histograma de Longitud de Inversiones',
+            'Tamaño de Inversión vs. Número de Genes',
+            'Tamaño Acumulado de Inversiones por Cromosoma (G1)'
+        ),
+        vertical_spacing=0.15,
+        horizontal_spacing=0.12
+    )
+
+    # 1. Box Plot Direct vs Inverted (Row 1, Col 1)
+    fig.add_trace(go.Box(
+        y=direct_df['Size1'] / 1e6,
+        name='Directos',
+        marker_color=GREEN,
+        boxpoints='outliers'
+    ), row=1, col=1)
+    fig.add_trace(go.Box(
+        y=inv_df['Size1'] / 1e6,
+        name='Invertidos',
+        marker_color=ORANGE,
+        boxpoints='outliers'
+    ), row=1, col=1)
+
+    # 2. Histogram Inversion Sizes G1 vs G2 (Row 1, Col 2)
+    fig.add_trace(go.Histogram(
+        x=inv_df['Size1'] / 1e6,
+        name=f'{args.name1} (G1)',
+        marker_color=BLUE,
+        opacity=0.7,
+        nbinsx=20
+    ), row=1, col=2)
+    fig.add_trace(go.Histogram(
+        x=inv_df['Size2'] / 1e6,
+        name=f'{args.name2} (G2)',
+        marker_color=PURPLE,
+        opacity=0.7,
+        nbinsx=20
+    ), row=1, col=2)
+
+    # 3. Scatter Plot Size vs Genes (Row 2, Col 1)
+    if 'NumGenes' in inv_df.columns:
+        fig.add_trace(go.Scatter(
+            x=inv_df['Size1'] / 1e6,
+            y=inv_df['NumGenes'],
+            mode='markers',
+            marker=dict(
+                size=8,
+                color=GOLD,
+                opacity=0.8,
+                line=dict(width=0.5, color='white')
+            ),
+            text=[f"Bloque: {b}<br>Chr1: {c1}<br>Chr2: {c2}" for b, c1, c2 in zip(inv_df['Block_ID'], inv_df['Chr1'], inv_df['Chr2'])],
+            hovertemplate='<b>%{text}</b><br>Tamaño: %{x:.3f} Mbp<br>Genes: %{y}<extra></extra>'
+        ), row=2, col=1)
+
+    # 4. Bar Chart Accumulated Size by Chromosome (Row 2, Col 2)
+    chr_sizes = inv_df.groupby('Chr1')['Size1'].sum().reset_index()
+    chr_sizes['Size_Mbp'] = chr_sizes['Size1'] / 1e6
+    chr_sizes = chr_sizes.sort_values(by='Size_Mbp', ascending=False).head(15)
+
+    fig.add_trace(go.Bar(
+        x=chr_sizes['Chr1'],
+        y=chr_sizes['Size_Mbp'],
+        marker_color=RED,
+        hovertemplate='<b>Cromosoma: %{x}</b><br>Inversiones Totales: %{y:.2f} Mbp<extra></extra>'
+    ), row=2, col=2)
+
+    # Update axes titles
+    fig.update_yaxes(title_text='Tamaño del Bloque (Mbp)', row=1, col=1)
+    fig.update_xaxes(title_text='Tamaño (Mbp)', row=1, col=2)
+    fig.update_yaxes(title_text='Frecuencia', row=1, col=2)
+    
+    fig.update_xaxes(title_text='Tamaño de Inversión (Mbp)', row=2, col=1)
+    fig.update_yaxes(title_text='Número de Genes', row=2, col=1)
+    
+    fig.update_xaxes(title_text='Cromosoma (G1)', row=2, col=2)
+    fig.update_yaxes(title_text='Tamaño Acumulado (Mbp)', row=2, col=2)
+
+    fig.update_layout(
+        title=dict(
+            text=f'Análisis de Tamaño de Inversiones — {args.name1} vs {args.name2}',
+            font=dict(size=20, color=TEXT, family='Inter, sans-serif'),
+            x=0.5
+        ),
+        paper_bgcolor=DARK_BG,
+        plot_bgcolor=CARD_BG,
+        font=dict(color=TEXT, family='Inter, sans-serif'),
+        barmode='overlay',
+        showlegend=True,
+        legend=dict(bgcolor='rgba(30,41,59,0.8)', bordercolor=MUTED,
+                    borderwidth=1, font=dict(color=TEXT)),
+        margin=dict(l=50, r=30, t=100, b=50),
+        height=800
+    )
+
+    fig.update_xaxes(gridcolor='#334155', zerolinecolor='#334155')
+    fig.update_yaxes(gridcolor='#334155', zerolinecolor='#334155')
+
+    out = os.path.join(OUT_DIR, 'inversions_sizes.html')
+    fig.write_html(out, include_plotlyjs='cdn')
+    print(f'✓ {out}')
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Run all
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
@@ -483,4 +624,5 @@ if __name__ == '__main__':
     plot_dotplot()
     plot_sankey()
     plot_table()
+    plot_inversion_sizes()
     print('\nAll visualizations written to:', OUT_DIR)

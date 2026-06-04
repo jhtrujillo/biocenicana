@@ -6,10 +6,23 @@ import os
 import csv
 import re
 
-gff1_path = "benchmarks/genomas/1940/CC-01-1940.gff3"
-gff2_path = "benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3"
-report_path = "genomica_comparativa/r570/reporte_comparativo.tsv"
-kaks_path = "genomica_comparativa/r570/kaks_1940_vs_r570.tsv"
+import argparse
+
+parser = argparse.ArgumentParser(description="Analyze sucrose metabolism/transport genes")
+parser.add_argument("--gff1", default="benchmarks/genomas/1940/CC-01-1940.gff3")
+parser.add_argument("--gff2", default="benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3")
+parser.add_argument("--report", default="genomica_comparativa/r570/reporte_comparativo.tsv")
+parser.add_argument("--kaks", default="genomica_comparativa/r570/kaks_1940_vs_r570.tsv")
+parser.add_argument("--name1", default="CC 1940")
+parser.add_argument("--name2", default="R570")
+args = parser.parse_args()
+
+gff1_path = args.gff1
+gff2_path = args.gff2
+report_path = args.report
+kaks_path = args.kaks
+name1 = args.name1
+name2 = args.name2
 
 def load_gff_notes(gff_path):
     notes = {}
@@ -40,24 +53,21 @@ def load_gff_notes(gff_path):
 
 def norm_g1(x):
     x = x.strip().replace("gene:", "").replace("transcript:", "").replace("mrna:", "")
-    # e.g., CC01t042860.1 -> CC01g042860
+    x = re.sub(r"\.\d+$", "", x)
+    x = re.sub(r"-mRNA-\d+$", "", x)
+    x = re.sub(r"-[1-9]T$", "", x)
+    x = re.sub(r"-[1-9]P$", "", x)
     x = re.sub(r"CC(\d+)t(\d+)", r"CC\1g\2", x)
-    x = x.split(".")[0]
     return x
 
 def norm_g2(x):
-    x = x.strip().replace("gene:", "").replace("transcript:", "").replace("mrna:", "")
-    # e.g., SoffiXsponR570.10Cg001100.1 or SoffiXsponR570.10Cg001100.v2.1 -> SoffiXsponR570.10Cg001100
-    match = re.match(r"(SoffiXsponR570\.[^.]+g\d+)", x)
-    if match:
-        return match.group(1)
-    return x.split(".")[0]
+    return norm_g1(x)
 
 print("Cargando notas funcionales de GFFs...")
 notes1 = load_gff_notes(gff1_path)
 notes2 = load_gff_notes(gff2_path)
-print(f"CC 1940: {len(notes1)} anotaciones cargadas.")
-print(f"R570: {len(notes2)} anotaciones cargadas.")
+print(f"{name1}: {len(notes1)} anotaciones cargadas.")
+print(f"{name2}: {len(notes2)} anotaciones cargadas.")
 
 # Load kaks
 kaks_data = {}
@@ -170,14 +180,14 @@ print(f"\nGenes de azúcar bajo SELECCIÓN PURIFICADORA (Ka/Ks < 0.1): {len(puri
 for g in purifying_sel[:15]:
     print(f"  G1: {g['G1_ID']} ({g['G1_Chr']}) <-> G2: {g['G2_ID']} ({g['G2_Chr']}) | Bloque: {g['Block_ID']} (Total={g['Block_Total']} genes, azúcar={g['Block_Sugar']}) | Ka/Ks = {g['Ratio']:.4f} (Ka={g['Ka']:.4f}, Ks={g['Ks']:.4f}) | Desc: {g['G1_Desc'] or g['G2_Desc']}")
 
-# Find orphans (PAVs) in CC-01-1940 related to sucrose/sugar
-orphans_1940 = [g for g in sugar_genes_mapped if g['Status'] == 'Orphan_G1']
-print(f"\nGenes de azúcar HUÉRFANOS (PAVs) en CC-01-1940 (G1): {len(orphans_1940)}")
-for g in orphans_1940[:10]:
+# Find orphans (PAVs) in name1 related to sucrose/sugar
+orphans_g1 = [g for g in sugar_genes_mapped if g['Status'] == 'Orphan_G1']
+print(f"\nGenes de azúcar HUÉRFANOS (PAVs) en {name1} (G1): {len(orphans_g1)}")
+for g in orphans_g1[:10]:
     print(f"  G1 ID: {g['G1_ID']} | Chr: {g['G1_Chr']} | Desc: {g['G1_Desc']}")
 
-# Find orphans (PAVs) in R570 related to sucrose/sugar
-orphans_r570 = [g for g in sugar_genes_mapped if g['Status'] == 'Orphan_G2']
-print(f"\nGenes de azúcar HUÉRFANOS (PAVs) en R570 (G2): {len(orphans_r570)}")
-for g in orphans_r570[:10]:
+# Find orphans (PAVs) in name2 related to sucrose/sugar
+orphans_g2 = [g for g in sugar_genes_mapped if g['Status'] == 'Orphan_G2']
+print(f"\nGenes de azúcar HUÉRFANOS (PAVs) en {name2} (G2): {len(orphans_g2)}")
+for g in orphans_g2[:10]:
     print(f"  G2 ID: {g['G2_ID']} | Chr: {g['G2_Chr']} | Desc: {g['G2_Desc']}")

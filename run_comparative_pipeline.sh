@@ -52,36 +52,73 @@ java -jar target/biojava.jar comp-gen \
   --organism Saccharum
 
 # 4. Análisis de genes relacionados con sacarosa
-echo -e "\n[Paso 4/5] Buscando y cuantificando genes de metabolismo/transporte de azúcar..."
-./.venv/bin/python scripts/check_sucrose_genes.py
+./.venv/bin/python scripts/check_sucrose_genes.py \
+  --gff1 benchmarks/genomas/1940/CC-01-1940.gff3 \
+  --gff2 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --kaks genomica_comparativa/r570/kaks_1940_vs_r570.tsv \
+  --name1 "CC 1940" \
+  --name2 "R570"
 
-# 5. Análisis de variaciones estructurales (SV)
-if [ "$RUN_SV" = true ]; then
-  echo -e "\n[Paso 5/5] Ejecutando pipeline de análisis de variaciones estructurales (SV)..."
-  mkdir -p genomica_comparativa/r570/tables
-  mkdir -p genomica_comparativa/r570/plots
+# 5. Generación de Tablas y Gráficos Interactivos
+echo -e "\n[Paso 5/5] Generando tablas y gráficos interactivos complementarios..."
 
-  echo "  - Clasificando bloques sinténicos por orientación..."
-  ./.venv/bin/python scripts/block_orientation.py
+# A. Orientación de bloques
+./.venv/bin/python scripts/block_orientation.py \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --output genomica_comparativa/r570/tables/block_orientation.tsv
 
-  echo "  - Parseando variantes estructurales desde VCF..."
-  ./.venv/bin/python scripts/sv_parser.py benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf genomica_comparativa/r570/tables/sv_regions.bed
+# B. Rangos de bloques
+./.venv/bin/python scripts/compute_block_ranges.py \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --output genomica_comparativa/r570/tables/block_ranges.tsv
 
-  echo "  - Intersecando variantes estructurales con bloques sinténicos..."
-  ./.venv/bin/python scripts/intersect_sv_blocks.py
+# C. Extraer SVs (vcf de referencia CC 1940)
+./.venv/bin/python scripts/sv_parser.py \
+  benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  genomica_comparativa/r570/tables/sv_regions.bed
 
-  echo "  - Intersecando SNPs de azúcar..."
-  ./.venv/bin/python scripts/sugar_snp_intersect.py
+# D. Intersección de SNPs de Azúcar
+./.venv/bin/python scripts/sugar_snp_intersect.py \
+  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --sugar-ids data/sugar_gene_ids.txt \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --output genomica_comparativa/r570/tables/sugar_snp_overlap.tsv
 
-  echo "  - Ejecutando análisis de enriquecimiento de ontología génica (GO)..."
-  ./.venv/bin/python scripts/go_enrichment.py
+# E. Enriquecimiento GO/KEGG
+./.venv/bin/python scripts/go_enrichment.py \
+  --orient genomica_comparativa/r570/tables/block_orientation.tsv \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --output genomica_comparativa/r570/tables/go_enrichment.tsv \
+  --organism sbicolor
 
-  echo "  - Generando gráficos interactivos de cambios estructurales..."
-  ./.venv/bin/python scripts/interactive_plots.py
-fi
+# F. Intersección de bloques y SVs
+./.venv/bin/python scripts/intersect_sv_blocks.py \
+  --sv genomica_comparativa/r570/tables/sv_regions.bed \
+  --orient genomica_comparativa/r570/tables/block_orientation.tsv \
+  --output genomica_comparativa/r570/tables/sv_block_overlap.tsv
+
+# G. Gráficos interactivos en HTML (Plotly)
+./.venv/bin/python scripts/interactive_plots.py \
+  --orient genomica_comparativa/r570/tables/block_orientation.tsv \
+  --ranges genomica_comparativa/r570/tables/block_ranges.tsv \
+  --report genomica_comparativa/r570/reporte_comparativo.tsv \
+  --sugar-ids data/sugar_gene_ids.txt \
+  --snp-ovl genomica_comparativa/r570/tables/sugar_snp_overlap.tsv \
+  --go-tsv genomica_comparativa/r570/tables/go_enrichment.tsv \
+  --out-dir genomica_comparativa/r570/plots \
+  --name1 "CC 1940" \
+  --name2 "R570"
+
+# H. Cuantificación de inversiones
+./.venv/bin/python scripts/quantify_inversions.py \
+  --ranges genomica_comparativa/r570/tables/block_ranges.tsv \
+  --orient genomica_comparativa/r570/tables/block_orientation.tsv \
+  --out-dir genomica_comparativa/r570/tables
 
 echo -e "\n====================================================================="
 echo "   ¡INTEGRACIÓN COMPLETADA CON ÉXITO!                               "
 echo "   - Reporte tabular: genomica_comparativa/r570/reporte_comparativo.tsv"
 echo "   - Visor HTML interactivo: genomica_comparativa/r570/visor_sintenia.html"
 echo "====================================================================="
+
