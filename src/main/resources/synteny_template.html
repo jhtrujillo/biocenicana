@@ -1421,6 +1421,18 @@
         <p>Análisis de bloques directos vs invertidos, colinealidad cromosómica e impacto de reordenamientos en genes del metabolismo de azúcar.</p>
       </div>
 
+      <!-- Warning for local file protocol -->
+      <div id="local-file-warning" class="db-alert" style="display:none; margin-bottom:20px; background:#fff7ed; border-left-color:#ea580c; color:#7c2d12; padding:16px; border-radius:8px;">
+        <h4 style="margin:0 0 6px 0; font-size:14px; display:flex; align-items:center; gap:8px;">⚠️ Restricción de Seguridad del Navegador (CORS)</h4>
+        <p style="margin:0; font-size:12.5px; line-height:1.6;">
+          Estás visualizando esta página a través del protocolo <code>file://</code> (abriendo el archivo directamente). Los navegadores web restringen la carga de gráficos interactivos incrustados (iframes) desde archivos locales por seguridad. 
+          <br>Para poder ver las visualizaciones interactivas de este módulo, ejecuta un servidor web local en la terminal de tu proyecto:
+          <br><code style="background:rgba(0,0,0,0.06); padding:4px 8px; border-radius:4px; font-weight:bold; display:inline-block; margin-top:6px; margin-bottom:6px; font-family:monospace; font-size:12px;">python3 -m http.server 8000</code>
+          <br>Y luego accede a través de: 
+          <a id="local-server-link" href="#" target="_blank" style="color:#c2410c; font-weight:bold; text-decoration:underline;">http://localhost:8000/...</a>
+        </p>
+      </div>
+
       <!-- Metric cards -->
       <div class="dashboard-container" id="structural-metrics-grid"></div>
 
@@ -1431,6 +1443,7 @@
           <div style="display:flex; gap:8px;">
             <button class="btn btn-sm subtab-btn active" onclick="switchSubTab('orientation')" style="border-radius:20px; font-weight:600; padding:6px 14px;">🧭 Orientación de Bloques</button>
             <button class="btn btn-sm subtab-btn" onclick="switchSubTab('dotplot')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📍 Dot-Plot Sintenia</button>
+            <button class="btn btn-sm subtab-btn" onclick="switchSubTab('invsize')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📏 Tamaños de Inversiones</button>
             <button class="btn btn-sm subtab-btn" onclick="switchSubTab('sankey')" style="border-radius:20px; font-weight:600; padding:6px 14px;">🔀 Flujo Genómico</button>
             <button class="btn btn-sm subtab-btn" onclick="switchSubTab('table')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📋 Catálogo de Genes</button>
           </div>
@@ -1445,6 +1458,11 @@
         <div id="subtab-dotplot-content" class="subtab-content" style="display:none; width:100%;">
           <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Dot-plot de colinealidad a nivel genómico entre CC-01-1940 y R570, coloreado y clasificado según la orientación del bloque y la presencia de variaciones estructurales.</p>
           <iframe id="iframe-dotplot" src="" style="width:100%; height:620px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
+        </div>
+
+        <div id="subtab-invsize-content" class="subtab-content" style="display:none; width:100%;">
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Visualización interactiva que muestra el análisis y cuantificación del tamaño de las inversiones (Mbp), el número de genes y la distribución por cromosoma.</p>
+          <iframe id="iframe-invsize" src="" style="width:100%; height:820px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
         </div>
 
         <div id="subtab-sankey-content" class="subtab-content" style="display:none; width:100%;">
@@ -1475,6 +1493,12 @@
           </a>
           <a href="../../data/block_orientation.tsv" download class="btn" style="background:#d97706; color:white; border:none; padding:10px 18px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
             📥 TSV - Catálogo de Orientación de Bloques
+          </a>
+          <a href="tables/inversions_detailed.tsv" download class="btn" style="background:#7c2d12; color:white; border:none; padding:10px 18px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+            📥 TSV - Inversiones Detalladas
+          </a>
+          <a href="tables/inversions_global_stats.tsv" download class="btn" style="background:#4338ca; color:white; border:none; padding:10px 18px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+            📥 TSV - Estadísticas de Inversiones
           </a>
         </div>
       </div>
@@ -1908,6 +1932,24 @@ function renderStructuralTab() {
 }
 
 function renderStructuralReport() {
+    // Show CORS local file protocol warning if needed
+    if (window.location.protocol === 'file:') {
+        const warning = document.getElementById('local-file-warning');
+        if (warning) {
+            warning.style.display = 'block';
+            const currentPath = window.location.pathname;
+            const rootIndex = currentPath.indexOf('/genomica_comparativa/');
+            if (rootIndex !== -1) {
+                const relPath = currentPath.substring(rootIndex);
+                const link = document.getElementById('local-server-link');
+                if (link) {
+                    link.href = 'http://localhost:8000' + relPath;
+                    link.textContent = 'http://localhost:8000' + relPath;
+                }
+            }
+        }
+    }
+
     const uniqueBlocks = new Set();
     const directBlocks = new Set();
     const invertedBlocks = new Set();
@@ -1917,12 +1959,14 @@ function renderStructuralReport() {
     let totalSVsCount = 0;
     let sugarInInverted = 0;
 
+    // Group pairs by Block_ID to compute block ranges
+    const blocksMap = {};
     allData.forEach(p => {
         uniqueBlocks.add(p.b);
-        if (p.o === 'direct') {
+        if (p.o === 'direct' || p.o === 'plus') {
             directBlocks.add(p.b);
             directPairs++;
-        } else if (p.o === 'inverted') {
+        } else if (p.o === 'inverted' || p.o === 'minus') {
             invertedBlocks.add(p.b);
             invertedPairs++;
             
@@ -1935,6 +1979,27 @@ function renderStructuralReport() {
         if (p.sv) {
             totalSVsCount++;
         }
+
+        // Range calculation per block
+        if (!blocksMap[p.b]) {
+            blocksMap[p.b] = {
+                id: p.b,
+                chr1: p.c1,
+                start1: p.s1,
+                end1: p.e1,
+                chr2: p.c2,
+                start2: p.s2,
+                end2: p.e2,
+                orientation: p.o,
+                geneCount: 0
+            };
+        } else {
+            blocksMap[p.b].start1 = Math.min(blocksMap[p.b].start1, p.s1);
+            blocksMap[p.b].end1 = Math.max(blocksMap[p.b].end1, p.e1);
+            blocksMap[p.b].start2 = Math.min(blocksMap[p.b].start2, p.s2);
+            blocksMap[p.b].end2 = Math.max(blocksMap[p.b].end2, p.e2);
+        }
+        blocksMap[p.b].geneCount++;
     });
 
     const totalBlocksCount = uniqueBlocks.size;
@@ -1943,22 +2008,137 @@ function renderStructuralReport() {
     const directPct = totalBlocksCount > 0 ? ((directBlocksCount / totalBlocksCount) * 100).toFixed(1) : 0;
     const invertedPct = totalBlocksCount > 0 ? ((invertedBlocksCount / totalBlocksCount) * 100).toFixed(1) : 0;
 
+    // Helper function to extract number from chromosome name
+    const getChrNumber = (chr) => {
+        if (!chr) return null;
+        const match = chr.match(/\d+/);
+        return match ? parseInt(match[0], 10) : null;
+    };
+
+    // Calculate sizes of inversions and translocations
+    const inversions = [];
+    const translocations = [];
+    let totalSize1 = 0;
+    let totalSize2 = 0;
+    let totalTransSize1 = 0;
+    let totalTransSize2 = 0;
+
+    Object.values(blocksMap).forEach(b => {
+        const s1 = b.end1 - b.start1;
+        const s2 = b.end2 - b.start2;
+
+        if (b.orientation === 'inverted' || b.orientation === 'minus') {
+            totalSize1 += s1;
+            totalSize2 += s2;
+            inversions.push({ ...b, size1: s1, size2: s2 });
+        }
+
+        const n1 = getChrNumber(b.chr1);
+        const n2 = getChrNumber(b.chr2);
+        const isScaffold = (c) => !c || c.toLowerCase().includes('scaffold') || c.toLowerCase().includes('contig');
+        if (n1 !== null && n2 !== null && n1 !== n2 && !isScaffold(b.chr1) && !isScaffold(b.chr2)) {
+            totalTransSize1 += s1;
+            totalTransSize2 += s2;
+            translocations.push({ ...b, size1: s1, size2: s2 });
+        }
+    });
+
+    const meanSize1 = inversions.length > 0 ? (totalSize1 / inversions.length) : 0;
+    const totalSize1Mbp = (totalSize1 / 1e6).toFixed(2);
+    const meanSize1Kbp = (meanSize1 / 1e3).toFixed(1);
+
+    const transCount = translocations.length;
+    const transPct = totalBlocksCount > 0 ? ((transCount / totalBlocksCount) * 100).toFixed(1) : 0;
+    const totalTransSize1Mbp = (totalTransSize1 / 1e6).toFixed(2);
+    const meanTransSize1 = transCount > 0 ? (totalTransSize1 / transCount) : 0;
+    const meanTransSize1Kbp = (meanTransSize1 / 1e3).toFixed(1);
+
+    // Sort to get top 5 of both
+    const topInversions = inversions.sort((a, b) => b.size1 - a.size1).slice(0, 5);
+    const topTranslocations = translocations.sort((a, b) => b.size1 - a.size1).slice(0, 5);
+
     const grid = document.getElementById('structural-metrics-grid');
     if (grid) {
         grid.innerHTML = `
-            <div class="db-card"><div class="db-card-val">${totalBlocksCount}</div><div class="db-card-lbl">Bloques Sinténicos Totales</div><div class="db-card-desc">Bloques sinténicos colineales identificados entre R570 y CC-01-1940.</div></div>
-            <div class="db-card success"><div class="db-card-val">${directBlocksCount} <span style="font-size:14px;font-weight:500;">(${directPct}%)</span></div><div class="db-card-lbl">Bloques Directos</div><div class="db-card-desc">Bloques con conservación de orientación en ambos genomas (concordancia de hebra).</div></div>
-            <div class="db-card" style="border-left:4px solid #f97316;"><div class="db-card-val">${invertedBlocksCount} <span style="font-size:14px;font-weight:500;">(${invertedPct}%)</span></div><div class="db-card-lbl">Bloques Invertidos</div><div class="db-card-desc">Bloques que muestran inversión estructural completa (reordenamientos cromosómicos).</div></div>
-            <div class="db-card accent"><div class="db-card-val">${sugarInInverted}</div><div class="db-card-lbl">Genes de Azúcar en Bloques Invertidos</div><div class="db-card-desc">Genes metabólicos de sacarosa ubicados en regiones con inversión de hebra.</div></div>
+            <div class="db-card"><div class="db-card-val">${totalBlocksCount}</div><div class="db-card-lbl">Bloques Sinténicos Totales</div><div class="db-card-desc">Bloques sinténicos colineales identificados entre genomas.</div></div>
+            <div class="db-card success"><div class="db-card-val">${directBlocksCount} <span style="font-size:14px;font-weight:500;">(${directPct}%)</span></div><div class="db-card-lbl">Bloques Directos</div><div class="db-card-desc">Bloques con conservación de orientación en ambos genomas.</div></div>
+            <div class="db-card" style="border-left:4px solid #f97316;"><div class="db-card-val">${invertedBlocksCount} <span style="font-size:14px;font-weight:500;">(${invertedPct}%)</span></div><div class="db-card-lbl">Bloques Invertidos</div><div class="db-card-desc">Bloques que muestran inversión estructural completa.</div></div>
+            <div class="db-card accent"><div class="db-card-val">${totalSize1Mbp} Mbp</div><div class="db-card-lbl">Tamaño Total Invertido (G1)</div><div class="db-card-desc">Extensión acumulada de todas las inversiones en G1 (media: ${meanSize1Kbp} Kbp).</div></div>
+            <div class="db-card" style="border-left:4px solid #8b5cf6;"><div class="db-card-val">${transCount} <span style="font-size:14px;font-weight:500;">(${transPct}%)</span></div><div class="db-card-lbl">Bloques Translocados</div><div class="db-card-desc">Bloques colineales mapeados a cromosomas homólogos distintos.</div></div>
+            <div class="db-card" style="border-left:4px solid #a855f7;"><div class="db-card-val">${totalTransSize1Mbp} Mbp</div><div class="db-card-lbl">Tamaño Translocado (G1)</div><div class="db-card-desc">Extensión acumulada de translocaciones en G1 (media: ${meanTransSize1Kbp} Kbp).</div></div>
         `;
     }
 
     const disc = document.getElementById('structural-discussion');
     if (disc) {
+        let topInvRows = '';
+        topInversions.forEach(inv => {
+            topInvRows += `
+                <tr>
+                    <td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #cbd5e1;">${inv.id}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #cbd5e1;">${inv.chr1}:${(inv.start1/1e6).toFixed(2)} - ${(inv.end1/1e6).toFixed(2)} Mbp</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #cbd5e1;">${inv.chr2}:${(inv.start2/1e6).toFixed(2)} - ${(inv.end2/1e6).toFixed(2)} Mbp</td>
+                    <td style="padding: 6px 12px; text-align: right; font-weight: bold; border-bottom: 1px solid #cbd5e1;">${(inv.size1/1e3).toFixed(1)} Kbp</td>
+                    <td style="padding: 6px 12px; text-align: right; border-bottom: 1px solid #cbd5e1;">${inv.geneCount}</td>
+                </tr>
+            `;
+        });
+
+        let topTransRows = '';
+        topTranslocations.forEach(tr => {
+            topTransRows += `
+                <tr>
+                    <td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #cbd5e1;">${tr.id}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #cbd5e1;">${tr.chr1}:${(tr.start1/1e6).toFixed(2)} - ${(tr.end1/1e6).toFixed(2)} Mbp</td>
+                    <td style="padding: 6px 12px; border-bottom: 2px solid #cbd5e1;">${tr.chr2}:${(tr.start2/1e6).toFixed(2)} - ${(tr.end2/1e6).toFixed(2)} Mbp</td>
+                    <td style="padding: 6px 12px; text-align: right; font-weight: bold; border-bottom: 1px solid #cbd5e1;">${(tr.size1/1e3).toFixed(1)} Kbp</td>
+                    <td style="padding: 6px 12px; text-align: right; border-bottom: 1px solid #cbd5e1;">${tr.geneCount}</td>
+                </tr>
+            `;
+        });
+
         disc.innerHTML = `
-            <h5 style="font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">⛓️ <span>Interpretación Biológica de Cambios Estructurales en Caña de Azúcar</span></h5>
-            <p style="font-size:12.5px;line-height:1.7;margin:0 0 10px;"><strong>1. Frecuencia y Distribución de Inversiones.</strong> Se identificaron un total de <strong>${invertedBlocksCount} bloques invertidos (${invertedPct}%)</strong> de los ${totalBlocksCount} bloques sinténicos totales. Las inversiones estructurales representan puntos calientes de reordenamientos cromosómicos que pueden suprimir la recombinación local y fijar alelos adaptativos clave.</p>
-            <p style="font-size:12.5px;line-height:1.7;margin:0 0 10px;"><strong>2. Impacto en Genes de Metabolismo de Azúcar.</strong> La presencia de <strong>${sugarInInverted} genes de azúcar</strong> dentro de bloques invertidos sugiere que los reordenamientos estructurales desempeñan un papel crucial en la evolución de las rutas metabólicas de la sacarosa, modificando potencialmente los patrones de regulación de la expresión génica o aislando variantes adaptativas en los genotipos de caña de azúcar.</p>
+            <h5 style="font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">⛓️ <span>Cuantificación y Análisis Biológico de Inversiones y Translocaciones</span></h5>
+            <p style="font-size:12.5px;line-height:1.7;margin:0 0 10px;"><strong>1. Inversiones Estructurales.</strong> Se identificaron un total de <strong>${invertedBlocksCount} bloques invertidos (${invertedPct}%)</strong> que abarcan un total de <strong>${totalSize1Mbp} Mbp</strong> en el Genoma 1 (CC-01-1940) y contienen <strong>${sugarInInverted} genes de azúcar</strong>. Estas regiones son de gran interés puesto que la inversión suprime la recombinación local y fija alelos co-adaptados.</p>
+            <p style="font-size:12.5px;line-height:1.7;margin:0 0 16px;"><strong>2. Translocaciones Cromosómicas.</strong> Se detectaron un total de <strong>${transCount} translocaciones intercromosómicas (${transPct}%)</strong> que abarcan **${totalTransSize1Mbp} Mbp** en Genoma 1, reflejando la alta plasticidad cromosómica del poliploide complejo de la caña de azúcar.</p>
+            
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:15px;">
+                <div style="flex:1; min-width:300px;">
+                    <h6 style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#1e293b; display:flex; align-items:center; gap:4px;">🔄 Inversiones de Mayor Tamaño Físico (Top 5):</h6>
+                    <table style="width:100%; border-collapse: collapse; font-size:11px; text-align: left; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: #334155;">
+                        <thead>
+                            <tr style="background: #f1f5f9; font-weight: bold;">
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Bloque</th>
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Rango Genoma 1</th>
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Rango Genoma 2</th>
+                                <th style="padding: 6px 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Tamaño (G1)</th>
+                                <th style="padding: 6px 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Genes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${topInvRows || '<tr><td colspan="5" style="text-align:center; padding:8px;">No se encontraron inversiones.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="flex:1; min-width:300px;">
+                    <h6 style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#1e293b; display:flex; align-items:center; gap:4px;">🔀 Translocaciones de Mayor Tamaño Físico (Top 5):</h6>
+                    <table style="width:100%; border-collapse: collapse; font-size:11px; text-align: left; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: #334155;">
+                        <thead>
+                            <tr style="background: #f1f5f9; font-weight: bold;">
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Bloque</th>
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Rango Genoma 1</th>
+                                <th style="padding: 6px 10px; border-bottom: 2px solid #cbd5e1;">Rango Genoma 2</th>
+                                <th style="padding: 6px 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Tamaño (G1)</th>
+                                <th style="padding: 6px 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">Genes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${topTransRows || '<tr><td colspan="5" style="text-align:center; padding:8px;">No se encontraron translocaciones.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         `;
     }
 }
@@ -1970,10 +2150,11 @@ function switchSubTab(subtabId) {
     document.querySelectorAll('.subtab-btn').forEach(btn => btn.classList.remove('active'));
 
     // Show selected subtab content
-    document.getElementById(`subtab-${subtabId}-content`).style.display = 'block';
+    const contentEl = document.getElementById(`subtab-${subtabId}-content`);
+    if (contentEl) contentEl.style.display = 'block';
     
     // Add active class to clicked button
-    const btn = Array.from(document.querySelectorAll('.subtab-btn')).find(b => b.getAttribute('onclick').includes(subtabId));
+    const btn = Array.from(document.querySelectorAll('.subtab-btn')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes(subtabId));
     if (btn) btn.classList.add('active');
 
     // Dynamically set src of iframe if not already loaded
@@ -1981,6 +2162,8 @@ function switchSubTab(subtabId) {
     if (iframe && !iframe.getAttribute('src')) {
         if (subtabId === 'dotplot') {
             iframe.setAttribute('src', 'plots/dotplot_synteny_sv.html');
+        } else if (subtabId === 'invsize') {
+            iframe.setAttribute('src', 'plots/inversions_sizes.html');
         } else if (subtabId === 'sankey') {
             iframe.setAttribute('src', 'plots/gene_sv_snp_network.html');
         } else if (subtabId === 'table') {

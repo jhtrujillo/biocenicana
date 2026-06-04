@@ -430,7 +430,7 @@ public class ComparativeGenomicsAnalyzer {
 
         // Count sugar families for G1 and G2
         Map<String, int[]> familyCounts = new HashMap<>(); // key: family, value: {g1Total, g2Total, g1Syntenic, g2Syntenic}
-        String[] families = {"SPS", "SuSy", "SUT", "SWEET", "Invertasas", "Fructosyltransferase", "Galactosyltransferase", "Otros del metabolismo de azúcares"};
+        String[] families = {"SPS", "SuSy", "SUT", "SWEET", "Invertasas", "Fructosyltransferasa", "Galactosyltransferasa", "Otros Transportadores"};
         for (String f : families) {
             familyCounts.put(f, new int[4]);
         }
@@ -529,7 +529,7 @@ public class ComparativeGenomicsAnalyzer {
         final double BIN_WIDTH = 0.05;
         final double KS_MIN = 0.01;
         final double KS_MAX = 3.0;
-        final double RATE = substitutionRate; // substitutions per site per year
+        final double RATE = substitutionRate;
         int numBins = (int) Math.ceil((KS_MAX - KS_MIN) / BIN_WIDTH);
         int[] bins = new int[numBins];
 
@@ -541,38 +541,83 @@ public class ComparativeGenomicsAnalyzer {
             }
         }
 
-        // Smooth the histogram with a 3-bin running average to reduce noise
+        // Heavy smoothing with 5-bin window to remove noise while preserving broad features
         double[] smoothed = new double[numBins];
         for (int i = 0; i < numBins; i++) {
-            double sum = bins[i];
-            int count = 1;
-            if (i > 0) { sum += bins[i - 1]; count++; }
-            if (i < numBins - 1) { sum += bins[i + 1]; count++; }
+            double sum = 0;
+            int count = 0;
+            for (int j = Math.max(0, i - 2); j <= Math.min(numBins - 1, i + 2); j++) {
+                sum += bins[j];
+                count++;
+            }
             smoothed[i] = sum / count;
         }
 
-        // Detect peaks: a bin is a peak if it is strictly higher than its two neighbors
-        // and has at least 1% of the maximum bin count (avoids noise peaks)
-        double maxVal = 0;
-        for (double v : smoothed) if (v > maxVal) maxVal = v;
-        double threshold = maxVal * 0.01;
+        // ----- Strategy 1: Classic local peaks (bin > both neighbors) -----
+        List<int[]> peaks = new java.util.ArrayList<>();
+        double maxValExcl = 0;
+        for (int i = 3; i < numBins; i++) {
+            if (smoothed[i] > maxValExcl) maxValExcl = smoothed[i];
+        }
+        double threshold = Math.max(5.0, maxValExcl * 0.02);
 
-        StringBuilder json = new StringBuilder("[");
-        boolean firstPeak = true;
         for (int i = 1; i < numBins - 1; i++) {
             if (smoothed[i] > smoothed[i - 1] && smoothed[i] > smoothed[i + 1] && smoothed[i] >= threshold) {
-                double ksPeak = KS_MIN + (i + 0.5) * BIN_WIDTH;
-                double mya = (ksPeak / (2.0 * RATE)) / 1_000_000.0;
-                if (Double.isNaN(mya) || Double.isInfinite(mya)) mya = 0.0;
-                if (!firstPeak) json.append(",");
-                json.append(String.format(Locale.US,
-                    "{\"ks\":%.3f,\"count\":%d,\"mya\":%.1f}",
-                    ksPeak, bins[i], mya));
-                firstPeak = false;
-                System.out.printf(Locale.US,
-                    "  - WGD Peak detected: Ks=%.3f, ~%.1f Mya (n=%d pairs) using r=%.2e%n",
-                    ksPeak, mya, bins[i], RATE);
+                peaks.add(new int[]{i, bins[i]});
             }
+        }
+
+        // ----- Strategy 2: Shoulder detection via second derivative -----
+        // For monotonically decreasing distributions (inter-species comparisons),
+        // we look for inflection points where the rate of decline slows significantly.
+        // This reveals "hidden" WGD signals as plateaus in the decay curve.
+        if (peaks.isEmpty() && numBins > 6) {
+            // Compute first derivative (rate of change)
+            double[] firstDeriv = new double[numBins - 1];
+            for (int i = 0; i < numBins - 1; i++) {
+                firstDeriv[i] = smoothed[i + 1] - smoothed[i];
+            }
+            // Compute second derivative (acceleration)
+            double[] secondDeriv = new double[numBins - 2];
+            for (int i = 0; i < numBins - 2; i++) {
+                secondDeriv[i] = firstDeriv[i + 1] - firstDeriv[i];
+            }
+
+            // Find the maximum positive second derivative (strongest "shoulder")
+            // Skip the first 3 bins (Ks < 0.16) to avoid the speciation spike
+            int bestIdx = -1;
+            double bestVal = 0;
+            for (int i = 3; i < secondDeriv.length - 1; i++) {
+                // A positive second derivative after negative = the decline is slowing down
+                if (secondDeriv[i] > bestVal && smoothed[i + 1] >= 10) {
+                    bestVal = secondDeriv[i];
+                    bestIdx = i + 1; // The shoulder is at the bin after the inflection
+                }
+            }
+
+            if (bestIdx > 0 && bestVal > 0) {
+                peaks.add(new int[]{bestIdx, bins[bestIdx]});
+                System.out.println("  - Shoulder detection: Found inflection point (no classic peaks in monotonic distribution).");
+            }
+        }
+
+        // Build JSON output
+        StringBuilder json = new StringBuilder("[");
+        boolean firstPeak = true;
+        for (int[] peak : peaks) {
+            int i = peak[0];
+            int count = peak[1];
+            double ksPeak = KS_MIN + (i + 0.5) * BIN_WIDTH;
+            double mya = (ksPeak / (2.0 * RATE)) / 1_000_000.0;
+            if (Double.isNaN(mya) || Double.isInfinite(mya)) mya = 0.0;
+            if (!firstPeak) json.append(",");
+            json.append(String.format(Locale.US,
+                "{\"ks\":%.3f,\"count\":%d,\"mya\":%.1f}",
+                ksPeak, count, mya));
+            firstPeak = false;
+            System.out.printf(Locale.US,
+                "  - WGD Peak detected: Ks=%.3f, ~%.1f Mya (n=%d pairs) using r=%.2e%n",
+                ksPeak, mya, count, RATE);
         }
         json.append("]");
         return json.toString();
@@ -710,7 +755,10 @@ public class ComparativeGenomicsAnalyzer {
         }
         int lastDot = stripped.lastIndexOf('.');
         if (lastDot > 0) {
-            stripped = stripped.substring(0, lastDot);
+            String suffix = stripped.substring(lastDot + 1);
+            if (suffix.matches("\\d+") || suffix.matches("v\\d+")) {
+                stripped = stripped.substring(0, lastDot);
+            }
         }
         return stripped;
     }
@@ -786,7 +834,10 @@ public class ComparativeGenomicsAnalyzer {
             // Also index by ID without version suffix if possible (e.g., Soffi.1 -> Soffi)
             int lastDot = stripped.lastIndexOf('.');
             if (lastDot > 0) {
-                baseMap.putIfAbsent(stripped.substring(0, lastDot), g);
+                String suffix = stripped.substring(lastDot + 1);
+                if (suffix.matches("\\d+") || suffix.matches("v\\d+")) {
+                    baseMap.putIfAbsent(stripped.substring(0, lastDot), g);
+                }
             }
         }
         return baseMap;
@@ -924,11 +975,11 @@ public class ComparativeGenomicsAnalyzer {
         } else if (d.contains("invertase") || d.contains("beta-fructofuranosidase")) {
             return "Invertasas";
         } else if (d.contains("fructosyltransferase")) {
-            return "Fructosyltransferase";
+            return "Fructosyltransferasa";
         } else if (d.contains("galactosyltransferase")) {
-            return "Galactosyltransferase";
-        } else if (d.contains("sugar transporter") || d.contains("hexose transporter") || d.contains("monosaccharide transporter") || d.contains("glucose transporter") || d.contains("fructose transporter") || d.contains("erd6")) {
-            return "Otros del metabolismo de azúcares";
+            return "Galactosyltransferasa";
+        } else if (d.contains("sugar transporter") || d.contains("hexose transporter") || d.contains("monosaccharide transporter") || d.contains("glucose transporter") || d.contains("fructose transporter") || d.contains("erd6") || d.contains("sugar symporter") || d.contains("monosaccharide symporter") || d.contains("hexose symporter")) {
+            return "Otros Transportadores";
         }
         return null;
     }

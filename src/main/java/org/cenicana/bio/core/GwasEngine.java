@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Modernized GWAS Engine supporting Mixed Models (EMMAX/P3D), 
+ * Modernized GWAS Engine supporting Mixed Models (EMMAX/P3D),
  * Polyploidy, Fixed Effects, Partial R2, and LOCO (Leave-One-Chromosome-Out).
  */
 public class GwasEngine {
@@ -33,10 +33,10 @@ public class GwasEngine {
         public double effect;
         public double r2;
         public double aic;
-        public String model; // Additive, SimplexDominant, etc.
-        public boolean isBestModel; // To flag the best model for this SNP
-        public List<Double>[] phenotypesByDosage; // To store distributions for boxplots
-        public List<String>[] samplesByDosage; // To track elite candidates
+        public String model;
+        public boolean isBestModel;
+        public List<Double>[] phenotypesByDosage;
+        public List<String>[] samplesByDosage;
     }
 
     public static class GwasResult {
@@ -45,7 +45,6 @@ public class GwasEngine {
         public int totalMarkersScanned;
         public List<double[]> ldDecayData; // [distance, r2]
     }
-
 
     public static class GwasInteraction {
         public String marker1;
@@ -61,12 +60,12 @@ public class GwasEngine {
         String ref;
         String alt;
         double[] dosages;
-        boolean passesGenoFreq = true; // GWASpoly: geno.freq filter is applied at score test, NOT at K
+        boolean passesGenoFreq = true;
     }
 
     private int ploidy;
     private String[] sampleNames;
-    private double[][] covariates; // Population structure (PCA) + Fixed effects
+    private double[][] covariates;
     private double[][] kinship;
     private boolean useLoco = false;
     private boolean runEpistasis = false;
@@ -77,8 +76,9 @@ public class GwasEngine {
     private double maxMissing = 0.1;
     private double mafThreshold = 0.01;
     private double maxGenoFreq = 1.0;
-    private String imputationMode = "mean"; // mean or knn
+    private String imputationMode = "mean";
     private boolean gwasPolyCompatibility = false;
+    // FIX: reset per run() call to avoid accumulation across multiple traits
     private int totalMarkersUnfiltered = 0;
 
     public GwasEngine(int ploidy, String[] sampleNames) {
@@ -86,67 +86,36 @@ public class GwasEngine {
         this.sampleNames = sampleNames;
     }
 
-    public void setKinship(double[][] kinship) {
-        this.kinship = kinship;
-    }
-
-    public void setLoco(boolean useLoco) {
-        this.useLoco = useLoco;
-    }
-
-    public void setRunEpistasis(boolean runEpistasis) {
-        this.runEpistasis = runEpistasis;
-    }
-
-    public void setWindowSize(int windowSize) {
-        this.windowSize = windowSize;
-    }
-
-    public void setModels(Set<GeneticModel> models) {
-        this.models = models;
-    }
-
-    public void setLdPruneThreshold(double ldPruneThreshold) {
-        this.ldPruneThreshold = ldPruneThreshold;
-    }
-
-    public void setImputationMode(String mode) {
-        this.imputationMode = mode;
-    }
-
-    public void setMaxMissing(double maxMissing) {
-        this.maxMissing = maxMissing;
-    }
-
-    public void setMafThreshold(double mafThreshold) {
-        this.mafThreshold = mafThreshold;
-    }
-
-    public void setMaxGenoFreq(double maxGenoFreq) {
-        this.maxGenoFreq = maxGenoFreq;
-    }
+    public void setKinship(double[][] kinship) { this.kinship = kinship; }
+    public void setLoco(boolean useLoco) { this.useLoco = useLoco; }
+    public void setRunEpistasis(boolean runEpistasis) { this.runEpistasis = runEpistasis; }
+    public void setWindowSize(int windowSize) { this.windowSize = windowSize; }
+    public void setModels(Set<GeneticModel> models) { this.models = models; }
+    public void setLdPruneThreshold(double ldPruneThreshold) { this.ldPruneThreshold = ldPruneThreshold; }
+    public void setImputationMode(String mode) { this.imputationMode = mode; }
+    public void setMaxMissing(double maxMissing) { this.maxMissing = maxMissing; }
+    public void setMafThreshold(double mafThreshold) { this.mafThreshold = mafThreshold; }
+    public void setMaxGenoFreq(double maxGenoFreq) { this.maxGenoFreq = maxGenoFreq; }
+    public void setCovariates(double[][] covariates) { this.covariates = covariates; }
+    public void setNumThreads(int numThreads) { this.numThreads = numThreads; }
 
     public void setGwasPolyCompatibility(boolean compatibility) {
         this.gwasPolyCompatibility = compatibility;
-        if (compatibility) {
-            this.imputationMode = "mean";
-        }
+        if (compatibility) this.imputationMode = "mean";
     }
-
-    public void setCovariates(double[][] covariates) { this.covariates = covariates; }
-    public void setNumThreads(int numThreads) { this.numThreads = numThreads; }
 
     public double[][] combineAllCovariates(double[][] pcaCovar, double[][] qCovar, PhenotypeData pheno, List<String> fixedCols) {
         int n = sampleNames.length;
         int pcaCount = (pcaCovar != null) ? pcaCovar[0].length : 0;
         int qCount = (qCovar != null) ? qCovar[0].length : 0;
-        
+
         List<double[]> dummyEncoded = new ArrayList<>();
         if (fixedCols != null) {
             for (String colName : fixedCols) {
                 Map<String, List<Integer>> levelIndices = new HashMap<>();
                 for (int i = 0; i < n; i++) {
-                    String val = pheno.getFixedEffects(sampleNames[i]).get(colName);
+                    Map<String, String> fx = pheno.getFixedEffects(sampleNames[i]);
+                    String val = (fx != null) ? fx.get(colName) : null;
                     if (val != null) levelIndices.computeIfAbsent(val, k -> new ArrayList<>()).add(i);
                 }
                 if (levelIndices.size() < 2) continue;
@@ -158,10 +127,10 @@ public class GwasEngine {
                 }
             }
         }
-        
+
         int totalCovs = pcaCount + qCount + dummyEncoded.size();
         if (totalCovs == 0) return null;
-        
+
         double[][] combined = new double[n][totalCovs];
         for (int i = 0; i < n; i++) {
             int currentPos = 0;
@@ -181,8 +150,11 @@ public class GwasEngine {
     }
 
     public GwasResult run(String vcfPath, double[] yValues, String traitName) throws Exception {
+        // FIX: reset counter so multiple run() calls on the same instance don't accumulate
+        totalMarkersUnfiltered = 0;
+
         System.out.println("[GWAS] Loading variants and filtering...");
-        
+
         // 1. Filter individuals with missing phenotypes
         List<Integer> validIndices = new ArrayList<>();
         for (int i = 0; i < yValues.length; i++) {
@@ -191,31 +163,22 @@ public class GwasEngine {
         int nFiltered = validIndices.size();
         double[] Yf = new double[nFiltered];
         for (int i = 0; i < nFiltered; i++) Yf[i] = yValues[validIndices.get(i)];
-        
-        // 2. Load and Filter Markers into memory
+
+        // 2. Load and filter markers
         Map<String, List<MarkerData>> chromToMarkers = new LinkedHashMap<>();
         int totalLoaded = 0;
         List<double[]> allDosagesForKinship = new ArrayList<>();
-        
+
         try (BufferedReader br = new BufferedReader(new FileReader(vcfPath))) {
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.startsWith("#")) continue;
                 totalMarkersUnfiltered++;
                 String[] cols = line.split("\t");
-                double[] dosages = extractDosages(cols, validIndices, kinship);
+                double[] dosages = extractDosages(cols, validIndices);
                 if (dosages == null) continue;
 
-                // 1. Collect dosages for kinship construction (unfiltered)
                 allDosagesForKinship.add(dosages);
-
-                double missingFreq = GwasMathUtils.calcMissing(dosages);
-                double maf = GwasMathUtils.calcMaf(dosages, ploidy);
-                double genofreq = GwasMathUtils.calcGenoFreq(dosages, ploidy);
-
-                if (missingFreq > maxMissing || maf < mafThreshold || genofreq > maxGenoFreq) {
-                    continue;
-                }
 
                 MarkerData md = new MarkerData();
                 md.id = cols[2].equals(".") ? cols[0] + ":" + cols[1] : cols[2];
@@ -230,8 +193,8 @@ public class GwasEngine {
                 totalLoaded++;
             }
         }
-        
-        // 2.2 LD Pruning if requested
+
+        // LD Pruning
         if (ldPruneThreshold < 0.999) {
             System.out.println("[GWAS] Pruning markers by LD (r2 < " + ldPruneThreshold + ")...");
             int before = totalLoaded;
@@ -240,20 +203,15 @@ public class GwasEngine {
             System.out.println("[GWAS] Pruning complete: " + before + " -> " + totalLoaded + " markers.");
         }
 
-        // Smart Grouping for LOCO: Group chroms with < 100 markers into a single "pseudo-chrom"
+        // Smart grouping for LOCO
         Map<String, List<MarkerData>> locoGroups = new LinkedHashMap<>();
         if (useLoco) {
             List<MarkerData> smallContigs = new ArrayList<>();
             for (Map.Entry<String, List<MarkerData>> entry : chromToMarkers.entrySet()) {
-                if (entry.getValue().size() < 100) {
-                    smallContigs.addAll(entry.getValue());
-                } else {
-                    locoGroups.put(entry.getKey(), entry.getValue());
-                }
+                if (entry.getValue().size() < 100) smallContigs.addAll(entry.getValue());
+                else locoGroups.put(entry.getKey(), entry.getValue());
             }
-            if (!smallContigs.isEmpty()) {
-                locoGroups.put("__SMALL_CONTIGS__", smallContigs);
-            }
+            if (!smallContigs.isEmpty()) locoGroups.put("__SMALL_CONTIGS__", smallContigs);
         } else {
             locoGroups = chromToMarkers;
         }
@@ -261,58 +219,48 @@ public class GwasEngine {
         System.out.println("[GWAS] Total markers: " + totalLoaded + " in " + chromToMarkers.size() + " sequences.");
         if (useLoco) System.out.println("[GWAS] LOCO Groups formed: " + locoGroups.size());
 
-        // 3. Prepare Covariates (W)
+        // 3. Prepare covariates (W)
         int numCovs = (covariates != null ? covariates[0].length : 0);
         DMatrixRMaj W = new DMatrixRMaj(nFiltered, 1 + numCovs);
         for (int i = 0; i < nFiltered; i++) W.set(i, 0, 1.0);
         if (covariates != null) {
             for (int i = 0; i < nFiltered; i++) {
                 int originalIdx = validIndices.get(i);
-                for (int j = 0; j < numCovs; j++) {
-                    W.set(i, j + 1, covariates[originalIdx][j]);
-                }
+                for (int j = 0; j < numCovs; j++) W.set(i, j + 1, covariates[originalIdx][j]);
             }
         }
 
-        // 3.5 Pre-calculate Global Kinship if not provided (Needed as fallback for LOCO or for Global mode)
+        // 4. Global kinship if not provided
         if (kinship == null) {
             System.out.println("[GWAS] Computing global " + (gwasPolyCompatibility ? "GWASpoly" : "VanRaden") + " kinship matrix...");
-            List<double[]> kinshipDosages = gwasPolyCompatibility ? allDosagesForKinship : new ArrayList<>();
-            if (!gwasPolyCompatibility) {
-                for (List<MarkerData> markers : chromToMarkers.values()) {
-                    for (MarkerData md : markers) kinshipDosages.add(md.dosages);
-                }
-            }
             if (gwasPolyCompatibility) {
-                kinship = PopulationStructureAnalyzer.calculateGwasPolyKinship(kinshipDosages);
+                kinship = PopulationStructureAnalyzer.calculateGwasPolyKinship(allDosagesForKinship);
             } else {
+                List<double[]> kinshipDosages = new ArrayList<>();
+                for (List<MarkerData> markers : chromToMarkers.values())
+                    for (MarkerData md : markers) kinshipDosages.add(md.dosages);
                 kinship = PopulationStructureAnalyzer.calculateVanRadenKinship(kinshipDosages, ploidy);
             }
         }
-
 
         List<GwasHit> allHits = Collections.synchronizedList(new ArrayList<>());
         String[] filteredNames = new String[nFiltered];
         for (int i = 0; i < nFiltered; i++) filteredNames[i] = sampleNames[validIndices.get(i)];
 
         if (!useLoco) {
-            // GLOBAL MODE
             System.out.println("[GWAS] Running Global Analysis...");
             runChromBlock(chromToMarkers.keySet(), chromToMarkers, kinship, nFiltered, filteredNames, Yf, W, allHits);
         } else {
-            // LOCO MODE
             System.out.println("[GWAS] Running LOCO Analysis (Leave-One-Chromosome-Out)...");
             for (String groupName : locoGroups.keySet()) {
                 System.out.print("[GWAS] Analyzing Group: " + groupName + " (LOCO) -> ");
-                
-                // Build Kinship excluding markers in THIS group
+
                 List<double[]> dosagesExcl = new ArrayList<>();
                 for (Map.Entry<String, List<MarkerData>> entry : locoGroups.entrySet()) {
-                    if (!entry.getKey().equals(groupName)) {
+                    if (!entry.getKey().equals(groupName))
                         for (MarkerData md : entry.getValue()) dosagesExcl.add(md.dosages);
-                    }
                 }
-                
+
                 double[][] locoKinship;
                 if (gwasPolyCompatibility) {
                     locoKinship = PopulationStructureAnalyzer.calculateGwasPolyKinship(dosagesExcl);
@@ -326,52 +274,37 @@ public class GwasEngine {
                 } else {
                     System.out.println("Using specific LOCO kinship.");
                 }
-                
-                // Scan the markers in this group (could be one chrom or many small contigs)
+
                 Map<String, List<MarkerData>> markersInGroup = new HashMap<>();
                 if (groupName.equals("__SMALL_CONTIGS__")) {
-                    for (MarkerData md : locoGroups.get(groupName)) {
+                    for (MarkerData md : locoGroups.get(groupName))
                         markersInGroup.computeIfAbsent(md.chrom, k -> new ArrayList<>()).add(md);
-                    }
                 } else {
                     markersInGroup.put(groupName, locoGroups.get(groupName));
                 }
-                
+
                 runChromBlock(markersInGroup.keySet(), markersInGroup, locoKinship, nFiltered, filteredNames, Yf, W, allHits);
             }
         }
 
-        // 4. Select Best Model per Marker (based on p-value)
         selectBestModels(allHits);
-        
-        // 5. Apply FDR (Benjamini-Hochberg) to the best models only (to match GWASpoly)
         applyFDRCorrection(allHits);
-
-        // 6. Sort by significance for output
         allHits.sort((a, b) -> Double.compare(a.pValue, b.pValue));
 
         GwasResult result = new GwasResult();
         result.hits = allHits;
         result.totalMarkersScanned = totalMarkersUnfiltered;
 
-
         if (runEpistasis) {
-            // We need weights, U, Ystar, Wstar from the GLOBAL model for epistasis leads
-            // For simplicity in LOCO, we re-run a global kinship/decomposition if needed or use the last one
-            // Let's use the parameters from a global run
             System.out.println("[GWAS] Running epistasis phase...");
             List<double[]> allDosages = new ArrayList<>();
-            for (List<MarkerData> list : chromToMarkers.values()) {
+            for (List<MarkerData> list : chromToMarkers.values())
                 for (MarkerData md : list) allDosages.add(md.dosages);
-            }
-            double[][] globalK;
-            if (gwasPolyCompatibility) {
-                globalK = PopulationStructureAnalyzer.calculateGwasPolyKinship(allDosages);
-            } else {
-                globalK = PopulationStructureAnalyzer.calculateVanRadenKinship(allDosages, ploidy);
-            }
-            
-            // Temporary block to get global decomposition
+
+            double[][] globalK = gwasPolyCompatibility
+                    ? PopulationStructureAnalyzer.calculateGwasPolyKinship(allDosages)
+                    : PopulationStructureAnalyzer.calculateVanRadenKinship(allDosages, ploidy);
+
             DMatrixRMaj K = new DMatrixRMaj(globalK);
             EigenDecomposition_F64<DMatrixRMaj> evd = DecompositionFactory_DDRM.eig(nFiltered, true);
             evd.decompose(K);
@@ -388,7 +321,11 @@ public class GwasEngine {
             CommonOps_DDRM.multTransA(U, Ymat, Ystar);
             DMatrixRMaj Wstar = new DMatrixRMaj(nFiltered, W.numCols);
             CommonOps_DDRM.multTransA(U, W, Wstar);
-            double delta = 1.0; 
+
+            // FIX: estimate REML delta instead of using hardcoded 1.0
+            double delta = estimateDeltaREML(Ystar, Wstar, lambdas);
+            System.out.printf("[GWAS] Epistasis REML Delta: %.4f%n", delta);
+
             double[] weights = new double[nFiltered];
             for (int i = 0; i < nFiltered; i++) weights[i] = 1.0 / (Math.max(1e-6, lambdas[i]) + delta);
 
@@ -407,8 +344,11 @@ public class GwasEngine {
         for (List<MarkerData> list : chromToMarkers.values()) all.addAll(list);
         if (all.size() < 2) return data;
 
-        int count = 0;
-        while (count < samples) {
+        // FIX: cap total attempts to avoid infinite loop when few same-chrom pairs exist
+        int maxAttempts = samples * 50;
+        int attempts = 0;
+        while (data.size() < samples && attempts < maxAttempts) {
+            attempts++;
             int i = rand.nextInt(all.size());
             int j = rand.nextInt(all.size());
             if (i == j) continue;
@@ -416,11 +356,10 @@ public class GwasEngine {
             MarkerData m2 = all.get(j);
             if (!m1.chrom.equals(m2.chrom)) continue;
             long dist = Math.abs(m1.pos - m2.pos);
-            if (dist > 30_000_000) continue; // Max 30Mb
+            if (dist > 30_000_000) continue;
 
             double r2 = GwasMathUtils.calculateR2(m1.dosages, m2.dosages);
             data.add(new double[]{dist, r2});
-            count++;
         }
         data.sort((a, b) -> Double.compare(a[0], b[0]));
         return data;
@@ -430,10 +369,9 @@ public class GwasEngine {
         return totalMarkersUnfiltered;
     }
 
-
-    private void runChromBlock(Set<String> chromsToScan, Map<String, List<MarkerData>> chromToMarkers, double[][] kMatrix, 
-                               int nFiltered, String[] filteredNames, double[] Yf, DMatrixRMaj W, List<GwasHit> allHits) {
-        // 1. EVD of Kinship
+    private void runChromBlock(Set<String> chromsToScan, Map<String, List<MarkerData>> chromToMarkers,
+                               double[][] kMatrix, int nFiltered, String[] filteredNames,
+                               double[] Yf, DMatrixRMaj W, List<GwasHit> allHits) {
         DMatrixRMaj K = new DMatrixRMaj(kMatrix);
         EigenDecomposition_F64<DMatrixRMaj> evd = DecompositionFactory_DDRM.eig(nFiltered, true);
         if (!evd.decompose(K)) {
@@ -449,12 +387,10 @@ public class GwasEngine {
             for (int j = 0; j < nFiltered; j++) U.set(j, i, v.get(j, 0));
         }
 
-        // 2. Rotate Y and W: Y* = U'Y, W* = U'W
         DMatrixRMaj Ymat = new DMatrixRMaj(nFiltered, 1);
         for (int i = 0; i < nFiltered; i++) Ymat.set(i, 0, Yf[i]);
         DMatrixRMaj Ystar = new DMatrixRMaj(nFiltered, 1);
         CommonOps_DDRM.multTransA(U, Ymat, Ystar);
-
         DMatrixRMaj Wstar = new DMatrixRMaj(nFiltered, W.numCols);
         CommonOps_DDRM.multTransA(U, W, Wstar);
 
@@ -462,39 +398,26 @@ public class GwasEngine {
         System.out.printf("[GWAS] Estimated REML Delta (VarE / VarG): %.4f%n", delta);
 
         double[] weights = new double[nFiltered];
-
         for (int i = 0; i < nFiltered; i++) weights[i] = 1.0 / (Math.max(1e-6, lambdas[i]) + delta);
         final double rssReduced = calculateRSS(Ystar, Wstar, lambdas, delta);
 
-        // 3. Parallel Scan
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         for (String chrom : chromsToScan) {
             List<MarkerData> markers = chromToMarkers.get(chrom);
             if (markers == null) continue;
-            
-            // Sliding Window grouping
+
             for (int i = 0; i < markers.size(); i += windowSize) {
                 final List<MarkerData> window = markers.subList(i, Math.min(i + windowSize, markers.size()));
                 executor.submit(() -> {
-                    int q = Wstar.numCols;
-                    DMatrixRMaj M = new DMatrixRMaj(nFiltered, q + 1);
-                    DMatrixRMaj MtVinv = new DMatrixRMaj(q + 1, nFiltered);
-                    DMatrixRMaj LHS = new DMatrixRMaj(q + 1, q + 1);
-                    DMatrixRMaj RHS = new DMatrixRMaj(q + 1, 1);
-                    DMatrixRMaj beta = new DMatrixRMaj(q + 1, 1);
-                    DMatrixRMaj invLHS = new DMatrixRMaj(q + 1, q + 1);
-                    DMatrixRMaj Xmat = new DMatrixRMaj(nFiltered, 1);
-                    DMatrixRMaj Xstar = new DMatrixRMaj(nFiltered, 1);
-
                     if (window.size() == 1) {
                         MarkerData md = window.get(0);
-                        if (!md.passesGenoFreq) return; // GWASpoly: skip at score test stage
+                        if (!md.passesGenoFreq) return;
                         for (GeneticModel model : models) {
                             double[] X = recodeForModel(md.dosages, model);
                             if (X == null) continue;
-                            
                             int df = (model == GeneticModel.GENERAL) ? getUniqueDosageCount(md.dosages) - 1 : 1;
-                            GwasHit hit = testModel(md.id, md.chrom, md.pos, md.ref, md.alt, X, df, filteredNames, Yf, Ystar, Wstar, U, weights, rssReduced, model.toString(), M, MtVinv, LHS, RHS, beta, invLHS, Xmat, Xstar);
+                            GwasHit hit = testModel(md.id, md.chrom, md.pos, md.ref, md.alt,
+                                    X, df, filteredNames, Yf, Ystar, Wstar, U, weights, rssReduced, model.toString());
                             if (hit.pValue < 1.0) allHits.add(hit);
                         }
                     } else {
@@ -502,7 +425,9 @@ public class GwasEngine {
                         MarkerData first = window.get(0);
                         MarkerData last = window.get(window.size() - 1);
                         String blockId = String.format("Block_%s:%d-%d", first.chrom, first.pos, last.pos);
-                        GwasHit hit = testModel(blockId, first.chrom, (first.pos + last.pos)/2, "Block", "Block", haploDosage, 1, filteredNames, Yf, Ystar, Wstar, U, weights, rssReduced, "Haplotype", M, MtVinv, LHS, RHS, beta, invLHS, Xmat, Xstar);
+                        GwasHit hit = testModel(blockId, first.chrom, (first.pos + last.pos) / 2,
+                                "Block", "Block", haploDosage, 1, filteredNames, Yf, Ystar, Wstar,
+                                U, weights, rssReduced, "Haplotype");
                         hit.markerId += " (" + window.size() + " SNPs)";
                         allHits.add(hit);
                     }
@@ -521,27 +446,20 @@ public class GwasEngine {
             double[] d = window.get(j).dosages;
             for (int i = 0; i < n; i++) mat.set(i, j, d[i]);
         }
-        
-        // Center the matrix for SVD
         for (int j = 0; j < m; j++) {
             double sum = 0;
             for (int i = 0; i < n; i++) sum += mat.get(i, j);
             double mean = sum / n;
             for (int i = 0; i < n; i++) mat.set(i, j, mat.get(i, j) - mean);
         }
-        
         SingularValueDecomposition_F64<DMatrixRMaj> svd = DecompositionFactory_DDRM.svd(n, m, true, true, false);
         if (!svd.decompose(mat)) return window.get(0).dosages;
-        
         DMatrixRMaj U = svd.getU(null, false);
         double[] pc1 = new double[n];
         for (int i = 0; i < n; i++) pc1[i] = U.get(i, 0);
-        
-        // Scale to 0..ploidy range to maintain consistency with boxplots
         double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
         for (double v : pc1) { min = Math.min(min, v); max = Math.max(max, v); }
         for (int i = 0; i < n; i++) pc1[i] = ((pc1[i] - min) / (max - min + 1e-10)) * ploidy;
-        
         return pc1;
     }
 
@@ -572,42 +490,41 @@ public class GwasEngine {
     private double estimateDeltaREML(DMatrixRMaj Ystar, DMatrixRMaj Wstar, double[] lambdas) {
         int n = Ystar.numRows;
         int q = Wstar.numCols;
-        
+
         java.util.function.DoubleFunction<Double> negLogLikelihood = (delta) -> {
             double rss = calculateRSS(Ystar, Wstar, lambdas, delta);
-            if (rss >= 1e10 || rss <= 0) return 1e10; 
-            
+            if (rss >= 1e10 || rss <= 0) return 1e10;
             double sumLogH = 0;
             DMatrixRMaj WtDW = new DMatrixRMaj(q, q);
             for (int i = 0; i < n; i++) {
                 double w = 1.0 / (lambdas[i] + delta);
                 sumLogH += Math.log(lambdas[i] + delta);
-                for (int j = 0; j < q; j++) {
-                    for (int k = 0; k < q; k++) {
+                for (int j = 0; j < q; j++)
+                    for (int k = 0; k < q; k++)
                         WtDW.add(j, k, Wstar.get(i, j) * w * Wstar.get(i, k));
-                    }
-                }
             }
-            
             double detWtDW = CommonOps_DDRM.det(WtDW);
-            if (detWtDW <= 0) return 1e10; 
-            
+            if (detWtDW <= 0) return 1e10;
             return (n - q) * Math.log(rss) + sumLogH + Math.log(detWtDW);
         };
 
-        return org.cenicana.bio.utils.GwasMathUtils.brentOptimize(1e-4, 1000.0, 1e-4, negLogLikelihood);
+        return GwasMathUtils.brentOptimize(1e-4, 1000.0, 1e-4, negLogLikelihood);
     }
 
-    private GwasHit testModel(String id, String chrom, long pos, String ref, String alt, double[] X, int df, String[] filteredNames, double[] Yf, DMatrixRMaj Ystar, DMatrixRMaj Wstar, DMatrixRMaj U, double[] weights, double rssReduced, String modelName,
-                              DMatrixRMaj M, DMatrixRMaj MtVinv, DMatrixRMaj LHS, DMatrixRMaj RHS, DMatrixRMaj beta, DMatrixRMaj invLHS, DMatrixRMaj Xmat, DMatrixRMaj Xstar) {
+    // FIX: removed 6 unused pre-allocated matrix parameters (M, MtVinv, LHS, RHS, beta, invLHS)
+    private GwasHit testModel(String id, String chrom, long pos, String ref, String alt,
+                              double[] X, int df, String[] filteredNames, double[] Yf,
+                              DMatrixRMaj Ystar, DMatrixRMaj Wstar, DMatrixRMaj U,
+                              double[] weights, double rssReduced, String modelName) {
         int n = Yf.length;
         int q = Wstar.numCols;
-        
-        // Handle multi-df (General model)
         int markerCols = df;
+
         DMatrixRMaj M_multi = new DMatrixRMaj(n, q + markerCols);
         CommonOps_DDRM.insert(Wstar, M_multi, 0, 0);
-        
+
+        DMatrixRMaj Xmat = new DMatrixRMaj(n, 1);
+        DMatrixRMaj Xstar = new DMatrixRMaj(n, 1);
         for (int d = 0; d < markerCols; d++) {
             for (int i = 0; i < n; i++) Xmat.set(i, 0, X[i * markerCols + d]);
             CommonOps_DDRM.multTransA(U, Xmat, Xstar);
@@ -639,22 +556,18 @@ public class GwasEngine {
         }
 
         double partialR2 = (rssReduced - rssFull) / (rssReduced + 1e-10);
-        
-        // Likelihood Ratio Test or F-test
         double fStat = ((rssReduced - rssFull) / df) / (rssFull / (n - q - df));
         double p = 1.0 - GwasMathUtils.fCDF(fStat, df, n - q - df);
-        
-        // AIC Calculation: n * ln(RSS/n) + 2k
         double aic = n * Math.log(rssFull / n) + 2 * (q + df + 1);
 
         GwasHit hit = new GwasHit();
         hit.markerId = id; hit.chromosome = chrom; hit.position = pos;
         hit.refAllele = ref; hit.altAllele = alt;
-        hit.effect = beta_multi.get(q, 0); // Primary effect
+        hit.effect = beta_multi.get(q, 0);
         hit.model = modelName; hit.r2 = Math.max(0, partialR2);
         hit.pValue = Math.max(p, 1e-300);
         hit.aic = aic;
-        
+
         if (hit.pValue < 0.001) {
             hit.phenotypesByDosage = new List[ploidy + 1];
             hit.samplesByDosage = new List[ploidy + 1];
@@ -663,14 +576,13 @@ public class GwasEngine {
                 hit.samplesByDosage[i] = new ArrayList<>();
             }
             for (int i = 0; i < n; i++) {
-                int dosage = (int) Math.round(X[i * markerCols]); // Use first col for dosage tracking
+                int dosage = (int) Math.round(X[i * markerCols]);
                 if (dosage >= 0 && dosage <= ploidy) {
                     hit.phenotypesByDosage[dosage].add(Yf[i]);
                     hit.samplesByDosage[dosage].add(filteredNames[i]);
                 }
             }
         }
-        
         return hit;
     }
 
@@ -684,26 +596,23 @@ public class GwasEngine {
             case SIMPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 1);
             case DUPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 2);
             case TRIPLEX_DOMINANT_REF: return recodeRef(dosages, ploidy - 3);
-            case GENERAL:
-                return recodeGeneral(dosages);
-            case DIPLO_ADDITIVE:
+            case GENERAL: return recodeGeneral(dosages);
+            case DIPLO_ADDITIVE: {
                 double[] da = new double[n];
                 for (int i = 0; i < n; i++) {
                     double d = Math.round(dosages[i]);
-                    if (d > 0 && d < ploidy) da[i] = 1.0; // Midway between 0 and 2
-                    else if (d == ploidy) da[i] = 2.0;
-                    else da[i] = 0.0;
+                    da[i] = (d > 0 && d < ploidy) ? 1.0 : (d == ploidy ? 2.0 : 0.0);
                 }
                 return da;
-            case DIPLO_GENERAL:
+            }
+            case DIPLO_GENERAL: {
                 double[] dg = new double[n];
                 for (int i = 0; i < n; i++) {
                     double d = Math.round(dosages[i]);
-                    if (d > 0 && d < ploidy) dg[i] = 1.0; // Heterozygote group
-                    else if (d == ploidy) dg[i] = 2.0;
-                    else dg[i] = 0.0;
+                    dg[i] = (d > 0 && d < ploidy) ? 1.0 : (d == ploidy ? 2.0 : 0.0);
                 }
                 return recodeGeneral(dg);
+            }
             default: return dosages;
         }
     }
@@ -711,36 +620,46 @@ public class GwasEngine {
     private double[] recodeGeneral(double[] dosages) {
         int n = dosages.length;
         Set<Integer> unique = new TreeSet<>();
-        for (double d : dosages) unique.add((int)Math.round(d));
+        for (double d : dosages) unique.add((int) Math.round(d));
         if (unique.size() < 2) return null;
         List<Integer> levels = new ArrayList<>(unique);
         int df = levels.size() - 1;
         double[] Xmulti = new double[n * df];
         for (int i = 0; i < n; i++) {
-            int d = (int)Math.round(dosages[i]);
-            for (int j = 0; j < df; j++) {
-                Xmulti[i * df + j] = (d == levels.get(j)) ? 1.0 : 0.0;
-            }
+            int d = (int) Math.round(dosages[i]);
+            for (int j = 0; j < df; j++) Xmulti[i * df + j] = (d == levels.get(j)) ? 1.0 : 0.0;
         }
         return Xmulti;
     }
 
     private int getUniqueDosageCount(double[] dosages) {
         Set<Integer> unique = new HashSet<>();
-        for (double d : dosages) unique.add((int)Math.round(d));
+        for (double d : dosages) unique.add((int) Math.round(d));
         return unique.size();
     }
 
-    private double[] extractDosages(String[] cols, List<Integer> validIndices, double[][] kinshipMatrix) {
-        int n = sampleNames.length;
+    /**
+     * Extracts and imputes dosage values for valid samples from a VCF data row.
+     * Returns null if the marker fails missing-rate or MAF filters.
+     */
+    private double[] extractDosages(String[] cols, List<Integer> validIndices) {
         int nFiltered = validIndices.size();
         double[] dosages = new double[nFiltered];
         List<Integer> missingIndices = new ArrayList<>();
         double sum = 0;
         int count = 0;
 
-        // Skip multiallelic if in GWASpoly compatibility mode
+        // FIX: skip multiallelic in gwasPolyCompatibility mode
         if (gwasPolyCompatibility && cols[4].contains(",")) return null;
+
+        // Resolve DS field index once for this variant
+        int dsIndex = -1;
+        if (cols.length > 8) {
+            String[] formatFields = cols[8].split(":");
+            for (int f = 0; f < formatFields.length; f++) {
+                if (formatFields[f].equalsIgnoreCase("DS")) { dsIndex = f; break; }
+            }
+        }
 
         for (int i = 0; i < nFiltered; i++) {
             int idx = validIndices.get(i);
@@ -748,52 +667,51 @@ public class GwasEngine {
             if (gData.startsWith(".")) {
                 missingIndices.add(i);
                 dosages[i] = Double.NaN;
-            } else {
-                String gt = gData.split(":")[0];
-                int dosage = 0;
-                for (char c : gt.toCharArray()) if (c > '0' && c <= '9') dosage++;
-                dosages[i] = dosage;
-                sum += dosage;
-                count++;
+                continue;
             }
+
+            String[] fields = gData.split(":");
+            double dosage;
+            if (dsIndex != -1 && fields.length > dsIndex) {
+                try {
+                    dosage = Double.parseDouble(fields[dsIndex]);
+                } catch (NumberFormatException e) {
+                    // FIX: only count '1' alleles — correct for biallelic; avoids wrong counts for '2', '3', etc.
+                    dosage = countAltAlleles(fields[0]);
+                }
+            } else {
+                dosage = countAltAlleles(fields[0]);
+            }
+            dosages[i] = dosage;
+            sum += dosage;
+            count++;
         }
 
-        double missingRatio = (double)missingIndices.size() / nFiltered;
+        double missingRatio = (double) missingIndices.size() / nFiltered;
         if (count == 0 || missingRatio > maxMissing) return null;
         if (maxMissing == 0 && !missingIndices.isEmpty()) return null;
+
         double mean = sum / count;
-        
         double freq = sum / (count * ploidy);
         double mafValue = Math.min(freq, 1.0 - freq);
         if (mafValue < mafThreshold) return null;
 
-        // Max Genotype Frequency Filter (GWASpoly style)
-        double mode = mean;
-        Map<Integer, Integer> counts = new HashMap<>();
-        for (double d : dosages) {
-            if (!Double.isNaN(d)) {
-                int id = (int) Math.round(d);
-                counts.put(id, counts.getOrDefault(id, 0) + 1);
-            }
-        }
-        
-        int maxCount = -1;
-        for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
-            if (entry.getValue() > maxCount) {
-                maxCount = entry.getValue();
-                mode = entry.getKey();
-            }
-        }
-
-        // Imputation
+        // Impute missing values
         for (int i : missingIndices) {
-            if ("knn".equalsIgnoreCase(imputationMode) && kinshipMatrix != null) {
-                dosages[i] = imputeWithKNN(i, dosages, validIndices, kinshipMatrix, 5);
+            if ("knn".equalsIgnoreCase(imputationMode) && kinship != null) {
+                dosages[i] = imputeWithKNN(i, dosages, validIndices, kinship, 5);
             } else {
                 dosages[i] = mean;
             }
         }
         return dosages;
+    }
+
+    // FIX: count only '1' alleles — safe for biallelic VCF; avoids miscounting multiallelic alleles (0/2 → 0, not 1)
+    private int countAltAlleles(String gt) {
+        int count = 0;
+        for (char c : gt.toCharArray()) if (c == '1') count++;
+        return count;
     }
 
     private boolean checkGenoFreq(double[] dosages) {
@@ -808,39 +726,30 @@ public class GwasEngine {
             }
         }
         if (total == 0) return false;
-        for (int c : counts.values()) {
-            if ((double) c / total > maxGenoFreq) return false;
-        }
+        for (int c : counts.values()) if ((double) c / total > maxGenoFreq) return false;
         return true;
     }
 
     private double imputeWithKNN(int targetIdx, double[] dosages, List<Integer> validIndices, double[][] kinship, int k) {
-        // Find top k relatives among genotyped individuals
         int n = dosages.length;
         class Relative implements Comparable<Relative> {
             int idx; double sim;
             Relative(int idx, double sim) { this.idx = idx; this.sim = sim; }
-            public int compareTo(Relative o) { return Double.compare(o.sim, this.sim); } // Descending
+            public int compareTo(Relative o) { return Double.compare(o.sim, this.sim); }
         }
-        
         PriorityQueue<Relative> pq = new PriorityQueue<>();
         int originalTargetIdx = validIndices.get(targetIdx);
-
         for (int i = 0; i < n; i++) {
             if (Double.isNaN(dosages[i])) continue;
             int originalOtherIdx = validIndices.get(i);
-            double sim = kinship[originalTargetIdx][originalOtherIdx];
-            pq.add(new Relative(i, sim));
+            pq.add(new Relative(i, kinship[originalTargetIdx][originalOtherIdx]));
         }
-
-        if (pq.isEmpty()) return ploidy / 2.0; // Fallback
-
-        double weightedSum = 0;
-        double totalWeight = 0;
+        if (pq.isEmpty()) return ploidy / 2.0;
+        double weightedSum = 0, totalWeight = 0;
         int count = 0;
         while (!pq.isEmpty() && count < k) {
             Relative r = pq.poll();
-            double weight = Math.max(0.001, r.sim + 1.0); // Shift kinship to positive weight
+            double weight = Math.max(0.001, r.sim + 1.0);
             weightedSum += dosages[r.idx] * weight;
             totalWeight += weight;
             count++;
@@ -860,15 +769,15 @@ public class GwasEngine {
         return res;
     }
 
-    public List<GwasInteraction> runEpistasisScan(List<GwasHit> topHits, Map<String, List<MarkerData>> chromToMarkers, double[] Yf, DMatrixRMaj W, double[] weights, DMatrixRMaj U, DMatrixRMaj Ystar, DMatrixRMaj Wstar) {
+    public List<GwasInteraction> runEpistasisScan(List<GwasHit> topHits, Map<String, List<MarkerData>> chromToMarkers,
+                                                   double[] Yf, DMatrixRMaj W, double[] weights, DMatrixRMaj U,
+                                                   DMatrixRMaj Ystar, DMatrixRMaj Wstar) {
         System.out.println("[GWAS] Starting targeted epistasis scan (Leads vs Genome)...");
         List<GwasInteraction> interactions = Collections.synchronizedList(new ArrayList<>());
-        
-        // Take top 5 leads
+
         List<GwasHit> leads = topHits.stream().limit(5).filter(h -> h.pValue < 1e-4).toList();
         if (leads.isEmpty()) return interactions;
 
-        // Find MarkerData for leads
         Map<String, double[]> leadDosages = new HashMap<>();
         for (GwasHit h : leads) {
             for (List<MarkerData> list : chromToMarkers.values()) {
@@ -889,8 +798,7 @@ public class GwasEngine {
 
             for (List<MarkerData> markers : chromToMarkers.values()) {
                 executor.submit(() -> {
-                    // Pre-allocate matrices per thread
-                    DMatrixRMaj M = new DMatrixRMaj(n, q + 3); // W + X1 + X2 + Xint
+                    DMatrixRMaj M = new DMatrixRMaj(n, q + 3);
                     DMatrixRMaj LHS = new DMatrixRMaj(q + 3, q + 3);
                     DMatrixRMaj RHS = new DMatrixRMaj(q + 3, 1);
                     DMatrixRMaj beta = new DMatrixRMaj(q + 3, 1);
@@ -902,7 +810,6 @@ public class GwasEngine {
 
                     for (MarkerData md : markers) {
                         if (md.id.equals(leadId)) continue;
-                        
                         double[] X2 = md.dosages;
                         double[] Xint = new double[n];
                         for (int k = 0; k < n; k++) Xint[k] = X1[k] * X2[k];
@@ -937,7 +844,6 @@ public class GwasEngine {
                             double se = Math.sqrt(Math.abs(invLHS.get(q + 2, q + 2) * sigma2));
                             double t = bInt / (se + 1e-15);
                             double p = 2.0 * (1.0 - GwasMathUtils.tCDF(Math.abs(t), n - q - 3));
-
                             if (p < 1e-4) {
                                 GwasInteraction gi = new GwasInteraction();
                                 gi.marker1 = leadId; gi.marker2 = md.id;
@@ -951,86 +857,61 @@ public class GwasEngine {
         }
         executor.shutdown();
         try { executor.awaitTermination(1, TimeUnit.HOURS); } catch (InterruptedException e) { e.printStackTrace(); }
-        
         interactions.sort((a, b) -> Double.compare(a.pValue, b.pValue));
         return interactions;
     }
 
     private void selectBestModels(List<GwasHit> hits) {
-        // Reset all
         for (GwasHit h : hits) h.isBestModel = false;
-        
         Map<String, GwasHit> bestByMarker = new HashMap<>();
         for (GwasHit hit : hits) {
             GwasHit currentBest = bestByMarker.get(hit.markerId);
-            if (currentBest == null || hit.pValue < currentBest.pValue) {
-                bestByMarker.put(hit.markerId, hit);
-            }
+            if (currentBest == null || hit.pValue < currentBest.pValue) bestByMarker.put(hit.markerId, hit);
         }
         for (GwasHit hit : hits) {
-            if (hit == bestByMarker.get(hit.markerId)) {
-                hit.isBestModel = true;
-            }
+            if (hit == bestByMarker.get(hit.markerId)) hit.isBestModel = true;
         }
     }
 
     private void applyFDRCorrection(List<GwasHit> hits) {
-        // We apply FDR to the set of "best" models (one per SNP)
         List<GwasHit> bestHits = new ArrayList<>();
-        for (GwasHit h : hits) {
-            if (h.isBestModel) bestHits.add(h);
-        }
-        
+        for (GwasHit h : hits) if (h.isBestModel) bestHits.add(h);
         bestHits.sort((a, b) -> Double.compare(a.pValue, b.pValue));
         int m = bestHits.size();
         for (int i = 0; i < m; i++) {
-            double qVal = bestHits.get(i).pValue * m / (i + 1.0);
-            bestHits.get(i).qValue = Math.min(1.0, qVal);
+            bestHits.get(i).qValue = Math.min(1.0, bestHits.get(i).pValue * m / (i + 1.0));
         }
-        // Monotonicity
         for (int i = m - 2; i >= 0; i--) {
             bestHits.get(i).qValue = Math.min(bestHits.get(i).qValue, bestHits.get(i + 1).qValue);
         }
-        
-        // For non-best hits, set q-value to 1.0 or something very high
-        for (GwasHit h : hits) {
-            if (!h.isBestModel) h.qValue = 1.0;
-        }
+        for (GwasHit h : hits) if (!h.isBestModel) h.qValue = 1.0;
     }
 
+    /**
+     * LD pruning using a sliding window: a candidate is retained only if its r² with
+     * ALL previously retained markers in the window is below the threshold.
+     */
     private void pruneByLD(Map<String, List<MarkerData>> chromToMarkers) {
         for (String chrom : chromToMarkers.keySet()) {
             List<MarkerData> markers = chromToMarkers.get(chrom);
             if (markers.size() < 2) continue;
-            
+
             List<MarkerData> pruned = new ArrayList<>();
             pruned.add(markers.get(0));
-            
+
             for (int i = 1; i < markers.size(); i++) {
                 MarkerData current = markers.get(i);
-                MarkerData last = pruned.get(pruned.size() - 1);
-                
-                double r2 = calculateR2(current.dosages, last.dosages);
-                if (r2 < ldPruneThreshold) {
-                    pruned.add(current);
+                boolean keep = true;
+                // FIX: compare against all retained markers, not just the last one
+                for (MarkerData retained : pruned) {
+                    if (GwasMathUtils.calculateR2(current.dosages, retained.dosages) >= ldPruneThreshold) {
+                        keep = false;
+                        break;
+                    }
                 }
+                if (keep) pruned.add(current);
             }
             chromToMarkers.put(chrom, pruned);
         }
-    }
-
-    private double calculateR2(double[] x, double[] y) {
-        double sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
-        int n = x.length;
-        for (int i = 0; i < n; i++) {
-            sumX += x[i]; sumY += y[i];
-            sumXX += x[i] * x[i]; sumYY += y[i] * y[i];
-            sumXY += x[i] * y[i];
-        }
-        double cov = (n * sumXY - sumX * sumY);
-        double varX = (n * sumXX - sumX * sumX);
-        double varY = (n * sumYY - sumY * sumY);
-        if (varX == 0 || varY == 0) return 0;
-        return (cov * cov) / (varX * varY);
     }
 }

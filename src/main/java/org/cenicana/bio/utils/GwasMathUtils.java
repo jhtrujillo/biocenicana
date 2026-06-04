@@ -64,32 +64,14 @@ public class GwasMathUtils {
     }
 
     /**
-     * Approximation of the cumulative distribution function (CDF) for the T-distribution.
-     * Using the Hill (1970) approximation.
+     * Cumulative distribution function (CDF) for the T-distribution via regularized incomplete beta.
+     * Falls back to normal approximation for df > 1000.
      */
     public static double tCDF(double t, double df) {
         if (df <= 0) return 0.5;
-        double x = t;
-        double a = 1.0 / (df - 0.5);
-        double b = 48.0 / (a * a);
-        double c = ((20.7 * a - 5.1) * a - 0.6) * a + 0.0347;
-        double d = ((0.32 * a + 0.05) * a + 0.03) * a + 0.0003;
-        double e = (0.01 * a + 0.002) * a + 0.00005;
-        double y = x * x / df;
-        
-        if (y > 0.00001) {
-            y = df * Math.log(1.0 + y);
-        }
-        
-        double z = (y - 0.5) / (df - 0.5);
-        z = Math.sqrt(y) * (1.0 - (1.0 / (4.0 * df)) + (1.0 / (96.0 * df * df)));
-        
         // Use normal approximation for large df
         if (df > 1000) return normalCDF(t);
-
-        // Simple approximation for p-values in GWAS (2-tailed)
-        // For GWAS we usually only need p = 2 * (1 - T_CDF(|t|))
-        // Let's use a simpler but robust approximation:
+        // I_x(a,b) where x = df/(df+t²), a = df/2, b = 1/2
         return 0.5 * (1.0 + Math.signum(t) * (1.0 - betaIncomplete(df / (df + t * t), df / 2.0, 0.5)));
     }
 
