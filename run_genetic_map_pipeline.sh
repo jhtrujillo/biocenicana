@@ -16,7 +16,7 @@ echo "============================================================"
 # ── Rutas ────────────────────────────────────────────────────────────────────
 VCF="benchmarks/vcfs/mapa_genetico/AllSamples_variants_geneticmap_pseudochromosomes_standarfilters_minInd_85_single_dosage.vcf"
 GFF="benchmarks/genomas/1940/CC-01-1940.gff3"
-GENES="data/sugar_gene_ids.txt"   # lista de genes de sacarosa (uno por línea)
+GENES="data/genes_informe_kaks.txt"  # 32 genes del informe Ka/Ks CC 01-1940 vs R570
 OUT="genomica_comparativa/mapa_genetico"
 PYTHON=".venv/bin/python"
 
