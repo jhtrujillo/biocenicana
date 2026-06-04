@@ -702,24 +702,26 @@ public class GeneticMapDashboardGenerator {
             "  return {svg, svgW, svgH};\n" +
             "}\n\n" +
             "function svgToPng(svgStr, svgW, svgH, scale, filename){\n" +
-            "  const blob = new Blob([svgStr],{type:'image/svg+xml'});\n" +
-            "  const url  = URL.createObjectURL(blob);\n" +
-            "  const img  = new Image();\n" +
+            "  // Use base64 data URL — more reliable than blob URLs across browsers\n" +
+            "  const encoded = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));\n" +
+            "  const img = new Image();\n" +
             "  img.onload = ()=>{\n" +
             "    const c = document.createElement('canvas');\n" +
-            "    c.width  = svgW * scale;\n" +
-            "    c.height = svgH * scale;\n" +
+            "    c.width  = Math.round(svgW * scale);\n" +
+            "    c.height = Math.round(svgH * scale);\n" +
             "    const ctx = c.getContext('2d');\n" +
             "    ctx.fillStyle = '#ffffff';\n" +
-            "    ctx.fillRect(0,0,c.width,c.height);\n" +
+            "    ctx.fillRect(0, 0, c.width, c.height);\n" +
             "    ctx.drawImage(img, 0, 0, c.width, c.height);\n" +
             "    const a = document.createElement('a');\n" +
             "    a.href = c.toDataURL('image/png');\n" +
             "    a.download = filename;\n" +
+            "    document.body.appendChild(a);\n" +
             "    a.click();\n" +
-            "    URL.revokeObjectURL(url);\n" +
+            "    document.body.removeChild(a);\n" +
             "  };\n" +
-            "  img.src = url;\n" +
+            "  img.onerror = ()=> alert('Error al generar PNG. Prueba con resolución más baja.');\n" +
+            "  img.src = encoded;\n" +
             "}\n\n" +
             "function exportMapPng(byChr){\n" +
             "  const scale     = parseInt(document.getElementById('pngScale').value)||2;\n" +
