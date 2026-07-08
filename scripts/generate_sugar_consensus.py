@@ -156,9 +156,22 @@ md_report.append("Este informe presenta una comparación sistemática y un conse
 
 # Tabla general de consenso
 md_report.append("## 1. Tabla de Consenso Genómico y Evolutivo\n")
+
+short_functions = {
+    'SPS': 'Síntesis primaria',
+    'SuSy': 'Degradación (energía/pared)',
+    'SUT': 'Transporte activo',
+    'SWEET': 'Transporte pasivo',
+    'Invertasas': 'Hidrólisis a hexosas',
+    'Fructosyltransferase': 'Síntesis de fructanos',
+    'Galactosyltransferase': 'Síntesis de pared',
+    'Sugar Transporter': 'Transporte general',
+    'Otros del metabolismo de azúcares': 'Regulación / Varios'
+}
+
 table_header = [
-    "| Familia Funcional | Genes | Sintenia (%) | Huérfanos G1/G2 | Pares con Ka/Ks | Ka Promedio | Ks Promedio | Ka/Ks Promedio | Sel. Positiva (Ka/Ks > 1) | Sel. Purif. Extrema (Ka/Ks < 0.1) | Sel. Purif. Mod. (0.1 - 1.0) |",
-    "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
+    "| Familia Funcional | Función Principal | Genes | Sintenia (%) | Huérfanos G1/G2 | Pares con Ka/Ks | Ka Prom. | Ks Prom. | Ka/Ks Prom. | Sel. Positiva (> 1) | Sel. Purif. Extrema (< 0.1) | Sel. Purif. Mod. (0.1-1.0) |",
+    "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
 ]
 table_rows = []
 
@@ -166,11 +179,9 @@ for fam, stats in family_stats.items():
     synt_cnt = len(stats['syntenic'])
     orp_g1 = stats['orphan_g1']
     orp_g2 = stats['orphan_g2']
-    total_genes = synt_cnt * 2 + orp_g1 + orp_g2 # count total genes involved
-    # For synteny percentage: syntenic genes / total genes
+    total_genes = synt_cnt * 2 + orp_g1 + orp_g2
     synt_prop = (synt_cnt * 2 / total_genes * 100) if total_genes > 0 else 0
     
-    # Calculate kaks statistics
     valid_kaks = [p for p in stats['syntenic'] if p['ratio'] is not None]
     kaks_cnt = len(valid_kaks)
     
@@ -182,12 +193,21 @@ for fam, stats in family_stats.items():
     pur_ext = sum(1 for p in valid_kaks if p['ratio'] < 0.1)
     pur_mod = sum(1 for p in valid_kaks if p['ratio'] >= 0.1 and p['ratio'] <= 1.0)
     
-    row_str = f"| **{fam}** | {total_genes} | {synt_prop:.2f}% | {orp_g1}/{orp_g2} | {kaks_cnt} | {avg_ka:.4f} | {avg_ks:.4f} | **{avg_ratio:.4f}** | {pos_sel} | {pur_ext} | {pur_mod} |"
+    func_desc = short_functions.get(fam, 'Desconocida')
+    
+    row_str = f"| **{fam}** | {func_desc} | {total_genes} | {synt_prop:.2f}% | {orp_g1}/{orp_g2} | {kaks_cnt} | {avg_ka:.4f} | {avg_ks:.4f} | **{avg_ratio:.4f}** | {pos_sel} | {pur_ext} | {pur_mod} |"
     table_rows.append(row_str)
 
 md_report.extend(table_header)
 md_report.extend(table_rows)
-md_report.append("\n*Nota: La proporción de sintenia representa el porcentaje de genes que forman parejas sinténicas directas respecto al total de genes de la familia. Los huérfanos representan genes exclusivos de CC-01-1940 (G1) o R570 (G2).*\n")
+
+md_report.append("\n**Leyenda de Presiones Selectivas (Ka/Ks):**")
+md_report.append("- **Selección Positiva (Ka/Ks > 1.0):** La evolución favorece mutaciones que cambian la proteína (adaptación rápida a nuevos entornos o patógenos).")
+md_report.append("- **Selección Purificadora Extrema/Fuerte (Ka/Ks < 0.1):** La proteína es tan vital que la naturaleza elimina casi cualquier mutación que la altere (conservación absoluta).")
+md_report.append("- **Selección Purificadora Moderada/Débil (0.1 a 1.0):** Se toleran algunas mutaciones que cambian la proteína, indicando cierta flexibilidad evolutiva o evolución relajada.\n")
+
+md_report.append("*Nota: La proporción de sintenia representa el porcentaje de genes que forman parejas sinténicas directas respecto al total de genes de la familia. Los huérfanos representan genes exclusivos de CC-01-1940 (G1) o R570 (G2).*")
+
 
 # Discusión biológica del consenso
 md_report.append("## 2. Discusión de Consenso por Familia Funcional\n")

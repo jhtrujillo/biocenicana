@@ -67,12 +67,25 @@
       box-shadow: -4px 0 15px rgba(0,0,0,0.02);
     }
 
-    svg { 
-      background: #fff; 
-      border: 1px solid var(--border); 
-      box-shadow: var(--shadow-lg); 
+    svg {
+      background: #fff;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
       border-radius: 16px;
       transition: transform 0.3s ease;
+    }
+
+    /* Plotly stacks several <svg> layers; the global svg rule above would paint
+       the top layer opaque white and hide the chart. Neutralize it for any
+       embedded Plotly figure so the traces underneath remain visible. */
+    .js-plotly-plot svg,
+    .plotly-graph-div svg,
+    .plotly svg,
+    .subtab-content .main-svg {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
     }
 
     .panel { 
@@ -571,7 +584,7 @@
       <button class="nav-item" id="tab-btn-inventory" onclick="switchTab('inventory')">
         <span class="nav-icon">🧬</span><span class="nav-label">Inventario Funcional</span>
       </button>
-      <button class="nav-item" id="tab-btn-molecular" onclick="switchTab('molecular')">
+      <button class="nav-item" id="tab-btn-molecular" onclick="switchTab('molecular')" style="display:none;">
         <span class="nav-icon">🔍</span><span class="nav-label">Identificación Molecular</span>
       </button>
     </div>
@@ -886,6 +899,17 @@
         </table>
       </div>
 
+      <!-- LEYENDA -->
+      <div style="margin-top: 15px; font-size: 12px; color: var(--text-muted); background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
+        <strong style="color:var(--primary-color);">Leyenda de Presiones Selectivas (Ka/Ks):</strong>
+        <ul style="margin: 5px 0 0 20px; padding: 0;">
+          <li style="margin-bottom: 4px;"><span class="badge badge-positive" style="transform:scale(0.85);transform-origin:left;display:inline-block;margin-bottom:-4px;">Sel. Positiva / Plástica</span> <strong>(> 1.0)</strong>: Evolución rápida y adaptación a nuevos patógenos o entornos.</li>
+          <li style="margin-bottom: 4px;"><span class="badge badge-purifying" style="transform:scale(0.85);transform-origin:left;display:inline-block;margin-bottom:-4px;">Sel. Purificadora Fuerte</span> <strong>(< 0.2)</strong>: Función vital, conservación absoluta de la proteína.</li>
+          <li style="margin-bottom: 4px;"><span class="badge badge-purifying" style="transform:scale(0.85);transform-origin:left;display:inline-block;margin-bottom:-4px;opacity:0.8;">Sel. Purificadora Moderada</span> <strong>(0.2 - 0.5)</strong>: Fuerte conservación pero con cierta plasticidad.</li>
+          <li style="margin-bottom: 4px;"><span class="badge badge-neutral" style="transform:scale(0.85);transform-origin:left;display:inline-block;margin-bottom:-4px;">Sel. Purificadora Débil</span> <strong>(0.5 - 1.0)</strong>: Evolución relajada, mayor tolerancia a mutaciones.</li>
+        </ul>
+      </div>
+
       <div id="consensus-discussion" class="db-alert" style="margin-top:24px;">
         <!-- Populated dynamically by JS -->
       </div>
@@ -1066,7 +1090,18 @@
           <thead>
             <tr>
               <th>Cromosoma G1 (<span class="g1-name-placeholder"></span>)</th>
-              <th style="tex      </div>
+              <th style="text-align:right;">Parejas Sinténicas</th>
+              <th style="text-align:right;">N.° Cromosomas G2 con Sintenia</th>
+              <th style="text-align:right;">Ks Promedio</th>
+              <th style="text-align:center;">Nivel de Poliploidía</th>
+              <th>Cromosomas G2 Sinténicos (<span class="g2-name-placeholder"></span>)</th>
+            </tr>
+          </thead>
+          <tbody id="wgd-ploidy-body">
+            <!-- Dyn loaded -->
+          </tbody>
+        </table>
+      </div>
 
       <div class="db-alert" style="margin-top:24px;background:#f0fdf4;border-left-color:#10b981;color:#14532d;">
         <h5 style="font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">🌳 <span>Discusión: WGD, Poliploidía y Evolución Cromosómica en <em>Saccharum</em></span></h5>
@@ -1160,11 +1195,6 @@
     </div>
   </div>
 
-  <!-- TAB IDENTIFICACION MOLECULAR -->
-  <div id="molecular-content" style="display: none; flex: 1; padding: 28px 40px; overflow-y: auto;">a la redundancia genómica: un cromosoma G1 de CC-01-1940 con sintenia en 5+ cromosomas G2 de R570 confirma la naturaleza <strong>poliplo-alopoliploide</strong> de R570. El análisis conjunto permite estimar el número de rondas de WGD y reconstruir la historia evolutiva del genoma de <em>Saccharum</em>.</p>
-      </div>
-    </div>
-  </div>
   <!-- TAB IDENTIFICACION MOLECULAR -->
   <div id="molecular-content" style="display: none; flex: 1; padding: 28px 40px; overflow-y: auto;">
     <div class="report-section">
@@ -1437,44 +1467,7 @@
       <div class="dashboard-container" id="structural-metrics-grid"></div>
 
       <!-- ═══ SUB-TAB VISUALIZATION SELECTOR ═══ -->
-      <div class="db-table-container" style="margin-bottom:24px; padding: 24px;">
-        <div style="display:flex; justify-content: space-between; align-items:center; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-          <h3 class="db-table-title" style="margin: 0; display:flex; align-items:center; gap:8px;">📊 Panel de Visualizaciones Interactivas</h3>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-sm subtab-btn active" onclick="switchSubTab('orientation')" style="border-radius:20px; font-weight:600; padding:6px 14px;">🧭 Orientación de Bloques</button>
-            <button class="btn btn-sm subtab-btn" onclick="switchSubTab('dotplot')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📍 Dot-Plot Sintenia</button>
-            <button class="btn btn-sm subtab-btn" onclick="switchSubTab('invsize')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📏 Tamaños de Inversiones</button>
-            <button class="btn btn-sm subtab-btn" onclick="switchSubTab('sankey')" style="border-radius:20px; font-weight:600; padding:6px 14px;">🔀 Flujo Genómico</button>
-            <button class="btn btn-sm subtab-btn" onclick="switchSubTab('table')" style="border-radius:20px; font-weight:600; padding:6px 14px;">📋 Catálogo de Genes</button>
-          </div>
-        </div>
 
-        <!-- Sub-tab contents -->
-        <div id="subtab-orientation-content" class="subtab-content" style="width:100%;">
-          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Visualización interactiva que muestra la proporción global de bloques directos vs invertidos y su distribución a través de los principales pares cromosómicos.</p>
-          <iframe id="iframe-orientation" src="plots/blocks_orientation.html" style="width:100%; height:620px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
-        </div>
-
-        <div id="subtab-dotplot-content" class="subtab-content" style="display:none; width:100%;">
-          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Dot-plot de colinealidad a nivel genómico entre CC-01-1940 y R570, coloreado y clasificado según la orientación del bloque y la presencia de variaciones estructurales.</p>
-          <iframe id="iframe-dotplot" src="" style="width:100%; height:620px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
-        </div>
-
-        <div id="subtab-invsize-content" class="subtab-content" style="display:none; width:100%;">
-          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Visualización interactiva que muestra el análisis y cuantificación del tamaño de las inversiones (Mbp), el número de genes y la distribución por cromosoma.</p>
-          <iframe id="iframe-invsize" src="" style="width:100%; height:820px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
-        </div>
-
-        <div id="subtab-sankey-content" class="subtab-content" style="display:none; width:100%;">
-          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Diagrama de Sankey interactivo que conecta cromosomas de origen, estados de sintenia (sinténico, huérfano/PAV, reordenamientos) y genes funcionales clave de metabolismo de azúcar.</p>
-          <iframe id="iframe-sankey" src="" style="width:100%; height:620px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
-        </div>
-
-        <div id="subtab-table-content" class="subtab-content" style="display:none; width:100%;">
-          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Buscador y catálogo completo de genes en regiones sinténicas, con filtros avanzados por cromosoma, estado de sintenia, orientación de bloques y genes relacionados con azúcar.</p>
-          <iframe id="iframe-table" src="" style="width:100%; height:680px; border:none; border-radius:12px; background:#0f172a; box-shadow:var(--shadow-lg);"></iframe>
-        </div>
-      </div>
 
       <!-- ═══ DESCARGAS DE TABLAS Y REPOSITORIO DE DATOS ═══ -->
       <div class="db-table-container" style="margin-bottom:24px;">
@@ -1531,11 +1524,6 @@ const WGD_PEAKS = /*WGD_PEAKS_JSON*/;
 const TREE_NEWICK = "/*TREE_NEWICK*/";
 let SUBST_RATE = /*SUBST_RATE*/; // Substitutions/site/year
 
-// Normalize orientation mapping
-allData.forEach(p => {
-    if (p.o === 'plus') p.o = 'direct';
-    else if (p.o === 'minus') p.o = 'inverted';
-});
 
 // Injected global counts from Java backend
 const G1_TOTAL_GENES = /*G1_TOTAL_GENES*/;
@@ -1932,8 +1920,10 @@ function renderStructuralTab() {
 }
 
 function renderStructuralReport() {
-    // Show CORS local file protocol warning if needed
-    if (window.location.protocol === 'file:') {
+    // Show CORS local file protocol warning ONLY if there are still un-embedded
+    // iframes on the page. When the plots have been inlined (embed_plots.py),
+    // no iframes remain and the viewer is fully self-contained under file://.
+    if (window.location.protocol === 'file:' && document.querySelector('.subtab-content iframe')) {
         const warning = document.getElementById('local-file-warning');
         if (warning) {
             warning.style.display = 'block';
@@ -2160,7 +2150,9 @@ function switchSubTab(subtabId) {
     // Dynamically set src of iframe if not already loaded
     const iframe = document.getElementById(`iframe-${subtabId}`);
     if (iframe && !iframe.getAttribute('src')) {
-        if (subtabId === 'dotplot') {
+        if (subtabId === 'orientation') {
+            iframe.setAttribute('src', 'plots/blocks_orientation.html');
+        } else if (subtabId === 'dotplot') {
             iframe.setAttribute('src', 'plots/dotplot_synteny_sv.html');
         } else if (subtabId === 'invsize') {
             iframe.setAttribute('src', 'plots/inversions_sizes.html');
@@ -2331,9 +2323,13 @@ function applyGwasCandFilter() {
 }
 
 function renderMolecularTab() {
-    if (!_molecularRendered) {
+    try {
         renderMolecularReport(currentFunctionalCategory || 'sugar');
         _molecularRendered = true;
+    } catch(e) {
+        console.error('[MolecularTab] Error al renderizar:', e);
+        const grid = document.getElementById('molecular-metrics-grid');
+        if (grid) grid.innerHTML = '<p style="color:red;padding:20px;">Error al cargar el módulo: ' + e.message + '</p>';
     }
 }
 
@@ -3591,6 +3587,57 @@ function onCategoryChange(newKey) {
     else if (molecularVisible)  renderMolecularTab();
 }
 
+// Update metrics grid based on category
+function updateCategoryMetrics(categoryKey) {
+    let totalKa = 0, totalKs = 0, totalRatio = 0;
+    let kaksCount = 0;
+    let purifying = 0, positive = 0;
+    
+    const pairs = getCategoryPairs(categoryKey);
+    
+    pairs.forEach(p => {
+        if (p.kk && p.kk.ks > 0) {
+            totalKa += p.kk.ka;
+            totalKs += p.kk.ks;
+            totalRatio += p.kk.r;
+            kaksCount++;
+            if (p.kk.r < 1.0) purifying++;
+            else if (p.kk.r > 1.0) positive++;
+        }
+    });
+
+    const avgKa = kaksCount > 0 ? (totalKa / kaksCount).toFixed(4) : "0.0000";
+    const avgKs = kaksCount > 0 ? (totalKs / kaksCount).toFixed(4) : "0.0000";
+    const avgRatio = kaksCount > 0 ? (totalRatio / kaksCount).toFixed(3) : "0.000";
+    const purifyingPct = kaksCount > 0 ? ((purifying / kaksCount) * 100).toFixed(1) : "0.0";
+    const positivePct = kaksCount > 0 ? ((positive / kaksCount) * 100).toFixed(1) : "0.0";
+
+    const metricsGrid = document.getElementById('p2-metrics-grid');
+    if (!metricsGrid) return;
+    metricsGrid.innerHTML = `
+        <div class="db-card">
+          <div class="db-card-val">${avgRatio}</div>
+          <div class="db-card-lbl">Ka/Ks Promedio</div>
+          <div class="db-card-desc">Relación media de mutaciones no sinónimas vs sinónimas. Refleja conservación global.</div>
+        </div>
+        <div class="db-card success">
+          <div class="db-card-val">${purifying.toLocaleString()} <span style="font-size:13px; font-weight:500; opacity:0.8;">(${purifyingPct}%)</span></div>
+          <div class="db-card-lbl">Selección Purificadora (Ka/Ks &lt; 1.0)</div>
+          <div class="db-card-desc">Ortólogos bajo presión purificadora para conservar funciones críticas estables.</div>
+        </div>
+        <div class="db-card danger">
+          <div class="db-card-val">${positive.toLocaleString()} <span style="font-size:13px; font-weight:500; opacity:0.8;">(${positivePct}%)</span></div>
+          <div class="db-card-lbl">Selección Positiva (Ka/Ks &gt; 1.0)</div>
+          <div class="db-card-desc">Ortólogos con tasas de cambio aceleradas, candidatos a adaptación funcional.</div>
+        </div>
+        <div class="db-card accent">
+          <div class="db-card-val">${avgKs}</div>
+          <div class="db-card-lbl">Ks Promedio</div>
+          <div class="db-card-desc">Sustituciones sinónimas medias, estimando la distancia divergente neutral.</div>
+        </div>
+    `;
+}
+
 // Update discussion block and header labels for a given category and tab
 function updateCategoryUI(categoryKey) {
     const cat = FUNCTIONAL_CATEGORIES[categoryKey];
@@ -3623,25 +3670,14 @@ function updateCategoryUI(categoryKey) {
     const inventoryDesc = document.getElementById('inventory-category-desc');
     if (inventoryDesc) inventoryDesc.textContent = `${Object.keys(cat.families).join(' · ')}`;
 
-    // Update discussion blocks
+    // Update discussion blocks (REMOVED per user request)
     const consDis = document.getElementById('consensus-discussion');
-    if (consDis) {
-        consDis.setAttribute('style', `margin-top:24px; ${cat.alertStyle}`);
-        consDis.innerHTML = `
-            <h5 style="font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-              ${cat.icon} <span>Discusión y Análisis: ${cat.discussions.consensus.title}</span>
-            </h5>
-            <p style="font-size:12.5px; line-height:1.6; margin:0;">${cat.discussions.consensus.text}</p>`;
-    }
+    if (consDis) consDis.style.display = 'none';
     const invDis = document.getElementById('inventory-discussion');
-    if (invDis) {
-        invDis.setAttribute('style', `margin-top:24px; ${cat.alertStyle}`);
-        invDis.innerHTML = `
-            <h5 style="font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-              ${cat.icon} <span>Discusión y Análisis: ${cat.discussions.inventory.title}</span>
-            </h5>
-            <p style="font-size:12.5px; line-height:1.6; margin:0;">${cat.discussions.inventory.text}</p>`;
-    }
+    if (invDis) invDis.style.display = 'none';
+
+    // Update dynamic metric cards based on the selected category
+    updateCategoryMetrics(categoryKey);
 
     // Update thead for consensus: show Orphan columns only if hasFamilyCounts
     const thead = document.getElementById('p2-consensus-thead');
@@ -3649,6 +3685,7 @@ function updateCategoryUI(categoryKey) {
         if (cat.hasFamilyCounts) {
             thead.innerHTML = `<tr>
                 <th>Familia Funcional</th>
+                <th>Función</th>
                 <th><span class="g1-name-placeholder">${G1_NAME}</span> Sint./Total</th>
                 <th><span class="g2-name-placeholder">${G2_NAME}</span> Sint./Total</th>
                 <th>Huérfanos ${G1_NAME}</th><th>Huérfanos ${G2_NAME}</th>
@@ -3656,6 +3693,7 @@ function updateCategoryUI(categoryKey) {
         } else {
             thead.innerHTML = `<tr>
                 <th>Familia Funcional</th>
+                <th>Función</th>
                 <th>Parejas Sint. ${G1_NAME}</th>
                 <th>Parejas Sint. ${G2_NAME}</th>
                 <th>Ka/Ks Promedio</th>
@@ -3705,12 +3743,55 @@ function renderFunctionalConsensus(categoryKey) {
             else                        { consensusText = "Sel. Positiva / Plástica";    consensusBadge = "badge-positive"; }
         }
 
+        const shortFunctions = {
+            // Sugar
+            'SPS': 'Síntesis primaria',
+            'SuSy': 'Degradación (energía/pared)',
+            'SUT': 'Transporte activo',
+            'SWEET': 'Transporte pasivo/flujo',
+            'Invertasas': 'Hidrólisis a hexosas',
+            'Fructosyltransferasa': 'Síntesis de fructanos',
+            'Galactosyltransferasa': 'Síntesis de pared',
+            'Otros Transportadores': 'Transporte general',
+            // Disease
+            'NBS-LRR': 'Reconocimiento de patógenos (R-genes)',
+            'Proteínas PR': 'Respuesta antimicrobiana',
+            'WAK (Wall Kinase)': 'Percepción de daño en pared',
+            'LRR-RK': 'Receptores de superficie (inmunidad)',
+            'Chitinasa': 'Degradación de pared fúngica',
+            'Glucanasa': 'Degradación de polímeros patógenos',
+            // Transcription Factors
+            'MYB': 'Regulación metabólica/desarrollo',
+            'WRKY': 'Respuesta a estrés biótico/abiótico',
+            'ERF/AP2': 'Respuesta a etileno y estrés',
+            'bZIP': 'Respuesta a luz y estrés (ABA)',
+            'NAC': 'Desarrollo, estrés y senescencia',
+            'MADS-box': 'Desarrollo floral y organogénesis',
+            // Abiotic
+            'HSP (Chaperonas)': 'Plegamiento bajo estrés térmico',
+            'Deshidrinas / LEA': 'Protección contra deshidratación',
+            'Acuaporinas': 'Transporte de agua inter/intracelular',
+            'Superóxido Dismut.': 'Detoxificación de radicales (ROS)',
+            'Catalasa / APX': 'Eliminación de peróxido de hidrógeno',
+            'DREB / CBF': 'Adaptación a frío y sequía',
+            // Secondary
+            'Flavonoides / CHS': 'Síntesis de pigmentos/antioxidantes',
+            'PAL / Fenilprop.': 'Biosíntesis de lignina y fenoles',
+            'Terpeno Sintasas': 'Síntesis de compuestos volátiles',
+            'Lignificación': 'Reforzamiento estructural celular',
+            'Glucósidos / GT (UGT)': 'Almacenamiento y detoxificación',
+            // Fallback
+            'Otros': 'Regulación / Varios'
+        };
+        const funcDesc = shortFunctions[fam] || '-';
+
         if (cat.hasFamilyCounts && SUGAR_FAMILY_COUNTS[fam]) {
             const counts = SUGAR_FAMILY_COUNTS[fam];
             const g1Orphans = counts.g1t - counts.g1s;
             const g2Orphans = counts.g2t - counts.g2s;
             html += `<tr>
               <td><strong>${fam}</strong></td>
+              <td style="font-size:12px;color:var(--text-muted);">${funcDesc}</td>
               <td>${counts.g1s} <span style="color:var(--text-muted);font-size:10px;">(de ${counts.g1t} totales)</span></td>
               <td>${counts.g2s} <span style="color:var(--text-muted);font-size:10px;">(de ${counts.g2t} totales)</span></td>
               <td style="color:${g1Orphans > 0 ? '#ef4444' : 'inherit'};font-weight:${g1Orphans > 0 ? '600' : 'normal'};">${g1Orphans}</td>
@@ -3721,6 +3802,7 @@ function renderFunctionalConsensus(categoryKey) {
         } else {
             html += `<tr>
               <td><strong>${fam}</strong></td>
+              <td style="font-size:12px;color:var(--text-muted);">${funcDesc}</td>
               <td>${syn.g1}</td>
               <td>${syn.g2}</td>
               <td style="font-weight:600;">${avgKaksText}</td>
@@ -3788,50 +3870,7 @@ function renderPhase2Report() {
     document.querySelectorAll('.g1-name-placeholder').forEach(el => el.textContent = G1_NAME);
     document.querySelectorAll('.g2-name-placeholder').forEach(el => el.textContent = G2_NAME);
 
-    let totalKa = 0, totalKs = 0, totalRatio = 0;
-    let kaksCount = 0;
-    let purifying = 0, positive = 0;
-    
-    allData.forEach(p => {
-        if (p.kk && p.kk.ks > 0) {
-            totalKa += p.kk.ka;
-            totalKs += p.kk.ks;
-            totalRatio += p.kk.r;
-            kaksCount++;
-            if (p.kk.r < 1.0) purifying++;
-            else if (p.kk.r > 1.0) positive++;
-        }
-    });
-
-    const avgKa = kaksCount > 0 ? (totalKa / kaksCount).toFixed(4) : "0.0000";
-    const avgKs = kaksCount > 0 ? (totalKs / kaksCount).toFixed(4) : "0.0000";
-    const avgRatio = kaksCount > 0 ? (totalRatio / kaksCount).toFixed(3) : "0.000";
-    const purifyingPct = kaksCount > 0 ? ((purifying / kaksCount) * 100).toFixed(1) : "0.0";
-    const positivePct = kaksCount > 0 ? ((positive / kaksCount) * 100).toFixed(1) : "0.0";
-
-    const metricsGrid = document.getElementById('p2-metrics-grid');
-    metricsGrid.innerHTML = `
-        <div class="db-card">
-          <div class="db-card-val">${avgRatio}</div>
-          <div class="db-card-lbl">Ka/Ks Promedio</div>
-          <div class="db-card-desc">Relación media de mutaciones no sinónimas vs sinónimas. Refleja conservación global.</div>
-        </div>
-        <div class="db-card success">
-          <div class="db-card-val">${purifying.toLocaleString()} <span style="font-size:13px; font-weight:500; opacity:0.8;">(${purifyingPct}%)</span></div>
-          <div class="db-card-lbl">Selección Purificadora (Ka/Ks &lt; 1.0)</div>
-          <div class="db-card-desc">Ortólogos bajo presión purificadora para conservar funciones críticas estables.</div>
-        </div>
-        <div class="db-card danger">
-          <div class="db-card-val">${positive.toLocaleString()} <span style="font-size:13px; font-weight:500; opacity:0.8;">(${positivePct}%)</span></div>
-          <div class="db-card-lbl">Selección Positiva (Ka/Ks &gt; 1.0)</div>
-          <div class="db-card-desc">Ortólogos con tasas de cambio aceleradas, candidatos a adaptación funcional.</div>
-        </div>
-        <div class="db-card accent">
-          <div class="db-card-val">${avgKs}</div>
-          <div class="db-card-lbl">Ks Promedio</div>
-          <div class="db-card-desc">Sustituciones sinónimas medias, estimando la distancia divergente neutral.</div>
-        </div>
-    `;
+    // Metrics are now dynamically updated via updateCategoryMetrics called inside updateCategoryUI
 
     renderFunctionalConsensus(currentFunctionalCategory);
     renderFunctionalInventory(currentFunctionalCategory);

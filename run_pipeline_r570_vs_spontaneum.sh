@@ -20,9 +20,9 @@ mkdir -p genomica_comparativa/r570_vs_spontaneum/plots
 if [ ! -f genomica_comparativa/r570_vs_spontaneum/kaks_r570_vs_spontaneum.tsv ]; then
   echo -e "\n[Paso 2/5] Calculando presiones evolutivas (Ka/Ks)..."
   java -jar target/biojava.jar kaks-calc \
-    --collinearity benchmarks/genomica_comparativa/r570_vs_spont/mcscanx/r570_vs_spont.collinearity \
-    --cds1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna \
-    --cds2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.cds.fna \
+    --collinearity dataset_genomico/comparativas/R570_vs_Spont_sim/R570_vs_Spont.collinearity \
+    --cds1 dataset_genomico/genomas/R570_sim/R570.cds.fa \
+    --cds2 dataset_genomico/genomas/Spont_sim/Spont.cds.fa \
     -o genomica_comparativa/r570_vs_spontaneum/kaks_r570_vs_spontaneum.tsv
 else
   echo -e "\n[Paso 2/5] Archivo Ka/Ks ya existe. Saltando cálculo para ahorrar tiempo."
@@ -31,14 +31,14 @@ fi
 # 3. Integración multi-ómica con comp-gen
 echo -e "\n[Paso 3/5] Integrando GFFs, Colinealidad, VCF, Ka/Ks y longitudes..."
 java -jar target/biojava.jar comp-gen \
-  --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
-  --gff2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.gff3 \
-  --collinearity benchmarks/genomica_comparativa/r570_vs_spont/mcscanx/r570_vs_spont.collinearity \
-  --cds1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.cds.fna \
-  --cds2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.cds.fna \
-  --prot1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.protein.faa \
-  --prot2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.protein.faa \
-  --vcf benchmarks/vcfs/empty_dummy.vcf \
+  --gff1 dataset_genomico/genomas/R570_sim/R570.gff \
+  --gff2 dataset_genomico/genomas/Spont_sim/Spont.gff \
+  --collinearity dataset_genomico/comparativas/R570_vs_Spont_sim/R570_vs_Spont.collinearity \
+  --cds1 dataset_genomico/genomas/R570_sim/R570.cds.fa \
+  --cds2 dataset_genomico/genomas/Spont_sim/Spont.cds.fa \
+  --prot1 dataset_genomico/genomas/R570_sim/R570.cds.fa \
+  --prot2 dataset_genomico/genomas/Spont_sim/Spont.cds.fa \
+  --vcf dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   --kaks genomica_comparativa/r570_vs_spontaneum/kaks_r570_vs_spontaneum.tsv \
   --viz genomica_comparativa/r570_vs_spontaneum/visor_sintenia.html \
   -o genomica_comparativa/r570_vs_spontaneum/reporte_comparativo.tsv \
@@ -49,8 +49,8 @@ java -jar target/biojava.jar comp-gen \
 # 4. Análisis de genes relacionados con sacarosa
 echo -e "\n[Paso 4/5] Buscando y cuantificando genes de metabolismo/transporte de azúcar..."
 ./.venv/bin/python scripts/check_sucrose_genes.py \
-  --gff1 benchmarks/genomas/r570/Saccharum_hybrid_cultivar_R570.gff3 \
-  --gff2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.gff3 \
+  --gff1 dataset_genomico/genomas/R570_sim/R570.gff \
+  --gff2 dataset_genomico/genomas/Spont_sim/Spont.gff \
   --report genomica_comparativa/r570_vs_spontaneum/reporte_comparativo.tsv \
   --kaks genomica_comparativa/r570_vs_spontaneum/kaks_r570_vs_spontaneum.tsv \
   --name1 "R570" \
@@ -71,12 +71,12 @@ echo -e "\n[Paso 5/5] Generando tablas y gráficos interactivos complementarios.
 
 # C. Extraer SVs
 ./.venv/bin/python scripts/sv_parser.py \
-  benchmarks/vcfs/empty_dummy.vcf \
+  dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   genomica_comparativa/r570_vs_spontaneum/tables/sv_regions.bed
 
 # D. Intersección de SNPs de Azúcar
 ./.venv/bin/python scripts/sugar_snp_intersect.py \
-  --vcf benchmarks/vcfs/empty_dummy.vcf \
+  --vcf dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   --sugar-ids data/sugar_gene_ids.txt \
   --report genomica_comparativa/r570_vs_spontaneum/reporte_comparativo.tsv \
   --output genomica_comparativa/r570_vs_spontaneum/tables/sugar_snp_overlap.tsv

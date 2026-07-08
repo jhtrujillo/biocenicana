@@ -101,6 +101,7 @@ if os.path.exists(report_path):
     rows_data = []
     block_total = {}
     block_sugar = {}
+    block_strands = {}
     
     with open(report_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f, delimiter='\t')
@@ -123,6 +124,14 @@ if os.path.exists(report_path):
                 block_total[block_id] = block_total.get(block_id, 0) + 1
                 if is_sugar:
                     block_sugar[block_id] = block_sugar.get(block_id, 0) + 1
+                
+                # track strand matches for block orientation
+                if block_id not in block_strands:
+                    block_strands[block_id] = {'same': 0, 'diff': 0}
+                if row.get('Strand1') == row.get('Strand2'):
+                    block_strands[block_id]['same'] += 1
+                else:
+                    block_strands[block_id]['diff'] += 1
             
             rows_data.append((row, desc1, desc2, is_sugar))
 
@@ -137,8 +146,17 @@ if os.path.exists(report_path):
             ka, ks, ratio = kaks_data.get((g1_norm, g2_norm), (None, None, None))
             
             block_id = row['Block_ID']
-            tot = block_total.get(block_id, 0) if status == 'Syntenic' else 0
-            sug = block_sugar.get(block_id, 0) if status == 'Syntenic' else 0
+            
+            # Refine status based on orientation
+            if status == 'Syntenic':
+                if block_id in block_strands:
+                    if block_strands[block_id]['same'] >= block_strands[block_id]['diff']:
+                        status = 'Syntenic (Direct)'
+                    else:
+                        status = 'Syntenic (Inverted)'
+
+            tot = block_total.get(block_id, 0) if 'Syntenic' in status else 0
+            sug = block_sugar.get(block_id, 0) if 'Syntenic' in status else 0
             
             sugar_genes_mapped.append({
                 'Block_ID': block_id,

@@ -18,9 +18,9 @@ mkdir -p genomica_comparativa/spontaneum_ap
 if [ ! -f genomica_comparativa/spontaneum_ap/kaks_1940_vs_spontaneum.tsv ]; then
   echo -e "\n[Paso 2/4] Calculando presiones evolutivas (Ka/Ks)..."
   java -jar target/biojava.jar kaks-calc \
-    --collinearity benchmarks/genomica_comparativa/1940_vs_ssp_ap/mcscanx/1940_vs_sp_ap.collinearity \
-    --cds1 benchmarks/genomas/1940/CC-01-1940.cds.fna \
-    --cds2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.cds.fna \
+    --collinearity dataset_genomico/comparativas/CC1940_vs_R570/CC1940_vs_R570.collinearity \
+    --cds1 dataset_genomico/genomas/CC-01-1940/CC-01-1940.cds.fa \
+    --cds2 dataset_genomico/genomas/Spontaneum/Spontaneum.cds.fa \
     -o genomica_comparativa/spontaneum_ap/kaks_1940_vs_spontaneum.tsv
 else
   echo -e "\n[Paso 2/4] Archivo Ka/Ks ya existe. Saltando cálculo para ahorrar tiempo."
@@ -29,14 +29,14 @@ fi
 # 3. Integración multi-ómica con comp-gen
 echo -e "\n[Paso 3/4] Integrando GFFs, Colinealidad, VCF, Ka/Ks y longitudes..."
 java -jar target/biojava.jar comp-gen \
-  --gff1 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.gff3 \
-  --gff2 benchmarks/genomas/1940/CC-01-1940.gff3 \
-  --collinearity benchmarks/genomica_comparativa/1940_vs_ssp_ap/mcscanx/1940_vs_sp_ap.collinearity \
-  --cds1 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.cds.fna \
-  --cds2 benchmarks/genomas/1940/CC-01-1940.cds.fna \
-  --prot1 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.protein.faa \
-  --prot2 benchmarks/genomas/1940/CC-01-1940.protein.faa \
-  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --gff1 dataset_genomico/genomas/Spontaneum/Spontaneum.gff \
+  --gff2 dataset_genomico/genomas/CC-01-1940/CC-01-1940.gff \
+  --collinearity dataset_genomico/comparativas/CC1940_vs_R570/CC1940_vs_R570.collinearity \
+  --cds1 dataset_genomico/genomas/Spontaneum/Spontaneum.cds.fa \
+  --cds2 dataset_genomico/genomas/CC-01-1940/CC-01-1940.cds.fa \
+  --prot1 dataset_genomico/genomas/Spontaneum/Spontaneum.cds.fa \
+  --prot2 dataset_genomico/genomas/CC-01-1940/CC-01-1940.protein.faa \
+  --vcf dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   --kaks genomica_comparativa/spontaneum_ap/kaks_1940_vs_spontaneum.tsv \
   --viz genomica_comparativa/spontaneum_ap/visor_sintenia.html \
   -o genomica_comparativa/spontaneum_ap/reporte_comparativo.tsv \
@@ -47,8 +47,8 @@ java -jar target/biojava.jar comp-gen \
 # 4. Análisis de genes relacionados con sacarosa
 echo -e "\n[Paso 4/5] Buscando y cuantificando genes de metabolismo/transporte de azúcar..."
 ./.venv/bin/python scripts/check_sucrose_genes.py \
-  --gff1 benchmarks/genomas/1940/CC-01-1940.gff3 \
-  --gff2 benchmarks/genomas/ssp_ap/Saccharum_spontaneum_AP85-441.gff3 \
+  --gff1 dataset_genomico/genomas/CC-01-1940/CC-01-1940.gff \
+  --gff2 dataset_genomico/genomas/Spontaneum/Spontaneum.gff \
   --report genomica_comparativa/spontaneum_ap/reporte_comparativo.tsv \
   --kaks genomica_comparativa/spontaneum_ap/kaks_1940_vs_spontaneum.tsv \
   --name1 "CC 1940" \
@@ -69,12 +69,12 @@ echo -e "\n[Paso 5/5] Generando tablas y gráficos interactivos complementarios.
 
 # C. Extraer SVs (vcf de referencia CC 1940)
 ./.venv/bin/python scripts/sv_parser.py \
-  benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   genomica_comparativa/spontaneum_ap/tables/sv_regions.bed
 
 # D. Intersección de SNPs de Azúcar
 ./.venv/bin/python scripts/sugar_snp_intersect.py \
-  --vcf benchmarks/vcfs/1940/cc-01-1940_flye_polishing_allhic_220_standarfiltered.vcf \
+  --vcf dataset_genomico/genomas/CC-01-1940/CC-01-1940_sim.vcf \
   --sugar-ids data/sugar_gene_ids.txt \
   --report genomica_comparativa/spontaneum_ap/reporte_comparativo.tsv \
   --output genomica_comparativa/spontaneum_ap/tables/sugar_snp_overlap.tsv

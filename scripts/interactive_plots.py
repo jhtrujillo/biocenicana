@@ -36,9 +36,9 @@ OUT_DIR   = args.out_dir
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
-DARK_BG  = '#0f172a'
-CARD_BG  = '#1e293b'
-TEXT     = '#e2e8f0'
+DARK_BG  = '#ffffff'
+CARD_BG  = '#f8fafc'
+TEXT     = '#1e293b'
 MUTED    = '#94a3b8'
 GREEN    = '#22c55e'
 ORANGE   = '#f97316'
@@ -86,7 +86,7 @@ def plot_orientation():
     fig = make_subplots(
         rows=1, cols=2,
         specs=[[{"type": "bar"}, {"type": "pie"}]],
-        subplot_titles=('Orientación por Par Cromosómico (Top 20)',
+        subplot_titles=('Orientación por Par Cromosómico',
                         'Distribución Global'),
         column_widths=[0.65, 0.35]
     )
@@ -113,8 +113,7 @@ def plot_orientation():
 
     fig.update_layout(
         title=dict(
-            text=f'Orientación de Bloques Sinténicos — {args.name1} vs {args.name2}',
-
+            text=f'Orientación de Bloques — {args.name1} vs {args.name2}',
             font=dict(size=20, color=TEXT, family='Inter, sans-serif'),
             x=0.5
         ),
@@ -122,7 +121,7 @@ def plot_orientation():
         plot_bgcolor=CARD_BG,
         font=dict(color=TEXT, family='Inter, sans-serif'),
         barmode='stack',
-        legend=dict(bgcolor='rgba(30,41,59,0.8)', bordercolor=MUTED,
+        legend=dict(bgcolor='rgba(255,255,255,0.8)', bordercolor=MUTED,
                     borderwidth=1, font=dict(color=TEXT)),
         margin=dict(l=20, r=20, t=100, b=20),
         annotations=[dict(
@@ -131,8 +130,8 @@ def plot_orientation():
             showarrow=False, font=dict(size=15, color=GOLD)
         )]
     )
-    fig.update_xaxes(gridcolor='#334155', zerolinecolor='#334155')
-    fig.update_yaxes(gridcolor='#334155', tickfont=dict(size=9))
+    fig.update_xaxes(gridcolor='#e2e8f0', zerolinecolor='#cbd5e1')
+    fig.update_yaxes(gridcolor='#e2e8f0', tickfont=dict(size=9))
 
     out = os.path.join(OUT_DIR, 'blocks_orientation.html')
     fig.write_html(out, include_plotlyjs='cdn')
@@ -172,7 +171,7 @@ def plot_dotplot():
                 size=size_scaled,
                 symbol=symbol_map[orient],
                 opacity=0.7,
-                line=dict(width=0.5, color='rgba(255,255,255,0.2)')
+                line=dict(width=0.5, color='rgba(0,0,0,0.2)')
             ),
             customdata=s[['Block_ID','Chr1','Chr2','Orientation']].values,
             hovertemplate=(
@@ -190,15 +189,15 @@ def plot_dotplot():
             font=dict(size=18, color=TEXT, family='Inter, sans-serif'),
             x=0.5
         ),
-        xaxis=dict(title=f'Posición genómica {args.name1} (bp)',
-                   gridcolor='#1e293b', color=MUTED, showgrid=True),
-        yaxis=dict(title=f'Posición genómica {args.name2} (bp)',
-                   gridcolor='#1e293b', color=MUTED, showgrid=True),
+        xaxis=dict(title='Genoma de Referencia (Mbp)', color=TEXT,
+                   gridcolor='#e2e8f0', zerolinecolor='#cbd5e1', showgrid=True),
+        yaxis=dict(title='Genoma Sinténico (Mbp)', color=TEXT,
+                   gridcolor='#e2e8f0', zerolinecolor='#cbd5e1', showgrid=True),
 
         paper_bgcolor=DARK_BG,
-        plot_bgcolor='#0f1f35',
+        plot_bgcolor='#ffffff',
         font=dict(color=TEXT, family='Inter, sans-serif'),
-        legend=dict(bgcolor='rgba(30,41,59,0.85)', bordercolor=MUTED,
+        legend=dict(bgcolor='rgba(255,255,255,0.85)', bordercolor=MUTED,
                     borderwidth=1, font=dict(color=TEXT)),
         margin=dict(l=60, r=20, t=100, b=60)
     )
@@ -212,18 +211,24 @@ def plot_dotplot():
 # ─────────────────────────────────────────────────────────────────────────────
 def plot_sankey():
     # Aggregate flows: Chr1 → Status → Sugar/NonSugar
+    # Map orientation into status for clarity
+    rep_sankey = rep.copy()
+    rep_sankey['DetailedStatus'] = rep_sankey.apply(
+        lambda r: f"Syntenic ({str(r['Orientation']).capitalize()})" if r['Status'] == 'Syntenic' else r['Status'], 
+        axis=1
+    )
+
     # Build flow counts
-    flow = (rep.groupby(['Chr1','Status','IsSugarGene'])
+    flow = (rep_sankey.groupby(['Chr1','DetailedStatus','IsSugarGene'])
                .size().reset_index(name='count'))
 
     # Limit to top 15 chromosomes by total gene count
-    top_chrs = (rep.groupby('Chr1').size().nlargest(15).index.tolist())
+    top_chrs = (rep_sankey.groupby('Chr1').size().nlargest(15).index.tolist())
     flow = flow[flow['Chr1'].isin(top_chrs)]
 
     # Node lists
     chrs     = sorted(flow['Chr1'].unique().tolist())
-    statuses = ['Syntenic', 'Orphan_G1', 'Orphan_G2', 'Direct', 'Inverted']
-    status_set = sorted(flow['Status'].unique().tolist())
+    status_set = sorted(flow['DetailedStatus'].unique().tolist())
     leaves   = ['Sugar Gene', 'Non-Sugar Gene']
 
     # Map orientation into status for clarity
@@ -234,7 +239,9 @@ def plot_sankey():
     for n in all_nodes:
         if n in chrs:          node_colors.append(BLUE)
         elif 'Orphan' in n:    node_colors.append(PURPLE)
-        elif n == 'Syntenic':  node_colors.append(GREEN)
+        elif 'Direct' in n:    node_colors.append(GREEN)
+        elif 'Inverted' in n:  node_colors.append(ORANGE)
+        elif 'Syntenic' in n:  node_colors.append(GREEN)
         elif n == 'Sugar Gene': node_colors.append(GOLD)
         else:                  node_colors.append(MUTED)
 
@@ -242,7 +249,7 @@ def plot_sankey():
 
     for _, row in flow.iterrows():
         chr_node    = row['Chr1']
-        status_node = row['Status']
+        status_node = row['DetailedStatus']
         leaf_node   = 'Sugar Gene' if row['IsSugarGene'] else 'Non-Sugar Gene'
         cnt         = row['count']
 
@@ -253,19 +260,19 @@ def plot_sankey():
         sources.append(node_idx[chr_node])
         targets.append(node_idx[status_node])
         values.append(cnt)
-        colors.append('rgba(59,130,246,0.4)')
+        colors.append('rgba(59,130,246,0.2)')
 
         # Status → leaf
         sources.append(node_idx[status_node])
         targets.append(node_idx[leaf_node])
         values.append(cnt)
-        link_color = 'rgba(245,158,11,0.5)' if row['IsSugarGene'] else 'rgba(148,163,184,0.2)'
+        link_color = 'rgba(245,158,11,0.3)' if row['IsSugarGene'] else 'rgba(148,163,184,0.1)'
         colors.append(link_color)
 
     fig = go.Figure(go.Sankey(
         node=dict(
             pad=15, thickness=20,
-            line=dict(color='rgba(255,255,255,0.1)', width=0.5),
+            line=dict(color='rgba(0,0,0,0.1)', width=0.5),
             label=all_nodes,
             color=node_colors,
             hovertemplate='<b>%{label}</b><br>%{value} genes<extra></extra>'
@@ -302,12 +309,12 @@ def plot_table():
     disp = rep[['Block_ID','Status','Gene1_ID','Chr1','Start1','End1',
                 'Gene2_ID','Chr2','Start2','End2','Orientation','IsSugarGene']].copy()
     disp = disp.fillna('—')
-    disp['IsSugarGene'] = disp['IsSugarGene'].map({True: '🍬 Sí', False: 'No', '—': '—'})
+    disp['IsSugarGene'] = disp['IsSugarGene'].map({True: 'Sí', False: 'No', '—': '—'})
     disp_sample = disp.head(10000)  # cap for browser performance
 
     rows_html = ''
     for _, r in disp_sample.iterrows():
-        sugar_cls = 'sugar-row' if r['IsSugarGene'] == '🍬 Sí' else ''
+        sugar_cls = 'sugar-row' if r['IsSugarGene'] == 'Sí' else ''
         orient_badge = ''
         if r['Orientation'] == 'direct':
             orient_badge = '<span class="badge-direct">Direct</span>'
@@ -333,41 +340,41 @@ def plot_table():
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; }}
+    body {{ font-family: 'Inter', sans-serif; background: #ffffff; color: #1e293b; }}
     .header {{ background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
-               padding: 24px 32px; border-bottom: 1px solid #334155; }}
-    .header h1 {{ font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }}
-    .header p  {{ font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 4px; }}
-    .controls {{ display: flex; gap: 12px; padding: 16px 32px; background: #1e293b;
-                  border-bottom: 1px solid #334155; flex-wrap: wrap; align-items: center; }}
+               padding: 20px 32px; color: white; display: flex; align-items: center; }}
+    h1 {{ margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }}
+    p.subtitle {{ margin: 6px 0 0; font-size: 13px; color: #cbd5e1; }}
+    .controls {{ display: flex; gap: 12px; padding: 16px 32px; background: #f8fafc;
+                 border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap; }}
     .controls label {{ font-size: 11px; font-weight: 700; color: #94a3b8;
                         text-transform: uppercase; letter-spacing: 0.05em; }}
     .controls input, .controls select {{
-        padding: 7px 12px; border-radius: 8px; border: 1px solid #334155;
-        background: #0f172a; color: #e2e8f0; font-size: 12px; font-family: inherit; outline: none;
+        padding: 7px 12px; border-radius: 8px; border: 1px solid #cbd5e1;
+        background: #ffffff; color: #1e293b; font-size: 12px; font-family: inherit; outline: none;
     }}
     .controls input:focus, .controls select:focus {{ border-color: #3b82f6; }}
-    .count-badge {{ margin-left: auto; background: #1d4ed8; color: #fff;
+    .count-badge {{ margin-left: auto; background: #e2e8f0; color: #1e293b;
                     padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; }}
     .table-wrap {{ overflow-x: auto; padding: 0 32px 32px; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 16px; }}
-    thead tr {{ background: #1e293b; }}
+    thead tr {{ background: #f1f5f9; }}
     th {{ padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700;
-           color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;
-           border-bottom: 2px solid #334155; white-space: nowrap; cursor: pointer; user-select: none; }}
-    th:hover {{ color: #e2e8f0; }}
-    td {{ padding: 8px 14px; border-bottom: 1px solid #1e293b; vertical-align: middle; }}
-    tr:hover td {{ background: #1e293b; }}
-    .sugar-row td {{ background: rgba(245,158,11,0.08); }}
-    .sugar-row:hover td {{ background: rgba(245,158,11,0.15); }}
-    .gene-id {{ font-family: monospace; font-size: 11px; color: #93c5fd; }}
-    .badge-direct {{ background: #14532d; color: #4ade80; padding: 2px 8px;
-                      border-radius: 12px; font-size: 10px; font-weight: 700; }}
-    .badge-inv    {{ background: #7c2d12; color: #fb923c; padding: 2px 8px;
-                      border-radius: 12px; font-size: 10px; font-weight: 700; }}
-    .badge-other  {{ background: #1e293b; color: #94a3b8; padding: 2px 8px;
-                      border-radius: 12px; font-size: 10px; font-weight: 700; }}
-    .badge-status {{ background: #1e3a8a; color: #93c5fd; padding: 2px 8px;
+           color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+           border-bottom: 2px solid #e2e8f0; white-space: nowrap; cursor: pointer; user-select: none; }}
+    th:hover {{ color: #1e293b; }}
+    td {{ padding: 8px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }}
+    tr:hover td {{ background: #f8fafc; }}
+    .sugar-row td {{ background: rgba(245,158,11,0.05); }}
+    .sugar-row:hover td {{ background: rgba(245,158,11,0.1); }}
+    .gene-id {{ font-family: monospace; font-size: 11px; color: #2563eb; }}
+    .badge-direct {{ background: #dcfce7; color: #166534; padding: 2px 8px;
+                      border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; }}
+    .badge-inv    {{ background: #fff7ed; color: #c2410c; padding: 2px 8px; border: 1px solid #fed7aa;
+                      border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; }}
+    .badge-other  {{ background: #f1f5f9; color: #475569; padding: 2px 8px; border: 1px solid #cbd5e1;
+                      border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; }}
+    .badge-status {{ background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border: 1px solid #bfdbfe;
                       border-radius: 12px; font-size: 10px; font-weight: 600; }}
     #no-results {{ text-align: center; padding: 40px; color: #64748b; font-size: 14px; display: none; }}
   </style>

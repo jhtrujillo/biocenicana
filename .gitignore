@@ -82,3 +82,5 @@ scratch/
 # Python cache
 **/__pycache__/
 *.pyc
+dataset_genomico/
+genomica_comparativa/
